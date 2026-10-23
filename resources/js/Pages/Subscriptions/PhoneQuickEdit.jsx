@@ -26,8 +26,9 @@ export default function PhoneQuickEdit({ subscription }) {
         }
     }, [editing]);
 
+    // No number is flagged in amber: messages cannot reach this subscriber.
     if (!subscription.canUpdate) {
-        return <span dir="ltr">{subscription.contact_phone || '—'}</span>;
+        return subscription.contact_phone ? <span dir="ltr">{subscription.contact_phone}</span> : <span className="font-semibold text-amber-700 dark:text-amber-400">بلا رقم</span>;
     }
 
     function start() {
@@ -71,7 +72,13 @@ export default function PhoneQuickEdit({ subscription }) {
                 title="تعديل رقم الجوال"
                 className={`group -mx-1 inline-flex items-center gap-1.5 rounded-md px-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900 ${FOCUS_RING}`}
             >
-                <span dir="ltr">{subscription.contact_phone || 'إضافة رقم'}</span>
+                {subscription.contact_phone ? (
+                    <span dir="ltr">{subscription.contact_phone}</span>
+                ) : (
+                    <span className="font-semibold text-amber-700 dark:text-amber-400" title="لا تصله الرسائل بلا رقم">
+                        إضافة رقم
+                    </span>
+                )}
                 <Icon name="pencil" className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-700" />
             </button>
         );

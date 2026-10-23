@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { balanceInText, balanceOnPaper, balanceTone, balanceWord, signedBalance } from '../../resources/js/lib/balance.js';
+import { balanceInText, balanceOnPaper, balanceTone, balanceWord, signedBalance, isFarBehind } from '../../resources/js/lib/balance.js';
 
 test('a positive balance is owed, a negative one is credit, zero is settled', () => {
     assert.equal(balanceTone(120), 'owes');
@@ -26,4 +26,11 @@ test('on paper the balance carries its word', () => {
     assert.equal(balanceWord('0.004'), 'مسدّد');
     assert.equal(balanceOnPaper('-30.5'), '\u2066-30.50 ₪\u2069 له');
     assert.equal(balanceOnPaper(120, 'شيكل'), '\u2066120\u2069 شيكل عليه');
+});
+
+test('a subscriber is far behind once they owe more than four weeks of their minimum', () => {
+    assert.equal(isFarBehind(81, 20), true);
+    assert.equal(isFarBehind(80, 20), false);
+    assert.equal(isFarBehind('-50', 20), false);
+    assert.equal(isFarBehind(500, 0), false);
 });

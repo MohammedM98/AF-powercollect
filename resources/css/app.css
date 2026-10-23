@@ -454,6 +454,30 @@
     border-end-end-radius: 0;
 }
 
+/* A منطقة 2 in a table: a soft chip in the area's own hue (lib/areaColors.js). */
+.area-chip {
+    display: inline-block;
+    white-space: nowrap;
+    border-radius: 999px;
+    border: 1px solid hsl(var(--area-hue) 60% 45% / 0.25);
+    background: hsl(var(--area-hue) 70% 50% / 0.1);
+    padding: 1px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--area-hue) 55% 30%);
+}
+
+.dark .area-chip {
+    border-color: hsl(var(--area-hue) 60% 60% / 0.3);
+    background: hsl(var(--area-hue) 60% 55% / 0.14);
+    color: hsl(var(--area-hue) 75% 75%);
+}
+
+/* A subscriber far behind on what they owe: a light burgundy edge on their row's start (a chosen row's is full). */
+.data-table tbody tr.is-far-behind:not(.bg-brand-50, :focus-within) td:first-child {
+    box-shadow: inset -3px 0 0 rgb(var(--brand-500) / 0.5);
+}
+
 /* A totals line between a table and its pagination (the financial log). */
 .data-table-totals {
     display: flex;

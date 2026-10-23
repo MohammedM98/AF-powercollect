@@ -147,6 +147,24 @@ function PendingTile() {
     );
 }
 
+/** A pulsing placeholder card while a list loads after the page. */
+function PendingPanel() {
+    return (
+        <div className="animate-pulse rounded-panel border border-gray-100 bg-surface p-6 shadow-card" aria-hidden="true">
+            <div className="flex items-center gap-2.5">
+                <span className="h-9 w-9 rounded-xl bg-gray-100" />
+                <span className="h-3 w-32 rounded bg-gray-100" />
+            </div>
+            {[0, 1, 2, 3, 4].map((row) => (
+                <div key={row} className="mt-5 flex items-center justify-between gap-3">
+                    <span className="h-3 w-40 rounded bg-gray-100" />
+                    <span className="h-3 w-20 rounded bg-gray-100" />
+                </div>
+            ))}
+        </div>
+    );
+}
+
 const READING_PARTS = (readings) => [
     { label: 'معتمدة', value: readings.approved, className: 'bg-emerald-500' },
     { label: 'بانتظار الاعتماد', value: readings.pending, className: 'bg-amber-500' },
@@ -219,7 +237,7 @@ export default function Dashboard({
     const quickActions = [
         can?.recordPayments && { href: '/payments', icon: 'banknotes', title: 'تسجيل دفعة', subtitle: 'استلام دفعة وطباعة الوصل', main: true },
         canCreateSubscription && { href: '/subscriptions/create', icon: 'plus', title: 'مشترك جديد', subtitle: 'إضافة اشتراك' },
-        can?.viewMeterReadings && { href: '/meter-readings', icon: 'chart', title: 'القراءات الأسبوعية', subtitle: 'إدخال واعتماد' },
+        can?.viewMeterReadings && { href: '/meter-readings', icon: 'chart', title: 'القراءات', subtitle: 'إدخال واعتماد' },
         can?.sendMessages && { href: '/messages/create', icon: 'send', title: 'رسالة جديدة', subtitle: 'لمشترك أو مجموعة' },
         can?.viewReports && { href: '/reports', icon: 'receipt', title: 'التقارير', subtitle: 'تقرير الفترة وتنزيله' },
         can?.viewMeterBoxes && { href: '/meter-boxes', icon: 'table', title: 'الطبلونات', subtitle: 'أماكنها ومشتركوها' },
@@ -229,7 +247,7 @@ export default function Dashboard({
         readings?.canApprove && {
             key: 'pending',
             icon: 'check',
-            title: 'قراءات بانتظار الاعتماد',
+            title: 'بانتظار الاعتماد',
             subtitle: 'في أسبوع القراءة الأخير',
             count: readings.pending,
             href: '/meter-readings',
@@ -237,7 +255,7 @@ export default function Dashboard({
         readings && {
             key: 'missing',
             icon: 'gauge',
-            title: 'مشتركون لم تُقرأ عداداتهم',
+            title: 'عدادات لم تُقرأ',
             subtitle: 'في أسبوع القراءة الأخير',
             count: readings.missing,
             href: '/meter-readings',
@@ -246,7 +264,7 @@ export default function Dashboard({
         boxes && {
             key: 'boxes',
             icon: 'wallet',
-            title: 'الصناديق المفتوحة',
+            title: 'صناديق مفتوحة',
             subtitle: 'فيها حركات لم تُغلق',
             count: boxes.open,
             href: '/payments/cash-boxes?place=open',
@@ -254,7 +272,7 @@ export default function Dashboard({
         disconnections && {
             key: 'overdue',
             icon: 'power',
-            title: 'قطع فات موعده',
+            title: 'قطع متأخر',
             subtitle: 'في قوائم القطع ولم يُنفّذ',
             count: disconnections.overdue,
             href: '/disconnection-lists',
@@ -273,9 +291,10 @@ export default function Dashboard({
     // An odd tile left alone on the last row takes the whole row.
     const lastActionSpans = quickActions.filter((action) => !action.main).length % 2 === 1;
 
-    const rankList = collections?.byBranch ?? collections?.collectorsToday ?? null;
+    const rankList = collections?.byBranch ?? collections?.byCollector ?? null;
     const rankMax = Math.max(0, ...(rankList ?? []).map((item) => item.total));
     const topBreaker = subscriptions?.byBreaker?.[0] ?? null;
+    const hasBreakers = subscriptions?.byBreaker.length > 0;
     const breakerMax = Math.max(0, ...(subscriptions?.byBreaker ?? []).map((breaker) => breaker.count));
     const payments = latestPayments?.rows;
     const tiles = [subscriptions, meterBoxes, subscriptions, debts !== null].filter(Boolean).length;
@@ -501,7 +520,7 @@ export default function Dashboard({
                     )}
 
                     {attention.length > 0 && (
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]">
                             {attention.map(({ key, ...item }) => (
                                 <AttentionItem key={key} {...item} />
                             ))}
@@ -510,7 +529,7 @@ export default function Dashboard({
 
                     {(quickActions.length > 0 || collections) && (
                         <div
-                            className={`grid grid-cols-1 items-start gap-5 ${quickActions.length > 0 && collections ? 'xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]' : ''}`}
+                            className={`grid grid-cols-1 gap-5 ${quickActions.length > 0 && collections ? 'xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]' : ''}`}
                         >
                             {quickActions.length > 0 && (
                                 <section className="rise-in relative overflow-hidden rounded-panel bg-graphite-gradient p-5 text-white shadow-lift sm:p-6">
@@ -519,15 +538,15 @@ export default function Dashboard({
                                         aria-hidden="true"
                                     />
                                     <h3 className="relative font-bold">إجراءات سريعة</h3>
-                                    <div className="relative mt-4 grid grid-cols-2 gap-3">
+                                    <div className="relative mt-4 grid grid-cols-2 gap-2.5">
                                         {quickActions.map((action, index) => (
                                             <Link
                                                 key={action.href}
                                                 href={action.href}
                                                 prefetch
-                                                className={`flex flex-col gap-3 rounded-row border p-4 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                                                className={`flex items-center gap-3 rounded-row border px-3.5 py-3 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
                                                     action.main
-                                                        ? 'col-span-2 border-transparent bg-brand-gradient shadow-glow hover:brightness-110'
+                                                        ? 'col-span-2 border-transparent bg-brand-gradient py-4 shadow-glow hover:brightness-110'
                                                         : 'border-white/10 bg-white/5 hover:bg-white/10'
                                                 } ${lastActionSpans && index === quickActions.length - 1 ? 'col-span-2' : ''}`}
                                             >
@@ -535,7 +554,7 @@ export default function Dashboard({
                                                     <Icon name={action.icon} className="h-[18px] w-[18px]" />
                                                 </span>
                                                 <span className="min-w-0">
-                                                    <b className="block text-sm">{action.title}</b>
+                                                    <b className="block truncate text-sm">{action.title}</b>
                                                     <span className="block truncate text-xs text-white/60">{action.subtitle}</span>
                                                 </span>
                                             </Link>
@@ -549,6 +568,7 @@ export default function Dashboard({
                                     icon="chart"
                                     title="حركة التحصيل"
                                     info={`ما حُصّل كل يوم في آخر ${period}، واليوم آخرها.`}
+                                    className="flex flex-col"
                                     action={
                                         <SegmentedTabs
                                             label="طريقة العرض"
@@ -561,58 +581,128 @@ export default function Dashboard({
                                         />
                                     }
                                 >
-                                    {chartView === 'chart' ? (
-                                        <BarChart
-                                            data={collections.series}
-                                            label={`التحصيل اليومي في آخر ${period}`}
-                                            formatValue={(value) => `${formatMoney(value)} ₪`}
-                                            height={200}
-                                        />
-                                    ) : (
-                                        <div className="max-h-[260px] overflow-y-auto">
-                                            <table className="w-full text-sm">
-                                                <thead className="sticky top-0 bg-surface text-xs text-gray-500">
-                                                    <tr>
-                                                        <th className="py-2 text-start font-semibold">اليوم</th>
-                                                        <th className="py-2 text-end font-semibold">المحصّل</th>
-                                                        <th className="py-2 text-end font-semibold">المقابل في الفترة السابقة</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {[...collections.series].reverse().map((day) => (
-                                                        <tr key={day.date} className="border-t border-gray-100">
-                                                            <td className="py-2 text-gray-700">{formatShortDay(day.date)}</td>
-                                                            <td className="py-2 text-end font-display font-semibold text-gray-900">
-                                                                {formatMoney(day.value)} ₪
-                                                            </td>
-                                                            <td className="py-2 text-end font-display text-gray-500">
-                                                                {formatMoney(day.previous)} ₪
-                                                            </td>
+                                    <div className="flex flex-1 flex-col justify-end">
+                                        {chartView === 'chart' ? (
+                                            <BarChart
+                                                data={collections.series}
+                                                label={`التحصيل اليومي في آخر ${period}`}
+                                                formatValue={(value) => `${formatMoney(value)} ₪`}
+                                                height={230}
+                                            />
+                                        ) : (
+                                            <div className="max-h-[270px] overflow-y-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead className="sticky top-0 bg-surface text-xs text-gray-500">
+                                                        <tr>
+                                                            <th className="py-2 text-start font-semibold">اليوم</th>
+                                                            <th className="py-2 text-end font-semibold">المحصّل</th>
+                                                            <th className="py-2 text-end font-semibold">المقابل في الفترة السابقة</th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
+                                                    </thead>
+                                                    <tbody>
+                                                        {[...collections.series].reverse().map((day) => (
+                                                            <tr key={day.date} className="border-t border-gray-100">
+                                                                <td className="py-2 text-gray-700">{formatShortDay(day.date)}</td>
+                                                                <td className="py-2 text-end font-display font-semibold text-gray-900">
+                                                                    {formatMoney(day.value)} ₪
+                                                                </td>
+                                                                <td className="py-2 text-end font-display text-gray-500">
+                                                                    {formatMoney(day.previous)} ₪
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
                                 </Panel>
                             )}
                         </div>
                     )}
 
-                    {(rankList || readings || subscriptions?.byBreaker.length > 0) && (
-                        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                    {(debts !== null || hasBreakers) && (
+                        <div className={`grid grid-cols-1 gap-5 ${debts !== null && hasBreakers ? 'lg:grid-cols-2' : ''}`}>
+                            {debts === undefined ? (
+                                <PendingPanel />
+                            ) : (
+                                debts && (
+                                    <Panel
+                                        icon="clock"
+                                        title="أكبر المدينين"
+                                        info="المشتركون الخمسة الأعلى دينًا، وعمر أقدم دين على كل منهم."
+                                        action={<OpenLink href="/receivables" />}
+                                    >
+                                        {debts.top.length === 0 ? (
+                                            <p className="py-10 text-center text-sm text-gray-500">لا ديون مستحقة.</p>
+                                        ) : (
+                                            <ul className="divide-y divide-gray-100">
+                                                {debts.top.map((debtor) => (
+                                                    <li
+                                                        key={debtor.subscriptionId}
+                                                        className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                                                    >
+                                                        <RowIdentity name={debtor.name} subtitle={debtor.accountNumber} subtitleDir="ltr" />
+                                                        <span className="shrink-0 text-end">
+                                                            <b className="block font-display text-sm text-gray-900">
+                                                                {formatMoney(debtor.balance)} ₪
+                                                            </b>
+                                                            <span
+                                                                className={`text-xs ${debtor.oldestDays > 90 ? 'text-brand-600' : 'text-gray-500'}`}
+                                                            >
+                                                                أقدم دين منذ {formatNumber(debtor.oldestDays)} يومًا
+                                                            </span>
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </Panel>
+                                )
+                            )}
+
+                            {hasBreakers && (
+                                <Panel
+                                    icon="bolt"
+                                    title="المشتركون حسب القاطع"
+                                    info="المشتركون النشطون حسب أمبير قاطعهم، الأكثر أولًا."
+                                    className="flex flex-col"
+                                >
+                                    <ul className="flex flex-1 flex-col justify-between gap-3">
+                                        {subscriptions.byBreaker.map((breaker) => (
+                                            <li
+                                                key={breaker.ampere}
+                                                className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 text-sm"
+                                            >
+                                                <span className="font-semibold text-gray-700">
+                                                    <span className="font-display">{breaker.ampere}</span> أمبير
+                                                </span>
+                                                <MeterBar value={breaker.count} max={breakerMax} />
+                                                <span className="font-display text-gray-900">
+                                                    {formatNumber(breaker.count)} <span className="text-xs text-gray-400">{breaker.share}%</span>
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </Panel>
+                            )}
+                        </div>
+                    )}
+
+                    {(rankList || readings) && (
+                        <div className={`grid grid-cols-1 gap-5 ${rankList && readings ? 'lg:grid-cols-2' : ''}`}>
                             {rankList && (
                                 <Panel
                                     icon={collections.byBranch ? 'pin' : 'users'}
-                                    title={collections.byBranch ? 'التحصيل حسب الفرع' : 'المحصّلون اليوم'}
+                                    title={collections.byBranch ? 'التحصيل حسب الفرع' : 'التحصيل حسب الموظف'}
                                     info={
                                         collections.byBranch
                                             ? `ما حصّله كل فرع في آخر ${period}. اختر فرعًا من الأعلى لترى لوحته وحده.`
-                                            : 'ما سجّله كل موظف من دفعات اليوم.'
+                                            : `ما سجّله كل موظف من دفعات في آخر ${period}.`
                                     }
                                 >
                                     {rankList.length === 0 ? (
-                                        <p className="py-6 text-center text-sm text-gray-500">لا دفعات بعد.</p>
+                                        <p className="py-10 text-center text-sm text-gray-500">لا دفعات في هذه الفترة.</p>
                                     ) : (
                                         <ul className="divide-y divide-gray-100">
                                             {rankList.map((item) => (
@@ -620,9 +710,9 @@ export default function Dashboard({
                                                     <div className="flex items-baseline justify-between gap-3">
                                                         <span className="min-w-0 truncate text-sm font-semibold text-gray-900">
                                                             {item.name}
-                                                            {item.governorate && (
-                                                                <span className="ms-2 text-xs font-normal text-gray-400">{item.governorate}</span>
-                                                            )}
+                                                            <span className="ms-2 text-xs font-normal text-gray-400">
+                                                                {item.governorate ?? `${formatNumber(item.count)} دفعة`}
+                                                            </span>
                                                         </span>
                                                         <span className="shrink-0 font-display text-sm font-bold text-gray-900">
                                                             {formatMoney(item.total)} ₪{' '}
@@ -641,6 +731,7 @@ export default function Dashboard({
                                 <Panel
                                     icon="gauge"
                                     title="قراءات الأسبوع"
+                                    className="flex flex-col"
                                     info={
                                         readings.week
                                             ? `أسبوع القراءة الذي بدأ ${formatWeekDay(readings.week)}، للمشتركين النشطين.`
@@ -649,38 +740,17 @@ export default function Dashboard({
                                     action={can?.viewMeterReadings && <OpenLink href="/meter-readings" />}
                                 >
                                     <SplitBar label="قراءات الأسبوع" parts={READING_PARTS(readings)} className="" />
-                                    <ul className="mt-4 divide-y divide-gray-100">
+                                    <ul className="mt-4 flex flex-1 flex-col divide-y divide-gray-100">
                                         {[
                                             ['معتمدة', readings.approved, 'green'],
                                             ['بانتظار الاعتماد', readings.pending, 'amber'],
                                             ['لم تُقرأ', readings.missing, 'red'],
                                         ].map(([label, value, tone]) => (
-                                            <li key={label} className="flex items-center justify-between gap-3 py-2.5 last:pb-0">
+                                            <li key={label} className="flex flex-1 items-center justify-between gap-3 py-2.5 last:pb-0">
                                                 <StatusPill tone={tone} label={label} />
                                                 <span className="flex items-baseline gap-2 font-display text-sm">
                                                     <b className="text-gray-900">{formatNumber(value)}</b>
                                                     <span className="text-xs text-gray-400">{percentOf(value, readings.total)}%</span>
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </Panel>
-                            )}
-
-                            {subscriptions?.byBreaker.length > 0 && (
-                                <Panel icon="bolt" title="المشتركون حسب القاطع" info="المشتركون النشطون حسب أمبير قاطعهم، الأكثر أولًا.">
-                                    <ul className="space-y-3">
-                                        {subscriptions.byBreaker.map((breaker) => (
-                                            <li
-                                                key={breaker.ampere}
-                                                className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 text-sm"
-                                            >
-                                                <span className="font-semibold text-gray-700">
-                                                    <span className="font-display">{breaker.ampere}</span> أمبير
-                                                </span>
-                                                <MeterBar value={breaker.count} max={breakerMax} />
-                                                <span className="font-display text-gray-900">
-                                                    {formatNumber(breaker.count)} <span className="text-xs text-gray-400">{breaker.share}%</span>
                                                 </span>
                                             </li>
                                         ))}

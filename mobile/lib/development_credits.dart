@@ -7,7 +7,7 @@ class DevelopmentCredits extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        'تطوير وإشراف: محمد حمدان\nالفريق الفني: يوسف حمدان ومصطفى فرحات',
+        'تطوير وإشراف الفريق الفني: محمد حمدان، يوسف حمدان ومصطفى فرحات',
         textAlign: TextAlign.center,
         textDirection: TextDirection.rtl,
         style: AppIdentity.body(11.5, color: AppIdentity.faint)

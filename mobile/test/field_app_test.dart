@@ -73,6 +73,47 @@ class CollectorApi extends ApiClient {
 }
 
 void main() {
+  testWidgets(
+      'an upgrade clears the old branch roster and keeps unsent readings',
+      (tester) async {
+    final store = MemoryStore()
+      ..state = {
+        'token': 'test',
+        'user': {
+          'id': 1,
+          'username': 'reader',
+          'name': 'Reader',
+          'can_record_readings': true
+        },
+        'week_start': '2026-10-16',
+        'subscribers': [
+          {
+            'id': 1,
+            'full_name': 'Old Branch Subscriber',
+            'meter_box_number': 'B1'
+          }
+        ],
+        'queued_readings': [
+          {
+            'mobile_operation_id': 'existing-operation',
+            'subscription_id': 1,
+            'current_reading': '125'
+          }
+        ],
+      };
+    await tester.pumpWidget(
+        PowerCollectApp(apiClient: OfflineApi(), fieldStore: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إدخال القراءات').last);
+    await tester.pumpAndSettle();
+    expect(store.subscribers, isEmpty);
+    expect(store.queuedReadings.single['mobile_operation_id'],
+        'existing-operation');
+    expect(find.text('Old Branch Subscriber'), findsNothing);
+    expect(find.text('لا توجد طبلونات موزعة إليك حاليًا'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('switching staff clears the previous subscriber roster', () async {
     final directory =
         await Directory.systemTemp.createTemp('powercollect-users-');
@@ -171,6 +212,7 @@ void main() {
       'week_start': '2026-09-21',
       'week_end': '2026-09-27',
       'can_record_readings_now': true,
+      'assignment_roster_version': 1,
       'subscribers': [
         {
           'id': 42,
@@ -221,6 +263,7 @@ void main() {
       'week_start': '2026-09-21',
       'week_end': '2026-09-27',
       'can_record_readings_now': true,
+      'assignment_roster_version': 1,
       'subscribers': [
         {
           'id': 1,

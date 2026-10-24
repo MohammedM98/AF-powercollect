@@ -61,7 +61,7 @@ class SubscriptionController extends Controller
         $showArchived ? $query->whereNotNull('subscriptions.archived_at') : $query->whereNull('subscriptions.archived_at');
         $this->applySubscriptionListFilters($query, $request, includeArchived: true);
 
-        $canRecordReadings = $actor->can('create', MeterReading::class);
+        $canRecordReadings = $actor->can('createOnReadingDay', MeterReading::class);
 
         $subscriptions = fn () => $query->paginate($this->dataTablePerPage($request))
             ->withQueryString()

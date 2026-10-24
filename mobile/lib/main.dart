@@ -13,6 +13,8 @@ import 'field_store.dart';
 import 'queued_readings.dart';
 import 'reading_flow.dart';
 import 'weekly_readings_page.dart';
+import 'reading_distribution_page.dart';
+import 'reading_assignments.dart';
 import 'message_subscribers_page.dart';
 
 void main() => runApp(const PowerCollectApp());
@@ -368,6 +370,9 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   bool collectionShowToday = false;
   bool collectionForSplit = false;
   bool get canViewReadings => currentUser['can_view_readings'] == true;
+  bool get canDistributeReadings =>
+      currentUser['can_distribute_readings'] == true ||
+      currentUser['can_approve_reading_assignments'] == true;
   bool get canSendMessages => currentUser['can_send_messages'] == true;
   bool get canViewMessages => currentUser['can_view_messages'] == true;
 
@@ -375,6 +380,10 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.store.state['assignment_roster_version'] != 1) {
+      widget.store.state.remove('subscribers');
+      widget.store.state.remove('roster_updated_at');
+    }
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
       if ((WidgetsBinding.instance.lifecycleState == null ||
               WidgetsBinding.instance.lifecycleState ==
@@ -417,12 +426,17 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       for (final reading in widget.store.queuedReadings) {
         if (reading['sync_error'] != null) continue;
         try {
-          await widget.api.sendReading({...reading}..remove('sync_error'));
+          final response =
+              await widget.api.sendReading({...reading}..remove('sync_error'));
           final subscribers = widget.store.subscribers;
           for (final subscriber in subscribers) {
-            if (subscriber['id'] == reading['subscription_id']) {
+            if (subscriber['id'] == reading['subscription_id'] &&
+                reading['week_start'] == widget.store.state['week_start']) {
               subscriber['current_reading'] = reading['current_reading'];
-              subscriber['reading_status'] = 'pending';
+              subscriber['reading_status'] =
+                  response['status'] == 'needs_review'
+                      ? 'needs_review'
+                      : 'pending';
             }
           }
           widget.store.state['subscribers'] = subscribers;
@@ -478,6 +492,14 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     widget.store.state['subscribers'] = all;
     widget.store.state['week_start'] = first['week_start'];
     widget.store.state['week_end'] = first['week_end'];
+    for (final key in [
+      'assignment_roster_version',
+      'entry_starts_at',
+      'entry_ends_at',
+      'reading_date'
+    ]) {
+      widget.store.state[key] = first[key];
+    }
     widget.store.state['can_record_readings_now'] =
         first['can_record_readings_now'];
     widget.store.state['roster_updated_at'] = DateTime.now().toIso8601String();
@@ -1051,6 +1073,20 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                 color: AppIdentity.info,
                 tint: AppIdentity.infoTint,
                 onTap: openWeeklyReadings),
+          if (canDistributeReadings)
+            AppServiceCard(
+                key: const ValueKey('reading-distribution-service'),
+                title: 'توزيع القراءات',
+                subtitle: 'المناطق والطبلونات وقارئو العدادات',
+                summary: 'توزيع القراءة القادمة',
+                icon: 'bolt',
+                color: AppIdentity.brand,
+                tint: AppIdentity.brandSoft,
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                        builder: (_) =>
+                            ReadingDistributionPage(api: widget.api)))),
           if (canSendMessages || canViewMessages)
             AppServiceCard(
                 title:
@@ -1070,6 +1106,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               !canViewSubscriptions &&
               currentUser['can_adjust_balances'] != true &&
               !canViewReadings &&
+              !canDistributeReadings &&
               !canSendMessages &&
               !canViewMessages)
             const AppNotice(
@@ -1129,7 +1166,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               queue: queue,
               subscribers: widget.store.subscribers,
               onReenter: canRead &&
-                      widget.store.state['can_record_readings_now'] == true
+                      readingEntryIsOpen(widget.store.state, DateTime.now())
                   ? reenterReading
                   : null,
               onDiscard: discardRejectedReading),
@@ -1236,6 +1273,16 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               (canRecordSplitPayments, 'الحوالات المقسّمة', 'bank'),
               (canViewSubscriptions, 'كشوف حساب المشتركين', 'hist'),
               (canViewReadings, 'عرض القراءات الأسبوعية', 'hist'),
+              (
+                currentUser['can_distribute_readings'] == true,
+                'توزيع القراءات',
+                'bolt'
+              ),
+              (
+                currentUser['can_approve_reading_assignments'] == true,
+                'اعتماد توزيع القراءات',
+                'check'
+              ),
               (canSendMessages, 'إرسال الرسائل', 'message'),
               (canViewMessages, 'سجل الرسائل', 'message'),
             ])

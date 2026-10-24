@@ -37,6 +37,13 @@ class MeterReadingPolicy
             && ($weekStart === null || $this->weekIsOpenFor($user, $weekStart, $user->workBranchId()));
     }
 
+    /** New website entries follow the reading day without changing correction permissions. */
+    public function createOnReadingDay(User $user, ?CarbonInterface $weekStart = null): bool
+    {
+        return $this->create($user, $weekStart)
+            && ($user->isSuperAdmin() || ReadingEntrySetting::forBranch($user->workBranchId())->isOpenOnReadingDay());
+    }
+
     /**
      * A reading stays correctable while its week is still the latest one,
      * and only within the actor's own branch — even while the entry window

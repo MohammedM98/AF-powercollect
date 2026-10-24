@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'reading_assignments.dart';
 
 /// The server the app talks to. A release build must be built with
 /// `--dart-define=API_BASE_URL=https://<domain>`; only a debug build falls back
@@ -33,10 +34,46 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> me() => _request('GET', '/api/mobile/me');
-  Future<Map<String, dynamic>> rosterPage(int page) =>
-      _request('GET', '/api/mobile/subscriptions', query: {'page': '$page'});
-  Future<Map<String, dynamic>> sendReading(Map<String, dynamic> reading) =>
-      _request('POST', '/api/mobile/readings', body: reading);
+  Future<Map<String, dynamic>> readingAssignments() =>
+      _request('GET', '/api/mobile/reading-assignments');
+  Future<Map<String, dynamic>> rosterPage(int page) async =>
+      assignedReadingRoster(await readingAssignments());
+  Future<Map<String, dynamic>> sendReading(Map<String, dynamic> reading) async {
+    if (reading['assignment_id'] == null)
+      return _request('POST', '/api/mobile/readings', body: reading);
+    final response =
+        await _request('POST', '/api/mobile/reading-assignments/sync', body: {
+      'readings': [
+        {
+          'operation_id': reading['mobile_operation_id'],
+          'assignment_id': reading['assignment_id'],
+          'authorization': reading['authorization'],
+          'subscription_id': reading['subscription_id'],
+          'current_reading': reading['current_reading'],
+          'captured_at': reading['captured_at'],
+          'notes': reading['notes'],
+        }
+      ]
+    });
+    final result =
+        Map<String, dynamic>.from((response['results'] as List).single as Map);
+    if (result['status'] == 'rejected')
+      throw ApiException('${result['message'] ?? 'رفض الخادم القراءة.'}', 422);
+    return {
+      ...result,
+      'status': result['status'] == 'accepted' ? 'pending' : result['status']
+    };
+  }
+
+  Future<Map<String, dynamic>> readingDistribution({int? branchId}) =>
+      _request('GET', '/api/mobile/reading-distribution',
+          query: {if (branchId != null) 'branch_id': '$branchId'});
+  Future<Map<String, dynamic>> distributeReadings(
+          int cycleId, Map<String, dynamic> data) =>
+      _request('POST', '/api/mobile/reading-distribution/$cycleId/assign',
+          body: data);
+  Future<Map<String, dynamic>> approveReadingDistribution(int cycleId) =>
+      _request('POST', '/api/mobile/reading-distribution/$cycleId/approve');
   Future<Map<String, dynamic>> weeklyReadings(
           {String search = '', String? week, int page = 1}) =>
       _request('GET', '/api/mobile/readings', query: {

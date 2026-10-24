@@ -36,6 +36,7 @@ class _PowerCollectAppState extends State<PowerCollectApp>
   bool loading = true;
   Map<String, dynamic>? user;
   String? startupError;
+  final navigatorKey = GlobalKey<NavigatorState>();
   ThemeMode appearance = ThemeMode.system;
 
   bool get isDark =>
@@ -46,12 +47,14 @@ class _PowerCollectAppState extends State<PowerCollectApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    api.onUnauthenticated = requireLogin;
     restore();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    api.onUnauthenticated = null;
     super.dispose();
   }
 
@@ -127,7 +130,11 @@ class _PowerCollectAppState extends State<PowerCollectApp>
   }
 
   void requireLogin() {
+    if (user == null) return;
     api.token = null;
+    store.state['remember_session'] = false;
+    unawaited(store.save().catchError((Object _) {}));
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
     if (mounted) setState(() => user = null);
   }
 
@@ -154,6 +161,7 @@ class _PowerCollectAppState extends State<PowerCollectApp>
   Widget build(BuildContext context) {
     AppIdentity.dark = isDark;
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'PowerCollect',
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar'),
@@ -414,10 +422,22 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     }
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
       if ((WidgetsBinding.instance.lifecycleState == null ||
-              WidgetsBinding.instance.lifecycleState ==
-                  AppLifecycleState.resumed) &&
-          ModalRoute.of(context)?.isCurrent == true) {
-        synchronize(forceRoster: section == FieldSection.readings);
+          WidgetsBinding.instance.lifecycleState ==
+              AppLifecycleState.resumed)) {
+        if (ModalRoute.of(context)?.isCurrent == true) {
+          synchronize(forceRoster: section == FieldSection.readings);
+        } else {
+          final sessionToken = widget.api.token;
+          unawaited(widget.api.me().catchError((Object error) {
+            if (error is ApiException &&
+                error.statusCode == 401 &&
+                mounted &&
+                widget.api.token == sessionToken) {
+              widget.onReauthenticate();
+            }
+            return <String, dynamic>{};
+          }));
+        }
       }
     });
     WidgetsBinding.instance
@@ -446,6 +466,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   }
 
   Future<void> refreshSession() async {
+    final sessionToken = widget.api.token;
     setState(() => syncing = true);
     try {
       do {
@@ -476,6 +497,11 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         if (mounted) setState(() => message = null);
       } while (mounted && rosterRefreshRequested);
     } on ApiException catch (error) {
+      if (error.statusCode == 401) {
+        if (mounted && widget.api.token == sessionToken)
+          widget.onReauthenticate();
+        return;
+      }
       if (mounted)
         setState(() {
           online = false;

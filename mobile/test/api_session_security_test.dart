@@ -55,6 +55,39 @@ class SessionHttpClient implements HttpClient {
 
 void main() {
   test(
+      'an unauthorized API response notifies the application to return to login',
+      () async {
+    final request =
+        SessionRequest(SessionResponse(401, '{"message":"Unauthenticated."}'));
+    var callbacks = 0;
+    final api = ApiClient(httpClient: SessionHttpClient(request))
+      ..token = 'old-session'
+      ..onUnauthenticated = () => callbacks++;
+    await expectLater(
+        api.me(),
+        throwsA(isA<ApiException>()
+            .having((error) => error.statusCode, 'status', 401)));
+    expect(callbacks, 1);
+  });
+
+  test(
+      'a late unauthorized reply for an old token cannot log out a newer session',
+      () async {
+    final request =
+        SessionRequest(SessionResponse(401, '{"message":"Unauthenticated."}'));
+    var callbacks = 0;
+    final api = ApiClient(httpClient: SessionHttpClient(request))
+      ..token = 'old-session'
+      ..onUnauthenticated = () => callbacks++;
+    final pending = api.me();
+    api.token = 'new-session';
+    await expectLater(pending, throwsA(isA<ApiException>()));
+    expect(callbacks, 0);
+    expect(api.token, 'new-session');
+    expect(request.headers.values[HttpHeaders.authorizationHeader],
+        'Bearer old-session');
+  });
+  test(
       'login sends remember and the existing device token without following redirects',
       () async {
     final request =

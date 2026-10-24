@@ -25,6 +25,7 @@ class ApiClient {
   ApiClient({HttpClient? httpClient}) : _client = httpClient ?? HttpClient();
   final HttpClient _client;
   String? token;
+  void Function()? onUnauthenticated;
 
   Future<Map<String, dynamic>> login(String username, String password,
       {bool remember = false}) async {
@@ -119,7 +120,12 @@ class ApiClient {
       _request('POST', '/api/mobile/split-payments', body: payment);
 
   Future<Map<String, dynamic>> _decodeResponse(
-      HttpClientResponse response) async {
+      HttpClientResponse response, String? requestToken) async {
+    if (response.statusCode == 401 &&
+        requestToken != null &&
+        token == requestToken) {
+      onUnauthenticated?.call();
+    }
     if (response.statusCode >= 300 && response.statusCode < 400) {
       await response.drain<void>();
       throw const ApiException(
@@ -165,21 +171,23 @@ class ApiClient {
     }
     final uri =
         Uri.parse(apiBaseUrl).resolve(path).replace(queryParameters: query);
+    final requestToken = token;
     try {
       final request = await _client
           .openUrl(method, uri)
           .timeout(const Duration(seconds: 12));
       request.followRedirects = false;
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      if (token != null)
-        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      if (requestToken != null)
+        request.headers
+            .set(HttpHeaders.authorizationHeader, 'Bearer $requestToken');
       if (body != null) {
         request.headers.contentType = ContentType.json;
         request.write(jsonEncode(body));
       }
       final response =
           await request.close().timeout(const Duration(seconds: 18));
-      return await _decodeResponse(response)
+      return await _decodeResponse(response, requestToken)
           .timeout(const Duration(seconds: 18));
     } on SocketException {
       throw const ApiException('لا يمكن الوصول إلى خادم Laravel.', 0);

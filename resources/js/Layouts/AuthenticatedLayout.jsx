@@ -11,6 +11,7 @@ import { pageWindowOpen } from '@/Components/TopBar/shortcuts';
 import { useTheme } from '@/hooks/useTheme';
 import { currentPrintSettings } from '@/lib/print';
 import DevelopmentCredits from '@/Components/DevelopmentCredits';
+import { watchSessionStatus } from '@/lib/sessionStatus';
 import { HOME_LINK, MAIN_LINKS, allowedNavigationGroups, navigationGroups, pageTrail } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 import { QUICK_MESSAGE_EVENT, openQuickMessage } from '@/lib/quickMessage';
@@ -46,6 +47,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     // The quick message window, with the subscriptions it was opened for (see lib/quickMessage.js); null when closed.
     const [quickMessage, setQuickMessage] = useState(null);
     const [printSettings] = useState(currentPrintSettings);
+    useEffect(() => watchSessionStatus(() => window.location.replace('/login')), []);
     const menuButtonRef = useRef(null);
     const titleEndRef = useRef(null);
     const [pastTitle, setPastTitle] = useState(false);

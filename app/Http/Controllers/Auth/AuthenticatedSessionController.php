@@ -8,7 +8,6 @@ use App\Support\UserDeviceAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -28,16 +27,6 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
-
-        $request->session()->regenerate();
-        try {
-            app(UserDeviceAccess::class)->claimWeb($request, $request->user(), newLogin: true);
-        } catch (ValidationException $error) {
-            Auth::guard('web')->logoutCurrentDevice();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-            throw $error;
-        }
 
         $intended = $request->session()->get('url.intended');
         if (is_string($intended) && parse_url($intended, PHP_URL_HOST) !== $request->getHost()) {

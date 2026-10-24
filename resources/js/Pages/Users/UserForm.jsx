@@ -11,6 +11,13 @@ import Switch from '@/Components/Switch';
 import TextInput from '@/Components/TextInput';
 import { initials } from '@/lib/format';
 
+function DeviceResetCheckbox({ id, checked, onChange }) {
+    return <label htmlFor={id} className="flex min-h-[2.75rem] cursor-pointer items-center gap-3 rounded-control border border-gray-200 px-3 py-2 text-sm leading-6">
+        <input id={id} type="checkbox" checked={checked} onChange={onChange} className="h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600" />
+        <span>إنهاء كل جلسات هذا المستخدم عند الحفظ</span>
+    </label>;
+}
+
 /**
  * The form's starting values: the user's own when editing (with the
  * password left blank, meaning "unchanged"), otherwise blank for
@@ -57,7 +64,7 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
 
             <FormSection icon="user" title="بيانات الحساب" columns={2}>
                 <FormField id="name" label="الاسم" required error={errors.name}>
-                    <TextInput className="block w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
+                    <TextInput className="block h-11 w-full" value={data.name} autoFocus onChange={(e) => setData('name', e.target.value)} />
                 </FormField>
 
                 <FormField id="username" label="اسم المستخدم" required error={errors.username}>
@@ -68,7 +75,7 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
                         data-feedback
                         title="اسم المستخدم بالحروف الإنجليزية والأرقام والرموز . _ - فقط، بلا مسافات"
                         autoComplete="off"
-                        className="block w-full"
+                        className="block h-11 w-full"
                         value={data.username}
                         onChange={(e) => setData('username', e.target.value)}
                     />
@@ -83,22 +90,22 @@ export default function UserForm({ data, setData, errors, isEdit, branches, canC
                             error={errors.password}
                             hint={isEdit ? 'اتركها فارغة للاحتفاظ بالحالية. عند تغييرها: 8 خانات على الأقل، ويمكن استخدام حروف فقط أو أرقام فقط.' : '8 خانات على الأقل، ويمكن استخدام حروف فقط أو أرقام فقط.'}
                         >
-                            <PasswordInput className="block w-full" value={data.password} onChange={(e) => setData('password', e.target.value)} />
+                            <PasswordInput className="block h-11 w-full" value={data.password} onChange={(e) => setData('password', e.target.value)} />
                         </FormField>
 
                         <FormField id="password_confirmation" label="تأكيد كلمة المرور">
-                            <PasswordInput className="block w-full" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} />
+                            <PasswordInput className="block h-11 w-full" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} />
                         </FormField>
                     </>
                 )}
             </FormSection>
 
             {(!isEdit || canUpdatePassword) && <FormSection icon="lock" title="أجهزة تسجيل الدخول" columns={2}>
-                <FormField id="max_devices" label="الحد الأقصى للأجهزة" required error={errors.max_devices} hint="جهاز واحد افتراضيًا. يشترك الموقع والتطبيق في هذا الحد؛ يُرفض الدخول الإضافي ويبقى الجهاز الحالي متصلًا.">
-                    <TextInput type="number" min="1" max="20" step="1" dir="ltr" className="block w-full" value={data.max_devices} onChange={(event) => setData('max_devices', event.target.value)} />
+                <FormField id="max_devices" label="الحد الأقصى للأجهزة" required error={errors.max_devices} hint="جهاز واحد افتراضيًا. يشترك الموقع والتطبيق في هذا الحد؛ عند الدخول من جهاز جديد وبلوغ الحد يُسجّل خروج الجهاز الأقدم تلقائيًا.">
+                    <TextInput type="number" min="1" max="20" step="1" dir="ltr" className="block h-11 w-full" value={data.max_devices} onChange={(event) => setData('max_devices', event.target.value)} />
                 </FormField>
                 {isEdit && <FormField id="reset_devices" label="إنهاء جلسات الأجهزة" error={errors.reset_devices} hint="استخدمه عند فقدان جهاز. بعد الحفظ ستحتاج جميع الأجهزة، بما فيها جهاز هذا المستخدم الحالي، إلى تسجيل الدخول مجددًا.">
-                    <label className="flex items-start gap-3 rounded-control border border-gray-200 px-3 py-3 text-sm"><input id="reset_devices" type="checkbox" checked={data.reset_devices} onChange={(event) => setData('reset_devices', event.target.checked)} className="mt-1 rounded border-gray-300 text-brand-600" />إنهاء كل جلسات هذا المستخدم عند الحفظ</label>
+                    <DeviceResetCheckbox checked={data.reset_devices} onChange={(event) => setData('reset_devices', event.target.checked)} />
                 </FormField>}
             </FormSection>}
 

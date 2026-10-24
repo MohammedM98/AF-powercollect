@@ -1,8 +1,8 @@
 {
-  "sha256": "e9ae49f2c5d752da02464fe937a29e66dfaaf1e299d2aa3aba80a050c9bb52a6",
+  "build": 5,
   "type": "release",
-  "build": 4,
-  "size": 88313077,
   "server": "https://powercollect.abuzaed.ps",
-  "version": "1.0.3"
+  "size": 88313073,
+  "version": "1.0.4",
+  "sha256": "932cfb6ab3e956891fc088851dd450258e742a1c15c6bab45b99822114917e12"
 }

@@ -56,5 +56,6 @@ test('device limits default to one and only account managers can change them or 
     const html = render({canUpdatePassword: true});
     assert.match(html, /id="max_devices"/);
     assert.match(html, /id="reset_devices"/);
-    assert.match(html, /يبقى الجهاز الحالي متصلًا/);
+    assert.match(html, /خروج الجهاز الأقدم تلقائيًا/);
+    assert.equal((html.match(/id="reset_devices"/g) ?? []).length, 1);
 });

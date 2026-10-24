@@ -33,6 +33,15 @@ class SessionMemoryStore extends FieldStore {
   Future<void> save() async {}
 }
 
+class RevokedSessionApi extends SessionApi {
+  bool revoked = false;
+  @override
+  Future<Map<String, dynamic>> me() async {
+    if (revoked) throw const ApiException('Session replaced', 401);
+    return {'user': <String, dynamic>{}};
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory directory;
@@ -121,6 +130,36 @@ void main() {
   });
 
   testWidgets(
+      'a replaced session returns to login from a detail page and keeps pending readings',
+      (tester) async {
+    final store = SessionMemoryStore();
+    await store.saveSession(
+        {'id': 7, 'username': 'reader', 'name': 'Reader'}, 'old-token',
+        remember: true);
+    store.state['queued_readings'] = [
+      {'subscription_id': 8, 'mobile_operation_id': 'unsent-reading'}
+    ];
+    final api = RevokedSessionApi();
+    await tester.pumpWidget(PowerCollectApp(apiClient: api, fieldStore: store));
+    await tester.pumpAndSettle();
+    final navigator =
+        tester.state<NavigatorState>(find.byType(Navigator).first);
+    navigator.push(MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('Private details'))));
+    await tester.pumpAndSettle();
+    api.revoked = true;
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pumpAndSettle();
+    expect(find.text('Private details'), findsNothing);
+    expect(find.text('تسجيل الدخول'), findsOneWidget);
+    expect(
+        store.queuedReadings.single['mobile_operation_id'], 'unsent-reading');
+    expect(store.remembersSession, false);
+    expect(api.token, isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
       'a temporary session asks for login after restart and remember me is submitted explicitly',
       (tester) async {
     final store = SessionMemoryStore();
@@ -136,7 +175,9 @@ void main() {
     await tester.tap(find.text('تذكرني'));
     await tester.enterText(find.byType(TextField).at(0), 'reader');
     await tester.enterText(find.byType(TextField).at(1), 'password');
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('تسجيل الدخول'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('تسجيل الدخول'));
     await tester.pumpAndSettle();
     expect(api.remembered, true);

@@ -6,13 +6,21 @@ use App\Models\MobileAccessToken;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class UserDeviceAccess
 {
-    public const LIMIT_MESSAGE = 'بلغ الحساب الحد المسموح للأجهزة. سجّل الخروج من الجهاز الحالي أو اطلب من المسؤول إنهاء جلساته أو تعديل عدد الأجهزة.';
+    public const LIMIT_MESSAGE = 'انتهت جلسة هذا الجهاز بعد تسجيل الدخول من جهاز آخر. سجّل الدخول مجددًا للمتابعة.';
+
+    public function prepareWebLogin(User $user): void
+    {
+        $lockedUser = User::withoutGlobalScopes()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+        $this->makeRoom($lockedUser);
+        $user->setRememberToken($lockedUser->getRememberToken());
+    }
 
     public function claimWeb(Request $request, User $user, bool $newLogin = false): void
     {
@@ -20,7 +28,7 @@ class UserDeviceAccess
             $user = User::withoutGlobalScopes()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $identity = ['user_id' => $user->id, 'session_hash' => hash('sha256', $request->session()->getId())];
             $device = DB::table('user_login_devices')->where($identity)->first();
-            if (! $newLogin && $request->session()->get('device_access_user') === $user->id && $device === null) {
+            if (! $newLogin && ! Auth::guard('web')->viaRemember() && $request->session()->get('device_access_user') === $user->id && $device === null) {
                 throw ValidationException::withMessages(['username' => 'أُنهِيت جلسة هذا الجهاز. سجّل الدخول مجددًا.']);
             }
             if ($device === null || CarbonImmutable::parse($device->expires_at)->lessThanOrEqualTo(now())) {
@@ -49,7 +57,7 @@ class UserDeviceAccess
 
                 return $existingToken;
             }
-            $this->assertCapacity($user);
+            $this->makeRoom($user);
 
             return MobileAccessToken::issue($user, $remember);
         });
@@ -91,13 +99,44 @@ class UserDeviceAccess
         }
     }
 
-    /** @return array<int, array{identity: string, created_at: string}> */
+    private function makeRoom(User $user): void
+    {
+        $devices = $this->activeDevices($user);
+        $rotateRememberToken = ($user->max_devices ?? 1) === 1;
+        usort($devices, fn (array $first, array $second): int => strcmp($first['issued_at'], $second['issued_at']) ?: strnatcmp($first['identity'], $second['identity']));
+        $removeCount = max(0, count($devices) - ($user->max_devices ?? 1) + 1);
+        foreach (array_slice($devices, 0, $removeCount) as $device) {
+            [$type, $id] = explode(':', $device['identity'], 2);
+            if ($type === 'mobile') {
+                MobileAccessToken::query()->where('user_id', $user->id)->whereKey($id)->delete();
+
+                continue;
+            }
+            $registration = DB::table('user_login_devices')->where('user_id', $user->id)->where('id', $id)->first();
+            if ($registration === null) {
+                continue;
+            }
+            DB::table('user_login_devices')->where('user_id', $user->id)->where('id', $id)->delete();
+            if (config('session.driver') === 'database') {
+                $sessions = DB::connection(config('session.connection'))->table(config('session.table', 'sessions'));
+                $sessionIds = (clone $sessions)->where('user_id', $user->id)->pluck('id')
+                    ->filter(fn (string $sessionId): bool => hash_equals($registration->session_hash, hash('sha256', $sessionId)))->all();
+                $sessions->where('user_id', $user->id)->whereIn('id', $sessionIds)->delete();
+            }
+            $rotateRememberToken = true;
+        }
+        if ($rotateRememberToken) {
+            $user->forceFill(['remember_token' => Str::random(60)])->saveQuietly();
+        }
+    }
+
+    /** @return array<int, array{identity: string, created_at: string, issued_at: string}> */
     private function activeDevices(User $user): array
     {
         $devices = DB::table('user_login_devices')->where('user_id', $user->id)->where('expires_at', '>', now())->get(['id', 'created_at'])
-            ->map(fn (\stdClass $device): array => ['identity' => 'web:'.$device->id, 'created_at' => (string) $device->created_at])->all();
+            ->map(fn (\stdClass $device): array => ['identity' => 'web:'.$device->id, 'created_at' => (string) $device->created_at, 'issued_at' => (string) $device->created_at])->all();
         foreach (MobileAccessToken::query()->where('user_id', $user->id)->where('expires_at', '>', now())->get(['id', 'created_at', 'last_used_at']) as $token) {
-            $devices[] = ['identity' => 'mobile:'.$token->id, 'created_at' => ($token->last_used_at ?? $token->created_at)->toDateTimeString()];
+            $devices[] = ['identity' => 'mobile:'.$token->id, 'created_at' => ($token->last_used_at ?? $token->created_at)->toDateTimeString(), 'issued_at' => $token->created_at->toDateTimeString()];
         }
         usort($devices, fn (array $first, array $second): int => strcmp($second['created_at'], $first['created_at']) ?: strnatcmp($first['identity'], $second['identity']));
 

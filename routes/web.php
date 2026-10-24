@@ -41,6 +41,7 @@ use App\Http\Controllers\ReadingSubmissionController;
 use App\Http\Controllers\ReadNotificationController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SessionStatusController;
 use App\Http\Controllers\SmsSettingController;
 use App\Http\Controllers\SplitPaymentController;
 use App\Http\Controllers\SubAreaController;
@@ -73,6 +74,7 @@ Route::get('/', function () {
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/auth/session', SessionStatusController::class)->name('auth.session');
     Route::get('/settings/mobile-app', [MobileAppDownloadController::class, 'index'])->name('settings.mobile-app.index');
     Route::get('/settings/mobile-app/download', [MobileAppDownloadController::class, 'download'])->middleware('throttle:12,1')->name('settings.mobile-app.download');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

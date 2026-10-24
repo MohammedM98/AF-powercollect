@@ -66,6 +66,7 @@ class FieldStore {
         'can_record_readings_now',
         'roster_updated_at',
         'assignment_roster_version',
+        'next_reading',
         'entry_starts_at',
         'entry_ends_at',
         'reading_date',
@@ -126,8 +127,12 @@ class FieldStore {
     };
   }
 
-  Future<void> saveReadingDrafts(Map<int, String> drafts) =>
-      _mutate(() => _putDrafts(drafts));
+  Future<void> saveReadingDrafts(Map<int, String> drafts,
+          {String? weekStart}) =>
+      _mutate(() {
+        if (weekStart != null && weekStart != state['week_start']) return;
+        _putDrafts(drafts);
+      });
 
   /// Take a reading that has not reached the server off the queue and put
   /// its number back as a draft, to be corrected and saved again.
@@ -137,7 +142,7 @@ class FieldStore {
       final reading = queue
           .where((item) => item['mobile_operation_id'] == operationId)
           .firstOrNull;
-      if (reading == null) return;
+      if (reading == null || reading['upload_uncertain'] == true) return;
       queue.remove(reading);
       state['queued_readings'] = queue;
       _putDrafts({
@@ -166,12 +171,29 @@ class FieldStore {
   Future<void> markReadingError(String operationId, String error) async {
     await _mutate(() {
       state['queued_readings'] = queuedReadings.map((reading) {
-        if (reading['mobile_operation_id'] == operationId)
+        if (reading['mobile_operation_id'] == operationId) {
           reading['sync_error'] = error;
+          reading.remove('upload_uncertain');
+        }
         return reading;
       }).toList();
     });
   }
+
+  Future<void> markReadingUncertain(String operationId,
+          {bool uncertain = true}) =>
+      _mutate(() {
+        state['queued_readings'] = queuedReadings.map((reading) {
+          if (reading['mobile_operation_id'] == operationId) {
+            if (uncertain) {
+              reading['upload_uncertain'] = true;
+            } else {
+              reading.remove('upload_uncertain');
+            }
+          }
+          return reading;
+        }).toList();
+      });
 
   Future<void> _mutate(void Function() change) {
     final mutation = _lastMutation.then<void>((_) async {

@@ -9,9 +9,9 @@ use App\Models\Bank;
 use App\Models\CurrencyRate;
 use App\Models\MessageBatch;
 use App\Models\MeterReading;
-use App\Models\MobileAccessToken;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\UserDeviceAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -50,7 +50,7 @@ class MobileSessionController extends Controller
 
         return response()->json([
             'user' => $this->userData($user),
-            'token' => MobileAccessToken::issue($user),
+            'token' => app(UserDeviceAccess::class)->issueMobile($user, $request->bearerToken()),
         ]);
     }
 

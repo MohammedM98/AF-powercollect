@@ -3,19 +3,27 @@
 namespace App\Http\Controllers\Mobile;
 
 use App\Enums\PermissionKey;
+use App\Enums\ReadingAssignmentChannel;
+use App\Enums\ReadingAssignmentStatus;
 use App\Enums\ReadingSubmissionStatus;
 use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
+use App\Models\MeterBox;
 use App\Models\MeterReading;
 use App\Models\ReadingAssignment;
 use App\Models\ReadingCycle;
+use App\Models\ReadingDistribution;
 use App\Models\ReadingEntrySetting;
 use App\Models\ReadingSubmission;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Support\DailySeries;
 use App\Support\FieldReadingAuthorization;
 use App\Support\FieldReadingSync;
+use App\Support\RecurringReadingDistribution;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,12 +47,16 @@ class MobileReadingAssignmentController extends Controller
      * still be uploaded, with each box's active subscriptions. Downloading
      * marks each one downloaded at its version.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, RecurringReadingDistribution $distribution): JsonResponse
     {
         $reader = $request->user();
         abort_unless($reader->hasPermission(PermissionKey::RecordMeterReadings), 403);
 
         $today = DailySeries::today();
+        $branch = Branch::query()->find($reader->workBranchId());
+        if ($branch !== null) {
+            $distribution->prepare($branch);
+        }
         $leadDays = ReadingEntrySetting::forBranch($reader->workBranchId())->assignment_lead_days ?? 1;
         $assignments = ReadingAssignment::query()
             ->forMobileReader($reader)
@@ -68,6 +80,7 @@ class MobileReadingAssignmentController extends Controller
         return response()->json([
             'server_time' => now()->toIso8601String(),
             'business_date' => $today->toDateString(),
+            'next_reading' => $branch === null ? null : $this->nextReading($reader, $branch, $distribution),
             'assignments' => $assignments->map(fn (ReadingAssignment $assignment) => $this->assignmentData($assignment, $today->toDateString()))->values(),
         ]);
     }
@@ -97,6 +110,42 @@ class MobileReadingAssignmentController extends Controller
         return response()->json([
             'results' => array_map(fn (array $reading): array => $this->sync->submit($reader, $reading), $validated['readings']),
         ]);
+    }
+
+    /**
+     * Preview the effective upcoming distribution without issuing work authorisations
+     * or marking boxes downloaded before the configured download window.
+     *
+     * @return array<string, mixed>
+     */
+    private function nextReading(User $reader, Branch $branch, RecurringReadingDistribution $distribution): array
+    {
+        $upcoming = $distribution->upcoming($branch);
+        $overrides = $upcoming['cycle']?->assignments()->get()->keyBy('meter_box_id') ?? collect();
+        $boxIds = ReadingDistribution::query()->where('branch_id', $branch->id)
+            ->where('channel', ReadingAssignmentChannel::Mobile)->where('user_id', $reader->id)
+            ->whereNotIn('meter_box_id', $overrides->keys())->pluck('meter_box_id')
+            ->merge($overrides->filter(fn (ReadingAssignment $assignment): bool => $assignment->status === ReadingAssignmentStatus::Approved
+                && $assignment->channel === ReadingAssignmentChannel::Mobile && $assignment->user_id === $reader->id)->keys());
+        $active = fn (Builder $subscriptions) => $subscriptions->where('branch_id', $branch->id)
+            ->where('status', SubscriptionStatus::Active)->whereNull('archived_at');
+        $boxes = MeterBox::query()->where('branch_id', $branch->id)->whereIn('id', $boxIds)
+            ->whereHas('subscriptions', $active)->withCount(['subscriptions as subscribers' => $active])
+            ->with(['subArea', 'subscriptions' => fn (HasMany $subscriptions): Builder => $active($subscriptions->getQuery())->orderBy('account_number')])
+            ->orderBy('name')->orderBy('name_suffix')->orderBy('box_number')->get();
+
+        return [
+            'reading_date' => $upcoming['readingDate']->toDateString(),
+            'boxes' => $boxes->map(fn (MeterBox $box): array => [
+                'id' => $box->id, 'name' => $box->displayName(), 'number' => $box->box_number,
+                'location' => $box->location, 'sub_area_id' => $box->sub_area_id,
+                'sub_area_name' => $box->subArea?->name, 'subscribers' => (int) $box->subscribers,
+                'subscriptions' => $box->subscriptions->map(fn (Subscription $subscription): array => [
+                    'id' => $subscription->id, 'name' => $subscription->displayName(),
+                    'account_number' => $subscription->account_number, 'phone' => $subscription->contactPhone(),
+                ])->values(),
+            ])->values(),
+        ];
     }
 
     /**

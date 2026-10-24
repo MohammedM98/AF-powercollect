@@ -10,6 +10,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -73,6 +74,42 @@ class BranchReadingWeeksTest extends TestCase
             ->where('rows.data.0.reading', null)
             ->where('rows.data.0.canEdit', true)
             ->where('canRecord', true));
+    }
+
+    public function test_the_saved_previous_and_current_values_remain_until_the_next_reading_day_begins(): void
+    {
+        $subscription = Subscription::factory()->create(['branch_id' => $this->thursdays->id, 'initial_reading' => 38]);
+        $this->actingAs($this->staff($this->thursdays))->post(route('meter-readings.store'), [
+            'subscription_id' => $subscription->id, 'week_start' => '2026-09-18', 'current_reading' => 40,
+        ])->assertSessionHasNoErrors();
+
+        foreach (['2026-09-25 10:00:00', '2026-09-28 10:00:00', '2026-09-30 23:59:59'] as $at) {
+            $this->travelTo(Carbon::parse($at, config('app.business_timezone')));
+            $this->get(route('meter-readings.index'))->assertInertia(fn ($page) => $page
+                ->where('weekEnd', '2026-09-24')
+                ->where('rows.data.0.previousReading', 38)
+                ->where('rows.data.0.reading.currentReading', 40)
+                ->where('canRecord', false));
+        }
+
+        $this->travelTo(Carbon::parse('2026-10-01 00:00:00', config('app.business_timezone')));
+        $this->get(route('meter-readings.index'))->assertInertia(fn ($page) => $page
+            ->where('weekEnd', '2026-10-01')
+            ->where('rows.data.0.previousReading', 40)
+            ->where('rows.data.0.reading', null)
+            ->where('rows.data.0.canEdit', true)
+            ->where('canRecord', true));
+
+        $this->post(route('meter-readings.store'), [
+            'subscription_id' => $subscription->id, 'week_start' => '2026-09-25', 'current_reading' => 42,
+        ])->assertSessionHasNoErrors();
+        $this->get(route('meter-readings.index'))->assertInertia(fn ($page) => $page
+            ->where('rows.data.0.previousReading', 40)
+            ->where('rows.data.0.reading.currentReading', 42));
+        $this->get(route('meter-readings.index', ['week' => '2026-09-18']))->assertInertia(fn ($page) => $page
+            ->where('rows.data.0.previousReading', 38)
+            ->where('rows.data.0.reading.currentReading', 40)
+            ->where('weekIsViewOnly', true));
     }
 
     public function test_a_reading_is_recorded_in_the_week_of_its_subscriptions_branch(): void

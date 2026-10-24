@@ -28,6 +28,26 @@ Map<String, dynamic> work(int id, String date, {bool open = false}) => {
     };
 
 void main() {
+  test('the next round preview does not reuse last week as editable work', () {
+    final roster = assignedReadingRoster({
+      'business_date': '2026-10-23',
+      'next_reading': {
+        'reading_date': '2026-10-29',
+        'boxes': [
+          {'id': 1, 'name': 'Box 1'}
+        ]
+      },
+      'assignments': [work(1, '2026-10-22', open: true)],
+    });
+    expect(roster['data'], isEmpty);
+    expect(roster['next_reading']['boxes'], hasLength(1));
+    expect(readingEntryIsOpen(roster, DateTime.parse('2026-10-29T09:00:00Z')),
+        false);
+    expect(
+        readingScheduleMessage(roster, DateTime.parse('2026-10-23T09:00:00Z')),
+        'موعد إدخال القراءات: الخميس 29/10/2026. الإدخال متاح يوم القراءة فقط.');
+  });
+
   test(
       'the nearest assigned round carries its area and signed work into the roster',
       () {

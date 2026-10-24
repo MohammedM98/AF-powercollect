@@ -12,8 +12,10 @@ use App\Models\Branch;
 use App\Models\User;
 use App\Models\UserType;
 use App\Notifications\ActionCompleted;
+use App\Support\UserDeviceAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -133,7 +135,8 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
         $data = $request->validated();
-        unset($data['company_wide']);
+        $resetDevices = (bool) ($data['reset_devices'] ?? false);
+        unset($data['company_wide'], $data['reset_devices']);
 
         if ($request->user()->isSuperAdmin() && $request->companyWide() !== $user->isSuperAdmin()) {
             // Made a Super Admin over every branch, or sent to one branch as an employee.
@@ -149,7 +152,12 @@ class UserController extends Controller
             unset($data['password']);
         }
 
-        $user->update($data);
+        DB::transaction(function () use ($user, $data, $resetDevices): void {
+            $user->update($data);
+            if ($resetDevices) {
+                app(UserDeviceAccess::class)->revokeAll($user);
+            }
+        });
         $request->user()->notify(new ActionCompleted('user-updated', $user->name));
 
         return redirect()->route('users.index')->with('status', 'user-updated');
@@ -175,6 +183,7 @@ class UserController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'username' => $user->username,
+            'max_devices' => $user->max_devices,
             'user_type_id' => $user->user_type_id,
             'role' => $user->role->value,
             'branch_id' => $user->branch_id,

@@ -33,11 +33,18 @@ export function readingSearchMatches(value, search) {
 }
 
 /** A search result within one or more chosen areas; no chosen areas means all. */
-export function boxMatches(box, search, subAreaIds) {
+export function boxMatches(box, search, subAreaIds, boxId = '') {
     const ids = Array.isArray(subAreaIds) ? subAreaIds : subAreaIds ? [subAreaIds] : [];
     const inSubArea = ids.length === 0 || ids.map(String).includes(String(box.subAreaId ?? 'none'));
 
-    return inSubArea && readingSearchMatches(`${box.number} ${box.name} ${box.subAreaName ?? 'بدون منطقة 2'}`, search);
+    return inSubArea && (!boxId || String(box.id) === String(boxId)) && readingSearchMatches(`${box.number} ${box.name} ${box.subAreaName ?? 'بدون منطقة 2'}`, search);
+}
+
+/** Box choices follow the selected areas and distribution status. */
+export function distributionBoxOptions(boxes, subAreaIds = [], assignmentFilter = '') {
+    return boxes.filter((box) => boxMatches(box, '', subAreaIds) && assignmentMatches(box, assignmentFilter))
+        .map((box) => ({ value: String(box.id), label: `${box.name || 'طبلون'} (${box.number})`, hint: box.subAreaName ?? 'بدون منطقة 2' }))
+        .sort((first, second) => first.label.localeCompare(second.label, 'ar', { numeric: true }));
 }
 
 /** Toggle only this result set, preserving boxes chosen in other areas. */

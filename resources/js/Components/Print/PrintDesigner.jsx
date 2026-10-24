@@ -34,7 +34,7 @@ const ZOOMS = [
  * everyone (PrintTemplateController); whoever may manage them saves the
  * design into one from here.
  */
-export default function PrintDesigner({ settings, children }) {
+export default function PrintDesigner({ settings, children, beforePrint }) {
     const { props } = usePage();
     const sourceRef = useRef(null);
     const stageRef = useRef(null);
@@ -42,6 +42,25 @@ export default function PrintDesigner({ settings, children }) {
     const [table, setTable] = useState(null);
     const [summary, setSummary] = useState('');
     const [layout, setLayout] = useState(null);
+    const [printing, setPrinting] = useState(false);
+    const printingRef = useRef(false);
+    const [printError, setPrintError] = useState('');
+
+    async function print() {
+        if (printingRef.current) return;
+        printingRef.current = true;
+        setPrinting(true);
+        setPrintError('');
+        try {
+            await beforePrint?.();
+            window.print();
+        } catch {
+            setPrintError('تعذّر تجهيز الطباعة. تحقق من الاتصال وأعد المحاولة.');
+        } finally {
+            printingRef.current = false;
+            setPrinting(false);
+        }
+    }
     const templates = props.printTemplates ?? [];
     const supportsTemplates = Array.isArray(props.printTemplates);
     const canManageTemplates = Boolean(props.can?.managePrintTemplates) && supportsTemplates;
@@ -227,7 +246,8 @@ export default function PrintDesigner({ settings, children }) {
                             ))}
                         </select>
                     </label>
-                    <PrimaryButton type="button" className="tone-print tone-solid" onClick={() => window.print()} disabled={!layout} autoFocus>
+                    {printError && <p role="alert" className="text-sm text-red-600">{printError}</p>}
+                    <PrimaryButton type="button" className="tone-print tone-solid" onClick={print} disabled={!layout || printing} autoFocus>
                         <Icon name="printer" className="h-4 w-4" />
                         طباعة
                     </PrimaryButton>

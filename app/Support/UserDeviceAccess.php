@@ -1,0 +1,104 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\MobileAccessToken;
+use App\Models\User;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+
+class UserDeviceAccess
+{
+    public const LIMIT_MESSAGE = 'بلغ الحساب الحد المسموح للأجهزة. سجّل الخروج من الجهاز الحالي أو اطلب من المسؤول إنهاء جلساته أو تعديل عدد الأجهزة.';
+
+    public function claimWeb(Request $request, User $user, bool $newLogin = false): void
+    {
+        DB::transaction(function () use ($request, $user, $newLogin): void {
+            $user = User::withoutGlobalScopes()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $identity = ['user_id' => $user->id, 'session_hash' => hash('sha256', $request->session()->getId())];
+            $device = DB::table('user_login_devices')->where($identity)->first();
+            if (! $newLogin && $request->session()->get('device_access_user') === $user->id && $device === null) {
+                throw ValidationException::withMessages(['username' => 'أُنهِيت جلسة هذا الجهاز. سجّل الدخول مجددًا.']);
+            }
+            if ($device === null || CarbonImmutable::parse($device->expires_at)->lessThanOrEqualTo(now())) {
+                $this->assertCapacity($user);
+            }
+            DB::table('user_login_devices')->updateOrInsert($identity, [
+                'created_at' => $device?->created_at ?? now(), 'updated_at' => now(),
+                'expires_at' => now()->addMinutes(config('session.lifetime')),
+            ]);
+            $id = DB::table('user_login_devices')->where($identity)->value('id');
+            if (! $this->allowed($user, 'web:'.$id)) {
+                throw ValidationException::withMessages(['username' => self::LIMIT_MESSAGE]);
+            }
+            $request->session()->put('device_access_user', $user->id);
+        });
+    }
+
+    public function issueMobile(User $user, ?string $existingToken): string
+    {
+        return DB::transaction(function () use ($user, $existingToken): string {
+            $user = User::withoutGlobalScopes()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $token = $existingToken === null ? null : MobileAccessToken::query()->where('user_id', $user->id)
+                ->where('token_hash', hash('sha256', $existingToken))->where('expires_at', '>', now())->first();
+            if ($token !== null && $this->allowed($user, 'mobile:'.$token->id)) {
+                return $existingToken;
+            }
+            $this->assertCapacity($user);
+
+            return MobileAccessToken::issue($user);
+        });
+    }
+
+    public function activeCount(User $user): int
+    {
+        return count($this->activeDevices($user));
+    }
+
+    public function allowed(User $user, string $identity): bool
+    {
+        return in_array($identity, array_column(array_slice($this->activeDevices($user), 0, $user->max_devices ?? 1), 'identity'), true);
+    }
+
+    public function releaseWeb(Request $request): void
+    {
+        DB::table('user_login_devices')->where('user_id', $request->user()?->id)
+            ->where('session_hash', hash('sha256', $request->session()->getId()))->delete();
+    }
+
+    public function revokeAll(User $user): void
+    {
+        DB::transaction(function () use ($user): void {
+            User::withoutGlobalScopes()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            DB::table('user_login_devices')->where('user_id', $user->id)->delete();
+            MobileAccessToken::query()->where('user_id', $user->id)->delete();
+            if (config('session.driver') === 'database') {
+                DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))->where('user_id', $user->id)->delete();
+            }
+            $user->forceFill(['remember_token' => Str::random(60)])->saveQuietly();
+        });
+    }
+
+    private function assertCapacity(User $user): void
+    {
+        if ($this->activeCount($user) >= ($user->max_devices ?? 1)) {
+            throw ValidationException::withMessages(['username' => self::LIMIT_MESSAGE]);
+        }
+    }
+
+    /** @return array<int, array{identity: string, created_at: string}> */
+    private function activeDevices(User $user): array
+    {
+        $devices = DB::table('user_login_devices')->where('user_id', $user->id)->where('expires_at', '>', now())->get(['id', 'created_at'])
+            ->map(fn (\stdClass $device): array => ['identity' => 'web:'.$device->id, 'created_at' => (string) $device->created_at])->all();
+        foreach (MobileAccessToken::query()->where('user_id', $user->id)->where('expires_at', '>', now())->get(['id', 'created_at', 'last_used_at']) as $token) {
+            $devices[] = ['identity' => 'mobile:'.$token->id, 'created_at' => ($token->last_used_at ?? $token->created_at)->toDateTimeString()];
+        }
+        usort($devices, fn (array $first, array $second): int => strcmp($second['created_at'], $first['created_at']) ?: strnatcmp($first['identity'], $second['identity']));
+
+        return $devices;
+    }
+}

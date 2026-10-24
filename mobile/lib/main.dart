@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'api_client.dart';
 import 'app_identity.dart';
+import 'development_credits.dart';
 import 'collection_view.dart';
 import 'payment_page.dart';
 import 'subscriber_page.dart';
@@ -324,6 +325,8 @@ class _LoginPageState extends State<LoginPage> {
                         textAlign: TextAlign.center,
                         style:
                             AppIdentity.body(12.5, color: AppIdentity.faint))),
+                const SizedBox(height: 20),
+                const DevelopmentCredits(),
               ]),
         ))),
       ));
@@ -1405,6 +1408,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               primary: false,
               icon: 'logout',
               onPressed: signOut),
+          const SizedBox(height: 24),
+          const DevelopmentCredits(),
         ]);
   }
 }

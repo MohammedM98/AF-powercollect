@@ -207,6 +207,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/reading-cycles', [ReadingCycleController::class, 'index'])->name('reading-cycles.index');
     Route::post('/reading-cycles', [ReadingCycleController::class, 'store'])->name('reading-cycles.store');
+    Route::post('/reading-cycles/prepare', [ReadingCycleController::class, 'prepare'])->name('reading-cycles.prepare');
     Route::get('/reading-cycles/{readingCycle}', [ReadingCycleController::class, 'show'])->whereNumber('readingCycle')->name('reading-cycles.show');
     Route::patch('/reading-cycles/{readingCycle}', [ReadingCycleController::class, 'update'])->whereNumber('readingCycle')->name('reading-cycles.update');
     Route::post('/reading-cycles/{readingCycle}/copy-previous', [ReadingCycleController::class, 'copyPrevious'])->whereNumber('readingCycle')->name('reading-cycles.copy-previous');

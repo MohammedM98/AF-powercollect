@@ -51,6 +51,30 @@ class BranchReadingWeeksTest extends TestCase
             ->where('weekOptions.0.value', '2026-09-13'));
     }
 
+    public function test_the_new_week_opens_on_the_branchs_reading_day_and_carries_forward_its_last_reading(): void
+    {
+        ReadingEntrySetting::ownFor($this->saturdays)->update(['mode' => 'automatic', 'open_days' => [CarbonInterface::THURSDAY, CarbonInterface::SATURDAY]]);
+        $subscription = Subscription::factory()->create(['branch_id' => $this->saturdays->id, 'initial_reading' => 100]);
+        MeterReading::factory()->for($subscription)->create([
+            'week_start' => '2026-09-13', 'week_end' => '2026-09-19',
+            'previous_reading' => 100, 'current_reading' => 130, 'consumption' => 30,
+        ]);
+
+        $this->actingAs($this->staff($this->saturdays))->get(route('meter-readings.index'))->assertInertia(fn ($page) => $page
+            ->where('weekEnd', '2026-09-19')
+            ->where('rows.data.0.previousReading', 100)
+            ->where('rows.data.0.reading.currentReading', 130)
+            ->where('canRecord', false));
+
+        $this->travelTo('2026-09-26 10:00:00');
+        $this->get(route('meter-readings.index'))->assertInertia(fn ($page) => $page
+            ->where('weekEnd', '2026-09-26')
+            ->where('rows.data.0.previousReading', 130)
+            ->where('rows.data.0.reading', null)
+            ->where('rows.data.0.canEdit', true)
+            ->where('canRecord', true));
+    }
+
     public function test_a_reading_is_recorded_in_the_week_of_its_subscriptions_branch(): void
     {
         $subscription = Subscription::factory()->create(['branch_id' => $this->saturdays->id, 'initial_reading' => 100]);

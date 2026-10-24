@@ -107,13 +107,13 @@ class MeterReadingController extends Controller
                     ->whereDate('week_start', $week)
                     ->sum('amount_due'), 2, '.', ''),
             ],
-            'canRecord' => $actor->can('create', MeterReading::class),
+            'canRecord' => $actor->can('createOnReadingDay', MeterReading::class),
             'canApprove' => $canApprove,
             'seesWhoRecorded' => $this->seesWhoRecorded($actor),
             'statusSummary' => $statusSummary,
             'pendingApproval' => $canApprove ? $this->pendingApprovalSummary($request, $actor, $week) : null,
             // The actor could record now, just not in this earlier week.
-            'weekIsViewOnly' => $actor->can('create', MeterReading::class) && ! $actor->can('create', [MeterReading::class, $weekStart]),
+            'weekIsViewOnly' => $actor->can('createOnReadingDay', MeterReading::class) && ! $actor->can('createOnReadingDay', [MeterReading::class, $weekStart]),
             'entryWindow' => $this->entryWindow($actor),
             'filters' => $this->dataTableState($request, 'full_name', 'asc', 25),
             'filterOptions' => $this->filterOptions($actor, $request),
@@ -479,18 +479,21 @@ class MeterReadingController extends Controller
      * whether it restricts this actor at all: only people who enter readings
      * are held to it, and the Super Admin may enter them any time.
      *
-     * @return array{isOpen: bool, appliesToActor: bool, openDays: array<int, int>, opensAt: string, closesAt: string}
+     * @return array{isOpen: bool, appliesToActor: bool, openDays: array<int, int>, opensAt: string, closesAt: string, nextOpensOn: ?string}
      */
     private function entryWindow(User $actor): array
     {
         $setting = ReadingEntrySetting::forBranch($actor->workBranchId());
 
         return [
-            'isOpen' => $setting->isOpen(),
+            'isOpen' => $setting->isOpenOnReadingDay(),
             'appliesToActor' => ! $actor->isSuperAdmin() && $actor->hasPermission(PermissionKey::RecordMeterReadings),
-            'openDays' => $setting->mode === ReadingEntryMode::Automatic ? array_map('intval', $setting->open_days) : [],
+            'openDays' => $setting->mode === ReadingEntryMode::Automatic
+                ? array_values(array_intersect(array_map('intval', $setting->open_days), [$setting->reading_day]))
+                : [],
             'opensAt' => substr($setting->opens_at, 0, 5),
             'closesAt' => substr($setting->closes_at, 0, 5),
+            'nextOpensOn' => $setting->nextOpeningOnReadingDay()?->toDateString(),
         ];
     }
 
@@ -770,7 +773,7 @@ class MeterReadingController extends Controller
             'canApprove' => $reading !== null && $actor->can('approve', $reading),
             'canEdit' => $reading
                 ? ! $subscription->has_later_week && $actor->can('update', $reading)
-                : ! $subscription->has_later_week && $actor->can('create', [MeterReading::class, $weekStart]),
+                : ! $subscription->has_later_week && $actor->can('createOnReadingDay', [MeterReading::class, $weekStart]),
         ];
     }
 

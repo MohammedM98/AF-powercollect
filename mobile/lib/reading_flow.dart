@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app_identity.dart';
 import 'field_store.dart';
+import 'reading_assignments.dart';
 import 'search_text.dart';
 
 Color get _background => AppIdentity.background;
@@ -78,6 +79,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
   bool keypadOpen = false;
   String view = 'boxes';
   String filter = 'all';
+  String? subArea;
   bool saving = false;
   String? saveError;
   int savedCount = 0;
@@ -166,7 +168,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
   bool _done(Map<String, dynamic> subscriber) =>
       subscriber['reading_status'] != null || _queued(subscriber) != null;
 
-  bool get _entryOpen => widget.store.state['can_record_readings_now'] == true;
+  bool get _entryOpen => readingEntryIsOpen(widget.store.state, DateTime.now());
 
   bool _editable(Map<String, dynamic> subscriber) =>
       _entryOpen && !_done(subscriber);
@@ -422,6 +424,11 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
               'week_start': widget.store.state['week_start'],
               'current_reading': drafts[subscriber['id']],
               'notes': '',
+              if (subscriber['assignment_id'] != null) ...{
+                'assignment_id': subscriber['assignment_id'],
+                'authorization': subscriber['authorization'],
+                'captured_at': DateTime.now().toUtc().toIso8601String(),
+              },
             })
         .toList();
     draftSave?.cancel();
@@ -559,6 +566,8 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
         subtitle: boxView
             ? [
                 '${first?['meter_box_name'] ?? 'الطبلون'}',
+                if (first?['sub_area_name'] != null)
+                  '${first?['sub_area_name']}',
                 if ('${first?['meter_box_location'] ?? ''}'.isNotEmpty)
                   '${first?['meter_box_location']}',
               ].join(' · ')
@@ -580,9 +589,17 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
   Widget _boxesView() {
     final groups = _groups();
     final query = search.text.trim();
+    final areas = <String, String>{
+      for (final subscriber in widget.store.subscribers)
+        '${subscriber['sub_area_id'] ?? 'none'}':
+            '${subscriber['sub_area_name'] ?? 'بدون منطقة 2'}'
+    };
+    bool inArea(Map<String, dynamic> subscriber) =>
+        subArea == null || '${subscriber['sub_area_id'] ?? 'none'}' == subArea;
     bool complete(List<Map<String, dynamic>> subscribers) =>
         subscribers.where(_done).length == subscribers.length;
     final matchingBoxes = groups.entries.where((entry) {
+      if (!inArea(entry.value.first)) return false;
       if (query.isEmpty && filter == 'remaining' && complete(entry.value)) {
         return false;
       }
@@ -594,10 +611,11 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
         _boxNumber(first),
         first['meter_box_name'],
         first['meter_box_location'],
+        first['sub_area_name'],
       ]);
     }).toList();
     final matchingSubscribers = widget.store.subscribers.where((subscriber) {
-      if (query.isEmpty) return false;
+      if (query.isEmpty || !inArea(subscriber)) return false;
       return matchesSearch(
           query, [subscriber['full_name'], subscriber['account_number']]);
     }).toList();
@@ -624,10 +642,22 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
           AppSearchField(
               key: const ValueKey('reading-box-search'),
               controller: search,
-              hint: 'رقم الطبلون أو اسم المشترك',
+              hint: 'منطقة 2 أو الطبلون أو المشترك',
               onChanged: (_) => setState(() {}),
               onClear: () => setState(search.clear)),
-          AppSection(query.isEmpty ? 'طبلونات منطقتك' : 'نتائج البحث',
+          if (areas.isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Wrap(spacing: 6, runSpacing: 6, children: [
+                  AppChip('كل المناطق',
+                      selected: subArea == null,
+                      onTap: () => setState(() => subArea = null)),
+                  for (final area in areas.entries)
+                    AppChip(area.value,
+                        selected: subArea == area.key,
+                        onTap: () => setState(() => subArea = area.key)),
+                ])),
+          AppSection(query.isEmpty ? 'الطبلونات الموزعة إليك' : 'نتائج البحث',
               note: query.isEmpty
                   ? null
                   : '${matchingBoxes.length + matchingSubscribers.length} نتيجة'),
@@ -648,8 +678,8 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
             ),
           if (total == 0)
             AppRows(children: const [
-              AppEmpty('down', 'لم تُحمّل الطبلونات بعد',
-                  'اتصل بالخادم لتحميل مشتركي منطقتك.')
+              AppEmpty('down', 'لا توجد طبلونات موزعة إليك حاليًا',
+                  'تظهر الطبلونات بعد اعتماد توزيعها وحلول موعد إتاحتها. اسحب للتحديث.')
             ]),
           if (total > 0 && matchingBoxes.isEmpty && matchingSubscribers.isEmpty)
             AppRows(children: [
@@ -675,13 +705,30 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
               for (final subscriber in matchingSubscribers)
                 _subscriberResult(subscriber),
             ]),
-          if (widget.store.state['can_record_readings_now'] == false)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: AppNotice('إدخال قراءات هذا الأسبوع غير متاح حاليًا.',
+          if (!_entryOpen)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: AppNotice(
+                  widget.store.state['reading_date'] == null
+                      ? 'إدخال قراءات هذا الأسبوع غير متاح حاليًا.'
+                      : 'إدخال القراءات متاح يوم ${_readingDayLabel()}.',
                   warning: true),
             ),
         ]));
+  }
+
+  String _readingDayLabel() {
+    final date = DateTime.parse('${widget.store.state['reading_date']}');
+    const days = [
+      'الاثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+      'الأحد'
+    ];
+    return '${days[date.weekday - 1]} ${date.day}/${date.month}/${date.year}';
   }
 
   Widget _progressCard(int done, int total) {
@@ -770,7 +817,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
           TextSpan(children: [
             TextSpan(text: '${first['meter_box_name'] ?? 'طبلون $number'} '),
             TextSpan(
-                text: number,
+                text: '($number)',
                 style: _number(12.5, color: _faint)
                     .copyWith(fontWeight: FontWeight.w600)),
           ]),
@@ -780,9 +827,11 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
       subtitle: Row(children: [
         Flexible(
           child: Text(
-              location.isEmpty
-                  ? '${subscribers.length} مشترك'
-                  : '$location · ${subscribers.length} مشترك',
+              [
+                if (first['sub_area_name'] != null) '${first['sub_area_name']}',
+                if (location.isNotEmpty) location,
+                '${subscribers.length} مشترك'
+              ].join(' · '),
               style: _body(12.5, color: _faint),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
@@ -865,6 +914,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
     return switch (subscriber['reading_status']) {
       'approved' => const AppTag('معتمدة', AppTone.good),
       'pending' => const AppTag('قيد المراجعة', AppTone.warning),
+      'needs_review' => const AppTag('تحتاج مراجعة', AppTone.warning),
       _ => _hasDraft(subscriber)
           ? const AppTag('مسودة', AppTone.brand)
           : const AppTag('لم تُقرأ', AppTone.muted),

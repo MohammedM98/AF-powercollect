@@ -22,6 +22,7 @@ MemoryStore readerStore({List<Map<String, dynamic>> queued = const []}) =>
         'week_start': '2026-09-21',
         'week_end': '2026-09-27',
         'can_record_readings_now': true,
+        'assignment_roster_version': 1,
         'subscribers': [
           {
             'id': 1,
@@ -46,6 +47,8 @@ MemoryStore readerStore({List<Map<String, dynamic>> queued = const []}) =>
           },
           {
             'id': 2,
+            'assignment_id': 12,
+            'authorization': 'signed-work',
             'full_name': 'Subscriber Two',
             'account_number': 'A2',
             'meter_box_id': 7,
@@ -83,6 +86,34 @@ Future<void> typeReading(WidgetTester tester, String digits) async {
 }
 
 void main() {
+  testWidgets('area 2 filters the reader boxes and remains searchable offline',
+      (tester) async {
+    final store = readerStore();
+    final subscribers = store.state['subscribers'] as List;
+    subscribers[0].addAll({'sub_area_id': 1, 'sub_area_name': 'North'});
+    subscribers[1].addAll({
+      'sub_area_id': 2,
+      'sub_area_name': 'South',
+      'meter_box_id': 8,
+      'meter_box_number': 'B2'
+    });
+    await tester.pumpWidget(
+        PowerCollectApp(apiClient: OfflineApi(), fieldStore: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إدخال القراءات').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('North').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('box-B1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('box-B2')), findsNothing);
+    await tester.tap(find.text('كل المناطق'));
+    await tester.enterText(find.byType(TextField), 'South');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('box-B1')), findsNothing);
+    expect(find.byKey(const ValueKey('box-B2')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
       'phone back and a downward swipe hide the keypad without losing a reading',
       (tester) async {
@@ -182,6 +213,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.queuedReadings.single['subscription_id'], 2);
     expect(store.queuedReadings.single['current_reading'], '350');
+    expect(store.queuedReadings.single['assignment_id'], 12);
+    expect(store.queuedReadings.single['authorization'], 'signed-work');
+    expect(DateTime.tryParse(store.queuedReadings.single['captured_at']),
+        isNotNull);
     await tester.pumpWidget(const SizedBox());
   });
 

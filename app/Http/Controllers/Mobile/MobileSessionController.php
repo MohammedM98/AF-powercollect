@@ -82,6 +82,8 @@ class MobileSessionController extends Controller
             'username' => $user->username,
             'branch_name' => $user->branch?->name,
             'can_record_readings' => $user->hasPermission(PermissionKey::RecordMeterReadings),
+            'can_distribute_readings' => $user->hasPermission(PermissionKey::ManageReadingAssignments),
+            'can_approve_reading_assignments' => $user->hasPermission(PermissionKey::ApproveReadingAssignments),
             'can_view_readings' => $user->can('viewAny', MeterReading::class),
             'can_record_collections' => $user->can('recordAnyPayment', Subscription::class),
             'can_adjust_balances' => $user->hasAnyPermission(PermissionKey::AddCharges, PermissionKey::AddDiscounts, PermissionKey::AddClearings),

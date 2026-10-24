@@ -15,6 +15,7 @@ use App\Models\MobileAccessToken;
 use App\Models\PaperSheet;
 use App\Models\ReadingAssignment;
 use App\Models\ReadingCycle;
+use App\Models\ReadingEntrySetting;
 use App\Models\ReadingSubmission;
 use App\Models\Subscription;
 use App\Models\User;
@@ -261,12 +262,18 @@ class ReadingCycleTest extends TestCase
             ->assertJsonPath('results.0.status', 'accepted');
 
         $meterReading = MeterReading::query()->sole();
+        $this->mobile($this->reader('قارئ آخر'))->postJson(route('mobile.reading-assignments.sync'), ['readings' => [$thursday]])
+            ->assertJsonPath('results.0.status', 'rejected')
+            ->assertJsonPath('results.0.issue', 'not_your_assignment')
+            ->assertJsonPath('results.0.meter_reading_id', null);
+
         $this->assertSame(['2026-10-16', 160.5, 60.5, MeterReadingStatus::Pending, $reader->id], [$meterReading->week_start->toDateString(), $meterReading->current_reading, $meterReading->consumption, $meterReading->status, $meterReading->recorded_by]);
         $this->assertSame(2, ReadingSubmission::query()->count());
     }
 
     public function test_a_readings_clock_ahead_of_the_server_or_a_forged_authorisation_is_not_trusted(): void
     {
+        ReadingEntrySetting::factory()->forBranch($this->branch)->create(['assignment_lead_days' => 2]);
         $cycle = $this->cycle();
         $box = $this->boxes(1)->first();
         $reader = $this->reader('أحمد');
@@ -288,6 +295,7 @@ class ReadingCycleTest extends TestCase
 
     public function test_reassigning_a_downloaded_box_needs_confirmation_and_the_old_readers_readings_are_held_for_review(): void
     {
+        ReadingEntrySetting::factory()->forBranch($this->branch)->create(['assignment_lead_days' => 2]);
         $cycle = $this->cycle();
         $box = $this->boxes(1)->first();
         [$ahmad, $sarah] = [$this->reader('أحمد'), $this->reader('سارة')];

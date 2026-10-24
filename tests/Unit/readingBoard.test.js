@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boardColumns, boardCounters, boxMatches, columnTotals, draggedBoxIds, movePayload } from '../../resources/js/lib/readingBoard.js';
+import { assignmentMatches, boardColumns, boardCounters, boxMatches, columnTotals, distributionAreas, draggedBoxIds, movePayload, readingSearchMatches, toggleBoxSelection } from '../../resources/js/lib/readingBoard.js';
 
 const boards = [
     { id: 1, number: 'B-001', name: 'المدارس 1', subAreaId: 7, subscribers: 4, read: 1, version: 0, column: 'available', status: null },
@@ -31,4 +31,63 @@ test('a move sends each box with the version shown and the target column', () =>
 test('the counters and a column\'s totals add up', () => {
     assert.deepEqual(boardCounters(boards), { available: 1, mobile: 1, paper: 1, approved: 1, draft: 1, subscribers: 13 });
     assert.deepEqual(columnTotals(boards), { boxes: 3, subscribers: 13, read: 7, drafts: 1 });
+});
+
+test('search finds area names, suffixes and Arabic digits across several chosen areas', () => {
+    const box = { ...boards[0], name: 'أبو ذر 8', number: '110303', subAreaName: 'الحي الشرقي' };
+    assert.equal(boxMatches(box, 'الشرقي ابو', ['7', '8']), true);
+    assert.equal(boxMatches(box, 'ذر 8 ١١٠٣٠٣', ['7']), true);
+    assert.equal(boxMatches(box, 'أبو', ['8']), false);
+    assert.equal(boxMatches(box, 'الحي الغربي', []), false);
+    assert.equal(readingSearchMatches('أَبُو ذَرّ', 'ابو ذر'), true);
+    assert.equal(boxMatches({ ...box, subAreaId: null }, '', ['none']), true);
+});
+
+test('selecting every matching result preserves other selections and toggles only those results', () => {
+    const original = new Set([3]);
+    const chosen = toggleBoxSelection(original, boards.slice(0, 2));
+    assert.deepEqual([...chosen].sort(), [1, 2, 3]);
+    assert.deepEqual([...original], [3]);
+    assert.deepEqual([...toggleBoxSelection(chosen, boards.slice(0, 2))], [3]);
+    assert.deepEqual([...toggleBoxSelection(original, [])], [3]);
+    assert.deepEqual([...toggleBoxSelection(new Set([1]), boards.slice(0, 2))], [1, 2]);
+});
+
+test('area choices count all their boxes and subscribers including unclassified boxes', () => {
+    const areas = distributionAreas([
+        { ...boards[0], subAreaName: 'الحي الشرقي' },
+        { ...boards[1], subAreaName: 'الحي الغربي' },
+        { ...boards[2], subAreaName: 'الحي الشرقي' },
+        { ...boards[0], id: 4, subAreaId: null, subAreaName: null },
+    ]);
+    assert.deepEqual(areas.find((area) => area.id === '7'), { id: '7', name: 'الحي الشرقي', boxes: 2, subscribers: 7, assigned: 1, unassigned: 1, matchingBoxes: 2, matchingSubscribers: 7 });
+    assert.deepEqual(areas.find((area) => area.id === 'none'), { id: 'none', name: 'بدون منطقة 2', boxes: 1, subscribers: 4, assigned: 0, unassigned: 1, matchingBoxes: 1, matchingSubscribers: 4 });
+    assert.equal(areas.length, 3);
+});
+
+test('assignment filters include both paper and reader work while keeping unassigned separate', () => {
+    assert.deepEqual(boards.filter((box) => assignmentMatches(box, 'assigned')).map((box) => box.id), [2, 3]);
+    assert.deepEqual(boards.filter((box) => assignmentMatches(box, 'available')).map((box) => box.id), [1]);
+    assert.deepEqual(boards.filter((box) => assignmentMatches(box, 'paper')).map((box) => box.id), [3]);
+    assert.deepEqual(boards.filter((box) => assignmentMatches(box, 'reader:5')).map((box) => box.id), [2]);
+});
+
+test('sidebar areas show only matching work and keep full assigned and remaining totals', () => {
+    const unassigned = distributionAreas(boards, 'available');
+    assert.equal(unassigned.length, 1);
+    assert.equal(unassigned[0].id, '7');
+    assert.equal(unassigned[0].matchingBoxes, 1);
+    assert.equal(unassigned[0].matchingSubscribers, 4);
+    assert.equal(unassigned[0].assigned, 1);
+    assert.equal(unassigned[0].unassigned, 1);
+    assert.equal(distributionAreas(boards, 'assigned').length, 2);
+});
+
+test('assigning the last remaining box removes its area from the unassigned sidebar', () => {
+    const updated = boards.map((box) => box.id === 1 ? { ...box, column: 'reader:5', status: 'approved' } : box);
+    assert.deepEqual(distributionAreas(updated, 'available'), []);
+    const assigned = distributionAreas(updated, 'assigned').find((area) => area.id === '7');
+    assert.equal(assigned.assigned, 2);
+    assert.equal(assigned.unassigned, 0);
+    assert.equal(assigned.matchingBoxes, 2);
 });

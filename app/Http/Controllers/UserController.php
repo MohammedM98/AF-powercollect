@@ -154,7 +154,7 @@ class UserController extends Controller
 
         DB::transaction(function () use ($user, $data, $resetDevices): void {
             $user->update($data);
-            if ($resetDevices) {
+            if ($resetDevices || array_key_exists('password', $data) || (array_key_exists('is_active', $data) && ! $data['is_active'])) {
                 app(UserDeviceAccess::class)->revokeAll($user);
             }
         });

@@ -26,9 +26,13 @@ class ApiClient {
   final HttpClient _client;
   String? token;
 
-  Future<Map<String, dynamic>> login(String username, String password) async {
-    final result = await _request('POST', '/api/mobile/login',
-        body: {'username': username, 'password': password});
+  Future<Map<String, dynamic>> login(String username, String password,
+      {bool remember = false}) async {
+    final result = await _request('POST', '/api/mobile/login', body: {
+      'username': username,
+      'password': password,
+      'remember': remember
+    });
     token = result['token'] as String;
     return result;
   }
@@ -116,6 +120,11 @@ class ApiClient {
 
   Future<Map<String, dynamic>> _decodeResponse(
       HttpClientResponse response) async {
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      await response.drain<void>();
+      throw const ApiException(
+          'رفض التطبيق إعادة توجيه الاتصال. تحقق من عنوان الخادم الآمن.', 0);
+    }
     final decoded = jsonDecode(await utf8.decoder.bind(response).join())
         as Map<String, dynamic>;
     if (response.statusCode >= 400) {
@@ -144,12 +153,23 @@ class ApiClient {
       throw const ApiException(
           'لم يُضبط عنوان الخادم في هذا الإصدار من التطبيق (API_BASE_URL).', 0);
     }
+    if (const bool.fromEnvironment('dart.vm.product')) {
+      final server = Uri.tryParse(apiBaseUrl);
+      if (server == null ||
+          server.scheme != 'https' ||
+          server.host.isEmpty ||
+          server.userInfo.isNotEmpty) {
+        throw const ApiException(
+            'يجب أن يستخدم خادم التطبيق اتصال HTTPS آمنًا.', 0);
+      }
+    }
     final uri =
         Uri.parse(apiBaseUrl).resolve(path).replace(queryParameters: query);
     try {
       final request = await _client
           .openUrl(method, uri)
           .timeout(const Duration(seconds: 12));
+      request.followRedirects = false;
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       if (token != null)
         request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');

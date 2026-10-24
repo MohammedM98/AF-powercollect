@@ -25,6 +25,7 @@ class MobileSessionController extends Controller
         $validated = $request->validate([
             'username' => ['required', 'string'],
             'password' => ['required', 'string'],
+            'remember' => ['sometimes', 'boolean'],
         ]);
 
         $rateLimitKey = Str::transliterate(Str::lower($validated['username']).'|'.$request->ip());
@@ -50,7 +51,7 @@ class MobileSessionController extends Controller
 
         return response()->json([
             'user' => $this->userData($user),
-            'token' => app(UserDeviceAccess::class)->issueMobile($user, $request->bearerToken()),
+            'token' => app(UserDeviceAccess::class)->issueMobile($user, $request->bearerToken(), $request->boolean('remember')),
         ]);
     }
 

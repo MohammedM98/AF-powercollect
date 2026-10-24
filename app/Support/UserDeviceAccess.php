@@ -38,18 +38,20 @@ class UserDeviceAccess
         });
     }
 
-    public function issueMobile(User $user, ?string $existingToken): string
+    public function issueMobile(User $user, ?string $existingToken, bool $remember = false): string
     {
-        return DB::transaction(function () use ($user, $existingToken): string {
+        return DB::transaction(function () use ($user, $existingToken, $remember): string {
             $user = User::withoutGlobalScopes()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $token = $existingToken === null ? null : MobileAccessToken::query()->where('user_id', $user->id)
                 ->where('token_hash', hash('sha256', $existingToken))->where('expires_at', '>', now())->first();
             if ($token !== null && $this->allowed($user, 'mobile:'.$token->id)) {
+                $token->update(['expires_at' => $remember ? now()->addDays(30) : now()->addHours(12)]);
+
                 return $existingToken;
             }
             $this->assertCapacity($user);
 
-            return MobileAccessToken::issue($user);
+            return MobileAccessToken::issue($user, $remember);
         });
     }
 

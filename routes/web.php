@@ -25,6 +25,7 @@ use App\Http\Controllers\MeterBoxController;
 use App\Http\Controllers\MeterBoxOptionController;
 use App\Http\Controllers\MeterBoxSubscriptionController;
 use App\Http\Controllers\MeterReadingController;
+use App\Http\Controllers\MobileAppDownloadController;
 use App\Http\Controllers\PaperSheetController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentSettingController;
@@ -72,6 +73,8 @@ Route::get('/', function () {
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/settings/mobile-app', [MobileAppDownloadController::class, 'index'])->name('settings.mobile-app.index');
+    Route::get('/settings/mobile-app/download', [MobileAppDownloadController::class, 'download'])->middleware('throttle:12,1')->name('settings.mobile-app.download');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile/devices', [ProfileDeviceController::class, 'destroy'])->middleware('throttle:6,1')->name('profile.devices.destroy');

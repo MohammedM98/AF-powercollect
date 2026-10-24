@@ -71,7 +71,9 @@ class _PowerCollectAppState extends State<PowerCollectApp>
           (mode) => mode.name == store.state['appearance'],
           orElse: () => ThemeMode.system);
       api.token = store.token;
-      if (mounted) setState(() => user = store.user);
+      if (mounted)
+        setState(() => user =
+            store.remembersSession && store.token != null ? store.user : null);
     } catch (_) {
       startupError = 'تعذر فتح التخزين المحلي. أعد تشغيل التطبيق.';
     } finally {
@@ -79,17 +81,18 @@ class _PowerCollectAppState extends State<PowerCollectApp>
     }
   }
 
-  Future<void> login(String username, String password) async {
+  Future<void> login(String username, String password, bool remember) async {
     if (store.queuedReadings.isNotEmpty &&
         store.user?['username'] != username) {
       throw const ApiException(
           'توجد قراءات غير مرسلة لحساب آخر. اتصل بالإنترنت وزامنها أولًا.', 0);
     }
     final previousToken = api.token;
-    final result = await api.login(username, password);
+    final result = await api.login(username, password, remember: remember);
     final nextUser = Map<String, dynamic>.from(result['user'] as Map);
     try {
-      await store.saveSession(nextUser, result['token'] as String);
+      await store.saveSession(nextUser, result['token'] as String,
+          remember: remember);
     } on PendingReadingsAccountSwitch {
       try {
         await api.logout();
@@ -99,6 +102,13 @@ class _PowerCollectAppState extends State<PowerCollectApp>
       api.token = previousToken;
       throw const ApiException(
           'توجد قراءات غير مرسلة لحساب آخر. زامنها أولًا.', 0);
+    } catch (_) {
+      try {
+        await api.logout();
+      } on ApiException catch (_) {}
+      api.token = previousToken;
+      throw const ApiException(
+          'تعذر حفظ جلسة الدخول بأمان على الجهاز. حاول مجددًا.', 0);
     }
     if (mounted) setState(() => user = nextUser);
   }
@@ -175,7 +185,7 @@ class _PowerCollectAppState extends State<PowerCollectApp>
 
 class LoginPage extends StatefulWidget {
   const LoginPage({required this.onLogin, super.key});
-  final Future<void> Function(String, String) onLogin;
+  final Future<void> Function(String, String, bool) onLogin;
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
@@ -185,6 +195,7 @@ class _LoginPageState extends State<LoginPage> {
   final password = TextEditingController();
   bool busy = false;
   bool showPassword = false;
+  bool remember = false;
   String? error;
 
   @override
@@ -201,7 +212,7 @@ class _LoginPageState extends State<LoginPage> {
       error = null;
     });
     try {
-      await widget.onLogin(username.text.trim(), password.text);
+      await widget.onLogin(username.text.trim(), password.text, remember);
     } on ApiException catch (exception) {
       if (mounted) setState(() => error = exception.message);
     } finally {
@@ -285,6 +296,17 @@ class _LoginPageState extends State<LoginPage> {
                                               showPassword ? 'eyeoff' : 'eye',
                                               color: AppIdentity.faint)))))),
                       const SizedBox(height: 12),
+                      CheckboxListTile(
+                          value: remember,
+                          onChanged: busy
+                              ? null
+                              : (value) =>
+                                  setState(() => remember = value ?? false),
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: const Text('تذكرني'),
+                          subtitle: const Text(
+                              'ابقَ مسجّل الدخول على هذا الجهاز لمدة تصل إلى 30 يومًا.')),
                       if (error != null) ...[
                         AppNotice(error!, error: true),
                         const SizedBox(height: 12),

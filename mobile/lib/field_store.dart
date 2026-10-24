@@ -21,6 +21,8 @@ class FieldStore {
   Map<String, dynamic> state = {};
   Future<void> _lastWrite = Future<void>.value();
   Future<void> _lastMutation = Future<void>.value();
+  static const _session = MethodChannel('powercollect.session');
+  String? _persistedToken;
 
   Future<File> _file() async {
     _directory ??= Directory(await const MethodChannel('powercollect.storage')
@@ -37,15 +39,43 @@ class FieldStore {
     if (!await file.exists()) return;
     final decoded = jsonDecode(await file.readAsString());
     if (decoded is Map<String, dynamic>) state = decoded;
+    final legacyToken = token;
+    if (legacyToken != null) {
+      await _session.invokeMethod<void>('write', legacyToken);
+      _persistedToken = legacyToken;
+      state['remember_session'] ??= true;
+      await save();
+    } else if (state['secure_token'] == true) {
+      state['token'] = await _session.invokeMethod<String>('read');
+      _persistedToken = token;
+    }
   }
 
   Future<void> save() {
-    final snapshot = jsonEncode(state);
+    final nextToken = token;
+    final persisted = Map<String, dynamic>.from(state)..remove('token');
+    persisted['secure_token'] = nextToken != null;
+    final snapshot = jsonEncode(persisted);
     final write = _lastWrite.then<void>((_) async {
-      final file = await _file();
-      final temporary = File('${file.path}.tmp');
-      await temporary.writeAsString(snapshot, flush: true);
-      await temporary.rename(file.path);
+      var changedToken = false;
+      try {
+        if (nextToken != _persistedToken) {
+          await _session.invokeMethod<void>(
+              nextToken == null ? 'clear' : 'write', nextToken);
+          changedToken = true;
+        }
+        final file = await _file();
+        final temporary = File('${file.path}.tmp');
+        await temporary.writeAsString(snapshot, flush: true);
+        await temporary.rename(file.path);
+        _persistedToken = nextToken;
+      } catch (_) {
+        if (changedToken) {
+          await _session.invokeMethod<void>(
+              _persistedToken == null ? 'clear' : 'write', _persistedToken);
+        }
+        rethrow;
+      }
     });
     _lastWrite =
         write.then<void>((_) {}, onError: (Object _, StackTrace __) {});
@@ -53,34 +83,37 @@ class FieldStore {
     return write;
   }
 
-  Future<void> saveSession(
-      Map<String, dynamic> nextUser, String nextToken) async {
-    if (user?['id'] != nextUser['id']) {
-      if (queuedReadings.isNotEmpty) {
-        throw PendingReadingsAccountSwitch();
-      }
-      for (final key in [
-        'subscribers',
-        'week_start',
-        'week_end',
-        'can_record_readings_now',
-        'roster_updated_at',
-        'assignment_roster_version',
-        'next_reading',
-        'entry_starts_at',
-        'entry_ends_at',
-        'reading_date',
-        'queued_readings',
-        'reading_drafts',
-        'reading_drafts_week',
-      ]) {
-        state.remove(key);
-      }
-    }
-    state['user'] = nextUser;
-    state['token'] = nextToken;
-    await save();
-  }
+  Future<void> saveSession(Map<String, dynamic> nextUser, String nextToken,
+          {bool remember = false}) =>
+      _mutate(() {
+        if (user?['id'] != nextUser['id']) {
+          if (queuedReadings.isNotEmpty) {
+            throw PendingReadingsAccountSwitch();
+          }
+          for (final key in [
+            'subscribers',
+            'week_start',
+            'week_end',
+            'can_record_readings_now',
+            'roster_updated_at',
+            'assignment_roster_version',
+            'next_reading',
+            'entry_starts_at',
+            'entry_ends_at',
+            'reading_date',
+            'queued_readings',
+            'reading_drafts',
+            'reading_drafts_week',
+          ]) {
+            state.remove(key);
+          }
+        }
+        state['user'] = nextUser;
+        state['token'] = nextToken;
+        state['remember_session'] = remember;
+      });
+
+  bool get remembersSession => state['remember_session'] != false;
 
   List<Map<String, dynamic>> get queuedReadings =>
       (state['queued_readings'] as List<dynamic>? ?? [])

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:power_collect/api_client.dart';
 import 'package:power_collect/app_identity.dart';
@@ -73,6 +74,18 @@ class CollectorApi extends ApiClient {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    String? sessionToken;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('powercollect.session'),
+            (call) async {
+      if (call.method == 'read') return sessionToken;
+      if (call.method == 'write') sessionToken = call.arguments as String;
+      if (call.method == 'clear') sessionToken = null;
+      return null;
+    });
+  });
   testWidgets(
       'an upgrade clears the old branch roster and keeps unsent readings',
       (tester) async {

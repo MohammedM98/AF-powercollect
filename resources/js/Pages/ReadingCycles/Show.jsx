@@ -8,7 +8,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton, { secondaryButtonClass } from '@/Components/SecondaryButton';
 import InputError from '@/Components/InputError';
 import { formatNumber } from '@/lib/format';
-import { STAGES, assignmentMatches, boardColumns, boardCounters, boxMatches, columnTotals, distributionAreas, movePayload, toggleBoxSelection } from '@/lib/readingBoard';
+import { STAGES, assignmentMatches, boardColumns, boardCounters, boxMatches, columnTotals, distributionAreas, distributionBoxOptions, movePayload, toggleBoxSelection } from '@/lib/readingBoard';
 import PageHeader from '@/Components/PageHeader';
 import DateInput from '@/Components/DateInput';
 import DistributionTable from './DistributionTable';
@@ -118,9 +118,11 @@ export default function Show({ cycle, boards, readers, paperSheets, reviewCount,
     const [busy, setBusy] = useState(false);
     const [recurring, setRecurring] = useState(true);
     const [assignmentFilter, setAssignmentFilter] = useState('');
+    const [boxId, setBoxId] = useState('');
     const [perPage, setPerPage] = useState(25);
     const [page, setPage] = useState(1);
-    const visibleBoxes = boards.filter((box) => boxMatches(box, search, subAreaIds) && assignmentMatches(box, assignmentFilter));
+    const boxOptions = useMemo(() => distributionBoxOptions(boards, subAreaIds, assignmentFilter), [boards, subAreaIds, assignmentFilter]);
+    const visibleBoxes = boards.filter((box) => boxMatches(box, search, subAreaIds, boxId) && assignmentMatches(box, assignmentFilter));
     const remainingBoxes = visibleBoxes.filter((box) => box.column === 'available');
     const selectedBoxes = boards.filter((box) => selected.has(box.id));
     const selectedTotals = columnTotals(selectedBoxes);
@@ -144,6 +146,13 @@ export default function Show({ cycle, boards, readers, paperSheets, reviewCount,
             setResult(flash.allocationResult);
         }
     }, [flash]);
+
+    useEffect(() => {
+        if (boxId && !boxOptions.some((option) => option.value === boxId)) {
+            setBoxId('');
+            setPage(1);
+        }
+    }, [boxId, boxOptions]);
 
     function toggle(id) {
         setSelected((current) => {
@@ -248,14 +257,20 @@ export default function Show({ cycle, boards, readers, paperSheets, reviewCount,
                     <div>
                         <DataTableToolbar search={search} onSearchChange={(value) => { setSearch(value); setPage(1); }} placeholder="ابحث باسم المنطقة أو الطبلون أو رقمه..." perPage={perPage} onPerPageChange={(size) => { setPerPage(size); setPage(1); }} total={visibleBoxes.length} printable={false}
                             filterMenu={<div className="flex w-full flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3">
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <label htmlFor="assignment-filter" className="text-xs font-semibold text-gray-600">عرض التوزيع</label>
-                                    <select id="assignment-filter" value={assignmentFilter} disabled={busy} onChange={(event) => { setAssignmentFilter(event.target.value); setPage(1); }} className="block text-sm">
-                                        <option value="">كل الطبلونات</option>
-                                        <option value="assigned">كل الطبلونات الموزعة</option>
-                                        {columns.map((column) => <option key={column.key} value={column.key}>{column.key === 'available' ? 'غير موزع' : column.label}</option>)}
-                                    </select>
-                                    {(search || subAreaIds.length > 0 || assignmentFilter) && <button type="button" disabled={busy} onClick={() => { setSearch(''); setSubAreaIds([]); setAssignmentFilter(''); setPage(1); }} className="text-xs font-semibold text-gray-500 hover:underline">مسح التصفية</button>}
+                                <div className="grid w-full min-w-0 flex-1 gap-3 sm:grid-cols-2">
+                                    <div className="min-w-0">
+                                        <label htmlFor="assignment-filter" className="mb-1.5 block text-xs font-semibold text-gray-600">عرض التوزيع</label>
+                                        <select id="assignment-filter" value={assignmentFilter} disabled={busy} onChange={(event) => { setAssignmentFilter(event.target.value); setPage(1); }} className="block w-full text-sm">
+                                            <option value="">كل حالات التوزيع</option>
+                                            <option value="assigned">كل الطبلونات الموزعة</option>
+                                            {columns.map((column) => <option key={column.key} value={column.key}>{column.key === 'available' ? 'غير موزع' : column.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <label htmlFor="distribution-box-filter" className="mb-1.5 block text-xs font-semibold text-gray-600">الطبلون</label>
+                                        <SearchableSelect id="distribution-box-filter" value={boxId} options={boxOptions} disabled={busy} placeholder="كل الطبلونات" searchPlaceholder="ابحث باسم الطبلون أو رقمه..." emptyLabel="لا توجد طبلونات ضمن التصفية الحالية" onChange={(value) => { setBoxId(value); setPage(1); }} />
+                                    </div>
+                                    {(search || subAreaIds.length > 0 || assignmentFilter || boxId) && <button type="button" disabled={busy} onClick={() => { setSearch(''); setSubAreaIds([]); setAssignmentFilter(''); setBoxId(''); setPage(1); }} className="justify-self-start text-xs font-semibold text-gray-500 hover:underline sm:col-span-2">مسح التصفية</button>}
                                 </div>
                                 {(abilities.manage || abilities.printSheets) && <SecondaryButton disabled={busy || visibleBoxes.length === 0} onClick={() => toggleColumn(visibleBoxes)}>{allVisibleSelected ? 'إلغاء تحديد النتائج' : 'تحديد كل النتائج'} ({formatNumber(visibleBoxes.length)})</SecondaryButton>}
                             </div>}

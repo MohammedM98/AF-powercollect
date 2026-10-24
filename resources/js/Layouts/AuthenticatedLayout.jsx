@@ -34,7 +34,7 @@ function isTyping(target) {
  * Only the top bar stays on screen while scrolling, so tables keep the room.
  * `badges` counts what waits on a page, by its link: { '/payments/summary': 2 }.
  */
-export default function AuthenticatedLayout({ header, badges = NO_BADGES, children }) {
+export default function AuthenticatedLayout({ header, badges = NO_BADGES, children, beforePrint }) {
     const { props, url } = usePage();
     const { can } = props;
     const { dark, changePreference } = useTheme();
@@ -174,7 +174,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
 
     // Opened from a table's print button: the page without the menus (see lib/print.js).
     if (printSettings) {
-        return <PrintDesigner settings={printSettings}>{children}</PrintDesigner>;
+        return <PrintDesigner settings={printSettings} beforePrint={beforePrint}>{children}</PrintDesigner>;
     }
 
     return (

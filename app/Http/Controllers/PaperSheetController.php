@@ -10,6 +10,8 @@ use App\Models\ReadingAssignment;
 use App\Models\ReadingCycle;
 use App\Models\Subscription;
 use App\Notifications\ActionCompleted;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -72,6 +74,10 @@ class PaperSheetController extends Controller
         $this->authorize('printSheets', $cycle);
 
         $assignments = $paperSheet->assignments()->with('meterBox.subArea')->get()->sortBy(fn (ReadingAssignment $assignment) => $assignment->meterBox->label())->values();
+        $subscriptions = Subscription::query()->whereIn('meter_box_id', $assignments->pluck('meter_box_id'))
+            ->where('branch_id', $cycle->branch_id)->where('status', SubscriptionStatus::Active)->whereNull('archived_at')
+            ->with(['meterReadings' => fn (HasMany $readings): HasMany => $readings->where('week_start', '<', $cycle->week_start->toDateString())->orderByDesc('week_start')->limit(1)])
+            ->orderBy('account_number')->get()->groupBy('meter_box_id');
 
         return Inertia::render('ReadingCycles/PaperSheet', [
             'sheet' => [
@@ -90,18 +96,17 @@ class PaperSheetController extends Controller
             'boxes' => $assignments->map(fn (ReadingAssignment $assignment) => [
                 'id' => $assignment->meter_box_id,
                 'label' => $assignment->meterBox->label(),
+                'name' => $assignment->meterBox->displayName(),
+                'number' => $assignment->meterBox->box_number,
                 'subAreaName' => $assignment->meterBox->subArea?->name,
                 'movedOffPaper' => $assignment->channel !== ReadingAssignmentChannel::Paper || $assignment->status !== ReadingAssignmentStatus::Approved,
-                'subscriptions' => Subscription::query()
-                    ->where('meter_box_id', $assignment->meter_box_id)
-                    ->where('status', SubscriptionStatus::Active)
-                    ->orderBy('account_number')
-                    ->get()
+                'subscriptions' => $subscriptions->get($assignment->meter_box_id, collect())
                     ->map(fn (Subscription $subscription) => [
                         'id' => $subscription->id,
                         'name' => $subscription->displayName(),
                         'accountNumber' => $subscription->account_number,
-                        'previousReading' => $subscription->previousReadingBefore($cycle->week_start),
+                        'phone' => $subscription->contactPhone(),
+                        'previousReading' => $subscription->meterReadings->first()?->nextPreviousReading() ?? (float) ($subscription->initial_reading ?? 0),
                     ])->values(),
             ])->values(),
         ]);
@@ -110,7 +115,7 @@ class PaperSheetController extends Controller
     /**
      * Count one printing of the sheet.
      */
-    public function printed(Request $request, PaperSheet $paperSheet): RedirectResponse
+    public function printed(Request $request, PaperSheet $paperSheet): RedirectResponse|JsonResponse
     {
         $this->authorize('printSheets', $paperSheet->cycle);
 
@@ -120,6 +125,6 @@ class PaperSheetController extends Controller
             'last_printed_by' => $request->user()->id,
         ]);
 
-        return back();
+        return $request->expectsJson() ? response()->json(['printed' => true]) : back();
     }
 }

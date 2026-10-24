@@ -10,7 +10,9 @@ Map<String, dynamic> assignedReadingRoster(Map<String, dynamic> response) {
       .toSet()
       .toList()
     ..sort();
-  final date = dates.where((date) => date.compareTo(today) >= 0).firstOrNull ??
+  final next = response['next_reading'] as Map?;
+  final date = next?['reading_date'] ??
+      dates.where((date) => date.compareTo(today) >= 0).firstOrNull ??
       dates.lastOrNull;
   final work = assignments
       .where((item) => item['cycle']['reading_date'] == date)
@@ -40,6 +42,7 @@ Map<String, dynamic> assignedReadingRoster(Map<String, dynamic> response) {
   }
   return {
     'assignment_roster_version': 1,
+    'next_reading': next,
     'week_start': cycle['week_start'],
     'week_end': cycle['week_end'],
     'reading_date': cycle['reading_date'],
@@ -50,6 +53,29 @@ Map<String, dynamic> assignedReadingRoster(Map<String, dynamic> response) {
     'current_page': 1,
     'last_page': 1,
   };
+}
+
+String readingDayLabel(String value) {
+  final date = DateTime.parse(value);
+  const days = [
+    'الاثنين',
+    'الثلاثاء',
+    'الأربعاء',
+    'الخميس',
+    'الجمعة',
+    'السبت',
+    'الأحد'
+  ];
+  return '${days[date.weekday - 1]} ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+}
+
+String? readingScheduleMessage(Map<String, dynamic> state, DateTime now) {
+  final date = state['next_reading']?['reading_date'] ?? state['reading_date'];
+  if (date == null) return null;
+  final label = readingDayLabel('$date');
+  return readingEntryIsOpen(state, now)
+      ? 'إدخال القراءات مفتوح اليوم: $label.'
+      : 'موعد إدخال القراءات: $label. الإدخال متاح يوم القراءة فقط.';
 }
 
 /// Published offline work opens and closes on the server's dated window.

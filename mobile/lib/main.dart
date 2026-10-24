@@ -335,6 +335,9 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   FieldSection section = FieldSection.home;
   bool online = false;
   bool syncing = false;
+  bool uploadingReadings = false;
+  Future<void>? synchronization;
+  bool rosterRefreshRequested = false;
   String? message;
   Timer? timer;
   final collectionSearch = TextEditingController();
@@ -388,14 +391,17 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       if ((WidgetsBinding.instance.lifecycleState == null ||
               WidgetsBinding.instance.lifecycleState ==
                   AppLifecycleState.resumed) &&
-          ModalRoute.of(context)?.isCurrent == true) synchronize();
+          ModalRoute.of(context)?.isCurrent == true) {
+        synchronize(forceRoster: section == FieldSection.readings);
+      }
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => synchronize());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => synchronize(forceRoster: true));
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) synchronize();
+    if (state == AppLifecycleState.resumed) synchronize(forceRoster: true);
   }
 
   @override
@@ -407,62 +413,43 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  Future<void> synchronize() async {
-    if (syncing) return;
+  Future<void> synchronize({bool forceRoster = false}) {
+    if (!mounted || uploadingReadings) return Future<void>.value();
+    rosterRefreshRequested = rosterRefreshRequested || forceRoster;
+    return synchronization ??=
+        refreshSession().whenComplete(() => synchronization = null);
+  }
+
+  Future<void> refreshSession() async {
     setState(() => syncing = true);
     try {
-      final session = await widget.api.me();
-      if (!mounted) return;
-      setState(() {
-        if (session['user'] is Map &&
-            session['user']['id'] == widget.user['id']) {
-          currentUser = Map<String, dynamic>.from(session['user'] as Map);
-          widget.store.state['user'] = currentUser;
-        }
-        online = true;
-        requiresLogin = false;
-      });
-      var sentAnyReading = false;
-      for (final reading in widget.store.queuedReadings) {
-        if (reading['sync_error'] != null) continue;
-        try {
-          final response =
-              await widget.api.sendReading({...reading}..remove('sync_error'));
-          final subscribers = widget.store.subscribers;
-          for (final subscriber in subscribers) {
-            if (subscriber['id'] == reading['subscription_id'] &&
-                reading['week_start'] == widget.store.state['week_start']) {
-              subscriber['current_reading'] = reading['current_reading'];
-              subscriber['reading_status'] =
-                  response['status'] == 'needs_review'
-                      ? 'needs_review'
-                      : 'pending';
-            }
+      do {
+        final forceRoster = rosterRefreshRequested;
+        rosterRefreshRequested = false;
+        final session = await widget.api.me();
+        if (!mounted) return;
+        setState(() {
+          if (session['user'] is Map &&
+              session['user']['id'] == widget.user['id']) {
+            currentUser = Map<String, dynamic>.from(session['user'] as Map);
+            widget.store.state['user'] = currentUser;
           }
-          widget.store.state['subscribers'] = subscribers;
-          await widget.store
-              .removeReading(reading['mobile_operation_id'] as String);
-          sentAnyReading = true;
-        } on ApiException catch (error) {
-          if (error.isNetwork ||
-              error.statusCode == 401 ||
-              error.statusCode >= 500) rethrow;
-          await widget.store.markReadingError(
-              reading['mobile_operation_id'] as String, error.message);
-        }
-      }
-      final lastRosterUpdate =
-          DateTime.tryParse('${widget.store.state['roster_updated_at'] ?? ''}');
-      final shouldRefreshRoster = canRead &&
-          (sentAnyReading ||
-              lastRosterUpdate == null ||
-              DateTime.now().difference(lastRosterUpdate) >
-                  const Duration(minutes: 5));
-      await Future.wait([
-        if (shouldRefreshRoster) refreshRoster(),
-        if (canCollect) refreshCollections(),
-      ]);
-      if (mounted) setState(() => message = null);
+          online = true;
+          requiresLogin = false;
+        });
+        final lastRosterUpdate = DateTime.tryParse(
+            '${widget.store.state['roster_updated_at'] ?? ''}');
+        final shouldRefreshRoster = canRead &&
+            (forceRoster ||
+                lastRosterUpdate == null ||
+                DateTime.now().difference(lastRosterUpdate) >
+                    const Duration(minutes: 5));
+        await Future.wait([
+          if (shouldRefreshRoster) refreshRoster(),
+          if (canCollect) refreshCollections(),
+        ]);
+        if (mounted) setState(() => message = null);
+      } while (mounted && rosterRefreshRequested);
     } on ApiException catch (error) {
       if (mounted)
         setState(() {
@@ -494,6 +481,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     widget.store.state['week_end'] = first['week_end'];
     for (final key in [
       'assignment_roster_version',
+      'next_reading',
       'entry_starts_at',
       'entry_ends_at',
       'reading_date'
@@ -505,6 +493,97 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     widget.store.state['roster_updated_at'] = DateTime.now().toIso8601String();
     await widget.store.save();
     if (mounted) setState(() {});
+  }
+
+  Future<ReadingUploadReport> uploadReadings(
+      List<Map<String, dynamic>> reviewed) async {
+    if (uploadingReadings || syncing || !canRead) {
+      return const ReadingUploadReport(
+          message: 'تعذّر الرفع الآن. تحقق من الصلاحية وانتظر انتهاء التحديث.',
+          interrupted: true);
+    }
+    setState(() => uploadingReadings = true);
+    var sent = 0;
+    var held = 0;
+    var failed = 0;
+    final reviewNotes = <String>[];
+    String? interruption;
+    try {
+      for (final reading in reviewed) {
+        if (!mounted) break;
+        final id = reading['mobile_operation_id'] as String;
+        if (!widget.store.queuedReadings
+            .any((item) => item['mobile_operation_id'] == id)) continue;
+        final validation = readingValidation(reading);
+        if (validation != null) {
+          await widget.store.markReadingError(id, validation);
+          failed++;
+          continue;
+        }
+        try {
+          await widget.store.markReadingUncertain(id);
+          final response = await widget.api.sendReading({...reading}
+            ..remove('sync_error')
+            ..remove('upload_uncertain')
+            ..remove('review'));
+          final subscribers = widget.store.subscribers;
+          for (final subscriber in subscribers) {
+            if (subscriber['id'] == reading['subscription_id'] &&
+                reading['week_start'] == widget.store.state['week_start']) {
+              subscriber['current_reading'] = reading['current_reading'];
+              subscriber['reading_status'] =
+                  ['needs_review', 'approved'].contains(response['status'])
+                      ? response['status']
+                      : 'pending';
+            }
+          }
+          widget.store.state['subscribers'] = subscribers;
+          await widget.store.removeReading(id);
+          sent++;
+          if (response['status'] == 'needs_review') {
+            held++;
+            final review = readingReviewData(reading, subscribers);
+            reviewNotes.add(
+                '${review['name'] ?? review['full_name'] ?? 'مشترك #${reading['subscription_id']}'}: ${response['message'] ?? 'تحتاج مراجعة المسؤول.'}');
+          }
+        } on ApiException catch (error) {
+          if (error.isNetwork || error.statusCode >= 500) {
+            interruption =
+                'انقطع الاتصال أو تعذّر معرفة نتيجة الرفع. بقيت القراءات على الجهاز؛ أعد المحاولة بنفسها لتجنب التكرار.';
+            if (mounted) setState(() => online = false);
+            break;
+          }
+          if (error.statusCode == 401 || error.statusCode == 403) {
+            await widget.store.markReadingUncertain(id, uncertain: false);
+            interruption = error.statusCode == 401
+                ? 'انتهت جلسة الدخول. سجّل الدخول مجددًا ثم راجع القراءات وارفعها.'
+                : 'لم يعد الرفع مسموحًا لحسابك. تواصل مع المسؤول.';
+            if (mounted)
+              setState(() => requiresLogin = error.statusCode == 401);
+            break;
+          }
+          final details = error.errors.values
+              .expand((value) => value is List ? value : [value])
+              .map((value) => '$value')
+              .toSet();
+          await widget.store.markReadingError(
+              id, details.isEmpty ? error.message : details.join('\n'));
+          failed++;
+        }
+      }
+    } catch (_) {
+      interruption =
+          'تعذّر حفظ حالة الرفع على الجهاز. احتفظ بالقراءات وأعد المحاولة بنفسها.';
+    } finally {
+      if (mounted) setState(() => uploadingReadings = false);
+    }
+    return ReadingUploadReport(
+        sent: sent,
+        held: held,
+        failed: failed,
+        reviewNotes: reviewNotes,
+        message: interruption,
+        interrupted: interruption != null);
   }
 
   Future<void> refreshCollections() async {
@@ -579,7 +658,6 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     await widget.store.queueReadings(readings);
     if (!mounted) return;
     setState(() => message = null);
-    unawaited(synchronize());
   }
 
   /// Open the subscriber's page, where the payment is recorded from.
@@ -644,6 +722,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           ]));
 
   Future<void> discardRejectedReading(Map<String, dynamic> reading) async {
+    if (uploadingReadings || reading['upload_uncertain'] == true) return;
     final confirmed = await showAppSheet<bool>(context,
         title: 'حذف القراءة المحلية؟',
         message: 'رفض الخادم هذه القراءة: ${reading['sync_error']}\n'
@@ -689,15 +768,24 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     if (destination == FieldSection.collections && canBrowseSubscribers) {
       unawaited(searchCollections());
     }
+    if (destination == FieldSection.readings && canRead) {
+      unawaited(synchronize(forceRoster: true));
+    }
   }
 
   /// Take a saved reading back off the queue and open it on the keypad.
   Future<void> reenterReading(Map<String, dynamic> reading) async {
-    if (syncing) {
+    if (syncing || uploadingReadings || reading['upload_uncertain'] == true) {
       showAppToast(context, 'جارٍ الإرسال الآن. أعد المحاولة بعد لحظات.',
           icon: 'clock');
       return;
     }
+    if (!canRead ||
+        !readingEntryIsOpen(widget.store.state, DateTime.now()) ||
+        reading['week_start'] != widget.store.state['week_start'] ||
+        !widget.store.subscribers.any(
+            (subscriber) => subscriber['id'] == reading['subscription_id']))
+      return;
     await widget.store.reopenReading(reading['mobile_operation_id'] as String);
     if (!mounted) return;
     setState(() {
@@ -762,12 +850,12 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                     key: ValueKey('readings-$focusSubscriberId'),
                     store: widget.store,
                     online: online,
-                    syncing: syncing,
+                    syncing: syncing || uploadingReadings,
                     message: message,
                     requiresLogin: requiresLogin,
                     focusSubscriberId: focusSubscriberId,
                     onSync: () => navigate(FieldSection.sync),
-                    onRefresh: synchronize,
+                    onRefresh: () => synchronize(forceRoster: true),
                     onSave: saveReadings,
                     onExit: () => navigate(FieldSection.home),
                     onReauthenticate: widget.onReauthenticate,
@@ -791,9 +879,9 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
         FieldSection.collections =>
           'لا يوجد اتصال. اتصل بالإنترنت لعرض حسابات المشتركين.',
         FieldSection.sync =>
-          'لا يوجد اتصال. ستُرسل القراءات تلقائيًا عند عودته.',
+          'لا يوجد اتصال. القراءات محفوظة على الجهاز؛ راجعها وأكّد رفعها عند الاتصال.',
         _ => canRead
-            ? 'لا يوجد اتصال. تُحفظ القراءات على الجهاز وتُرسل تلقائيًا. التحصيل يحتاج إلى الإنترنت.'
+            ? 'لا يوجد اتصال. تُحفظ القراءات على الجهاز حتى تراجعها وتؤكد رفعها. التحصيل يحتاج إلى الإنترنت.'
             : 'لا يوجد اتصال. اتصل بالإنترنت لتسجيل الدفعات.',
       };
 
@@ -869,7 +957,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
             onLoadMore: () => unawaited(searchCollections(loadMore: true)),
             onSearch: () => unawaited(searchCollections()),
             onRefresh: () async {
-              await synchronize();
+              await synchronize(forceRoster: true);
               await searchCollections();
             },
             onWeeklyReadings: canViewReadings ? openWeeklyReadings : null,
@@ -884,7 +972,9 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
   }
 
   Widget refreshable(Widget list) => RefreshIndicator(
-      color: AppIdentity.brand, onRefresh: synchronize, child: list);
+      color: AppIdentity.brand,
+      onRefresh: () => synchronize(forceRoster: true),
+      child: list);
 
   /// «3 payments», as Arabic counts them.
   String paymentsCount(int count) => switch (count) {
@@ -994,6 +1084,15 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               ]),
             ]),
           ),
+          if (canRead &&
+              readingScheduleMessage(widget.store.state, DateTime.now()) !=
+                  null)
+            Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: AppNotice(
+                    readingScheduleMessage(widget.store.state, DateTime.now())!,
+                    warning: !readingEntryIsOpen(
+                        widget.store.state, DateTime.now()))),
           if (queued.isNotEmpty)
             AppStrip(
                 key: const ValueKey('home-pending'),
@@ -1015,7 +1114,10 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
             AppServiceCard(
                 title: 'إدخال القراءات',
                 subtitle: 'قراءات عدادات الطبلونات',
-                summary: 'قُرئت $done من ${subscribers.length}',
+                summary: subscribers.isEmpty &&
+                        widget.store.state['next_reading'] != null
+                    ? '${(widget.store.state['next_reading']['boxes'] as List? ?? []).length} طبلون موزع إليك'
+                    : 'قُرئت $done من ${subscribers.length}',
                 icon: 'bolt',
                 color: AppIdentity.brand,
                 tint: AppIdentity.brandSoft,
@@ -1137,56 +1239,23 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                   style: AppIdentity.body(12.5, color: AppIdentity.heroFaint))),
       ]);
 
-  Widget syncView() {
-    final queue = widget.store.queuedReadings;
-    final rejected = queue.where((reading) => reading['sync_error'] != null);
-    return refreshable(ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-        children: [
-          Row(children: [
-            Expanded(
-                child: AppStat('بانتظار الإرسال', '${queue.length}',
-                    color: queue.isEmpty
-                        ? AppIdentity.good
-                        : AppIdentity.warning)),
-            const SizedBox(width: 8),
-            Expanded(
-                child: AppStat('رفضها الخادم', '${rejected.length}',
-                    color: rejected.isEmpty ? null : AppIdentity.bad)),
-          ]),
-          AppSection('القراءات المحفوظة على الجهاز',
-              note:
-                  'آخر تحديث ${updatedText(widget.store.state['roster_updated_at'] as String?)}'),
-          Padding(
-              padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
-              child: Text('يمكنك تعديل أي قراءة قبل إرسالها.',
-                  style: AppIdentity.body(12.5, color: AppIdentity.faint))),
-          QueuedReadingsList(
-              queue: queue,
-              subscribers: widget.store.subscribers,
-              onReenter: canRead &&
-                      readingEntryIsOpen(widget.store.state, DateTime.now())
-                  ? reenterReading
-                  : null,
-              onDiscard: discardRejectedReading),
-          const SizedBox(height: 14),
-          AppAction(
-              label: syncing
-                  ? 'جارٍ المزامنة...'
-                  : online
-                      ? 'مزامنة الآن'
-                      : 'سيتم الإرسال عند عودة الاتصال',
-              busy: syncing,
-              icon: 'sync',
-              onPressed:
-                  syncing || !online ? null : () => unawaited(synchronize())),
-          const SizedBox(height: 12),
-          const AppNotice(
-              'المزامنة دون اتصال مخصصة لقراءات العدادات فقط. الدفعات تُسجّل أثناء الاتصال مباشرة.'),
-        ]));
-  }
-
+  Widget syncView() => ReadingReview(
+        queue: widget.store.queuedReadings,
+        subscribers: widget.store.subscribers,
+        canUpload: canRead,
+        canEdit: (reading) =>
+            canRead &&
+            readingEntryIsOpen(widget.store.state, DateTime.now()) &&
+            reading['week_start'] == widget.store.state['week_start'] &&
+            widget.store.subscribers.any(
+                (subscriber) => subscriber['id'] == reading['subscription_id']),
+        online: online,
+        busy: syncing || uploadingReadings,
+        onRefresh: () => synchronize(forceRoster: true),
+        onUpload: uploadReadings,
+        onReenter: reenterReading,
+        onDiscard: discardRejectedReading,
+      );
   Widget account() {
     final name = '${widget.user['name'] ?? '?'}';
     return ListView(

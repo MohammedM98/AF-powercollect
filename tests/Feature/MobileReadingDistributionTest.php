@@ -10,6 +10,7 @@ use App\Models\MobileAccessToken;
 use App\Models\Permission;
 use App\Models\ReadingAssignment;
 use App\Models\ReadingCycle;
+use App\Models\ReadingDistribution;
 use App\Models\ReadingEntrySetting;
 use App\Models\SubArea;
 use App\Models\Subscription;
@@ -21,6 +22,9 @@ use Tests\TestCase;
 
 class MobileReadingDistributionTest extends TestCase
 {
+    /** @var array<int, string> */
+    private array $deviceTokens = [];
+
     use RefreshDatabase;
 
     private Branch $branch;
@@ -41,7 +45,7 @@ class MobileReadingDistributionTest extends TestCase
 
     private function mobile(User $user): static
     {
-        return $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($user));
+        return $this->withHeader('Authorization', 'Bearer '.($this->deviceTokens[$user->id] ??= MobileAccessToken::issue($user)));
     }
 
     private function box(?Branch $branch = null): MeterBox
@@ -156,6 +160,58 @@ class MobileReadingDistributionTest extends TestCase
             'current_reading' => 150, 'mobile_operation_id' => (string) Str::uuid(),
         ])->assertUnprocessable()->assertJsonValidationErrors('subscription_id');
         $this->assertDatabaseCount('meter_readings', 0);
+    }
+
+    public function test_readers_preview_their_standing_boxes_and_next_day_between_readings_without_downloading_work_early(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-19 10:00', 'Asia/Gaza'));
+        $box = $this->box();
+        ReadingDistribution::factory()->create(['meter_box_id' => $box->id, 'user_id' => $this->reader->id, 'approved_by' => $this->manager->id]);
+        $subscriber = $box->subscriptions()->firstOrFail();
+        $subscriber->update(['subscription_phone' => '0599000001']);
+        ReadingDistribution::factory()->create(['meter_box_id' => $this->box()->id]);
+        $this->mobile($this->reader)->getJson(route('mobile.reading-assignments.index'))
+            ->assertOk()->assertJsonCount(0, 'assignments')->assertJsonPath('next_reading.reading_date', '2026-10-22')
+            ->assertJsonCount(1, 'next_reading.boxes')->assertJsonPath('next_reading.boxes.0.id', $box->id)
+            ->assertJsonPath('next_reading.boxes.0.sub_area_name', $box->subArea->name)
+            ->assertJsonPath('next_reading.boxes.0.subscribers', 1)->assertJsonMissingPath('next_reading.boxes.0.authorization')
+            ->assertJsonPath('next_reading.boxes.0.subscriptions.0.id', $subscriber->id)
+            ->assertJsonPath('next_reading.boxes.0.subscriptions.0.phone', '0599000001');
+        $this->assertDatabaseCount('reading_cycles', 0);
+        $this->assertDatabaseCount('reading_assignments', 0);
+
+        $this->travelTo(Carbon::parse('2026-10-21 10:00', 'Asia/Gaza'));
+        $this->getJson(route('mobile.reading-assignments.index'))->assertJsonCount(1, 'assignments')
+            ->assertJsonPath('assignments.0.cycle.entry_open', false);
+        $this->travelTo(Carbon::parse('2026-10-22 10:00', 'Asia/Gaza'));
+        $this->getJson(route('mobile.reading-assignments.index'))->assertJsonPath('assignments.0.cycle.entry_open', true);
+
+        $this->travelTo(Carbon::parse('2026-10-26 10:00', 'Asia/Gaza'));
+        $this->getJson(route('mobile.reading-assignments.index'))->assertJsonCount(0, 'assignments')
+            ->assertJsonPath('next_reading.reading_date', '2026-10-29')->assertJsonPath('next_reading.boxes.0.id', $box->id);
+    }
+
+    public function test_preview_uses_the_delayed_cycle_date_and_respects_reassignments_and_drafts_over_the_standing_plan(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-19 10:00', 'Asia/Gaza'));
+        $cycle = $this->cycle();
+        $cycle->update(['reading_date' => '2026-10-24']);
+        $otherReader = User::factory()->dataEntry()->create(['branch_id' => $this->branch->id]);
+        $reassigned = $this->box();
+        ReadingDistribution::factory()->create(['meter_box_id' => $reassigned->id, 'user_id' => $this->reader->id, 'approved_by' => $this->manager->id]);
+        ReadingAssignment::factory()->mobile($otherReader)->approved()->create([
+            'reading_cycle_id' => $cycle->id, 'branch_id' => $this->branch->id, 'meter_box_id' => $reassigned->id,
+        ]);
+        $assigned = ReadingAssignment::factory()->mobile($this->reader)->approved()->create([
+            'reading_cycle_id' => $cycle->id, 'branch_id' => $this->branch->id, 'meter_box_id' => $this->box()->id,
+        ]);
+        ReadingAssignment::factory()->mobile($this->reader)->create([
+            'reading_cycle_id' => $cycle->id, 'branch_id' => $this->branch->id, 'meter_box_id' => $this->box()->id,
+        ]);
+        $this->mobile($this->reader)->getJson(route('mobile.reading-assignments.index'))
+            ->assertOk()->assertJsonCount(0, 'assignments')->assertJsonPath('next_reading.reading_date', '2026-10-24')
+            ->assertJsonCount(1, 'next_reading.boxes')->assertJsonPath('next_reading.boxes.0.id', $assigned->meter_box_id);
+        $this->assertNull($assigned->fresh()->downloaded_at);
     }
 
     public function test_reassigning_downloaded_boxes_requires_confirmation_and_checks_versions(): void

@@ -124,6 +124,12 @@ void main() {
         {'id': 42, 'full_name': 'Private Subscriber'}
       ];
       store.state['week_start'] = '2026-09-21';
+      store.state['next_reading'] = {
+        'reading_date': '2026-10-29',
+        'boxes': [
+          {'id': 42}
+        ]
+      };
       await store.save();
 
       await store.saveSession({'id': 2, 'username': 'reader-b'}, 'token-b');
@@ -132,6 +138,7 @@ void main() {
       expect(restored.user?['id'], 2);
       expect(restored.subscribers, isEmpty);
       expect(restored.state['week_start'], isNull);
+      expect(restored.state['next_reading'], isNull);
 
       await restored.queueReading({
         'mobile_operation_id': newOperationId(),
@@ -184,10 +191,17 @@ void main() {
       final restored = FieldStore(directory: directory);
       await restored.load();
       expect(restored.queuedReadings.single['mobile_operation_id'], id);
+      await restored.markReadingUncertain(id);
+      final pending = FieldStore(directory: directory);
+      await pending.load();
+      expect(pending.queuedReadings.single['upload_uncertain'], true);
+      await pending.reopenReading(id);
+      expect(pending.queuedReadings, hasLength(1));
       await restored.markReadingError(id, 'validation error');
       final again = FieldStore(directory: directory);
       await again.load();
       expect(again.queuedReadings.single['sync_error'], 'validation error');
+      expect(again.queuedReadings.single['upload_uncertain'], isNull);
       await again.removeReading(id);
       expect(again.queuedReadings, isEmpty);
     } finally {
@@ -315,7 +329,7 @@ void main() {
       await tester.tap(find.byKey(ValueKey('reading-key-$digit')));
       await tester.pump();
     }
-    await tester.tap(find.text('حفظ قراءتين وإرسالهما للمراجعة'));
+    await tester.tap(find.text('حفظ قراءتين على الجهاز'));
     await tester.pumpAndSettle();
 
     expect(store.queuedReadings, hasLength(2));

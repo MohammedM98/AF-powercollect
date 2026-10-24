@@ -1,12 +1,33 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assignmentMatches, boardColumns, boardCounters, boxMatches, columnTotals, distributionAreas, draggedBoxIds, movePayload, readingSearchMatches, toggleBoxSelection } from '../../resources/js/lib/readingBoard.js';
+import { assignmentMatches, boardColumns, boardCounters, boxMatches, columnTotals, distributionAreas, distributionBoxOptions, draggedBoxIds, movePayload, readingSearchMatches, toggleBoxSelection } from '../../resources/js/lib/readingBoard.js';
 
 const boards = [
     { id: 1, number: 'B-001', name: 'المدارس 1', subAreaId: 7, subscribers: 4, read: 1, version: 0, column: 'available', status: null },
     { id: 2, number: 'B-002', name: 'المدارس 2', subAreaId: 8, subscribers: 6, read: 6, version: 2, column: 'reader:5', status: 'approved' },
     { id: 3, number: 'B-003', name: 'السوق', subAreaId: 7, subscribers: 3, read: 0, version: 1, column: 'paper', status: 'draft' },
 ];
+
+test('the box filter narrows the selected area and search without including another box', () => {
+    assert.equal(boxMatches(boards[0], 'مدارس', ['7'], '1'), true);
+    assert.equal(boxMatches(boards[0], '', ['8'], '1'), false);
+    assert.equal(boxMatches(boards[0], '', ['7'], '3'), false);
+    assert.equal(boxMatches(boards[0], 'سوق', ['7'], '1'), false);
+    assert.equal(boxMatches(boards[0], '', [], 1), true);
+    const visible = boards.filter((box) => boxMatches(box, '', ['7'], '3') && assignmentMatches(box, 'paper'));
+    assert.deepEqual(visible.map((box) => box.id), [3]);
+    assert.deepEqual([...toggleBoxSelection(new Set([2]), visible)].sort(), [2, 3]);
+});
+
+test('box choices follow areas and reader filters and show the name beside its number', () => {
+    assert.deepEqual(distributionBoxOptions(boards, ['7'], 'available'), [
+        { value: '1', label: 'المدارس 1 (B-001)', hint: 'بدون منطقة 2' },
+    ]);
+    assert.deepEqual(distributionBoxOptions(boards, ['7'], 'reader:5'), []);
+    assert.deepEqual(distributionBoxOptions(boards, ['8'], 'reader:5').map((option) => option.value), ['2']);
+    assert.deepEqual(distributionBoxOptions(boards, [], 'assigned').map((option) => option.value).sort(), ['2', '3']);
+    assert.equal(distributionBoxOptions([{ ...boards[0], subAreaId: null, subAreaName: 'حي جديد' }], ['none'])[0].hint, 'حي جديد');
+});
 
 test('the pool comes first, then paper, then each reader', () => {
     assert.deepEqual(boardColumns([{ id: 5, name: 'أحمد' }]).map((column) => column.key), ['available', 'paper', 'reader:5']);

@@ -28,6 +28,9 @@ use Tests\TestCase;
 
 class ReadingCycleTest extends TestCase
 {
+    /** @var array<int, string> */
+    private array $deviceTokens = [];
+
     use RefreshDatabase;
 
     private Branch $branch;
@@ -91,7 +94,7 @@ class ReadingCycleTest extends TestCase
 
     private function mobile(User $reader): static
     {
-        return $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($reader));
+        return $this->withHeader('Authorization', 'Bearer '.($this->deviceTokens[$reader->id] ??= MobileAccessToken::issue($reader)));
     }
 
     public function test_a_cycle_is_prepared_for_a_week_of_the_branch_and_its_reading_day_can_move_later_only(): void
@@ -352,6 +355,7 @@ class ReadingCycleTest extends TestCase
     {
         $cycle = $this->cycle();
         $boxes = $this->boxes(3);
+        Subscription::query()->whereIn('meter_box_id', $boxes->pluck('id'))->update(['subscription_phone' => '0599000001']);
         $this->allocate($this->branchAdmin, $cycle, $boxes, 'paper');
 
         $this->actingAs($this->branchAdmin)->post(route('reading-cycles.paper-sheets.store', $cycle), ['box_ids' => $boxes->pluck('id')->all()])
@@ -361,8 +365,8 @@ class ReadingCycleTest extends TestCase
 
         $sheet = PaperSheet::query()->sole();
         $this->actingAs($this->branchAdmin)->get(route('paper-sheets.show', $sheet))
-            ->assertInertia(fn ($page) => $page->component('ReadingCycles/PaperSheet')->has('boxes', 3)->where('boxes.0.subscriptions.0.previousReading', 100));
-        $this->actingAs($this->branchAdmin)->post(route('paper-sheets.printed', $sheet));
+            ->assertInertia(fn ($page) => $page->component('ReadingCycles/PaperSheet')->has('boxes', 3)->where('boxes.0.subscriptions.0.previousReading', 100)->where('boxes.0.subscriptions.0.phone', '0599000001'));
+        $this->actingAs($this->branchAdmin)->postJson(route('paper-sheets.printed', $sheet))->assertOk()->assertJsonPath('printed', true);
         $this->actingAs($this->branchAdmin)->post(route('paper-sheets.printed', $sheet));
 
         $this->assertSame(2, $sheet->fresh()->print_count);

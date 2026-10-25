@@ -6,6 +6,7 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=1">
 
         <link rel="preload" href="{{ Vite::asset('resources/fonts/ibm-plex-sans-arabic-arabic-400.woff2') }}" as="font" type="font/woff2" crossorigin>
 

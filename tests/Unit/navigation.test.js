@@ -1,6 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, isActiveLink, navigationGroups, isInsideAnyLink, pageTrail, topBarItems } from '../../resources/js/lib/navigation.js';
+import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, isActiveLink, navigationGroups, isInsideAnyLink, pageTrail, topBarItems, shouldPrefetchPage } from '../../resources/js/lib/navigation.js';
+
+test('hover navigation avoids background requests for financial and reading pages', () => {
+    for (const href of ['/dashboard', '/subscriptions?sort=name', '/meter-readings', '/reading-cycles', '/reports', '/ledger', '/payments/summary', '/disconnection-lists', '/unknown']) {
+        assert.equal(shouldPrefetchPage(href), false, href);
+    }
+    for (const href of ['/profile', '/settings/mobile-app', '/governorates?selected=1', '/tariffs', '/circuit-breakers#list']) {
+        assert.equal(shouldPrefetchPage(href), true, href);
+    }
+    assert.equal(shouldPrefetchPage('https://untrusted.test/profile'), false);
+});
 
 test('auditors see subscriber accounts and audit destinations without administration even with legacy grants', () => {
     const can = Object.fromEntries([...MAIN_LINKS, ...SETTINGS_LINKS].filter((link) => link.can).map((link) => [link.can, true]));

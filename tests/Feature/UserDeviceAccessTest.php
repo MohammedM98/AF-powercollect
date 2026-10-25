@@ -33,6 +33,23 @@ class UserDeviceAccessTest extends TestCase
         Auth::forgetGuards();
     }
 
+    public function test_session_checks_refresh_the_device_without_redundant_registry_lookups(): void
+    {
+        $this->freezeTime();
+        $user = User::factory()->superAdmin()->create();
+        $this->post(route('login'), $this->credentials($user))->assertRedirect();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $this->withCredentials()->withCookie(config('session.cookie'), session()->getId())->getJson(route('auth.session'))->assertNoContent();
+
+        $deviceQueries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], '"user_login_devices"'));
+        DB::disableQueryLog();
+        $this->assertLessThanOrEqual(3, $deviceQueries->count());
+        $this->assertDatabaseCount('user_login_devices', 1);
+        $this->assertDatabaseHas('user_login_devices', ['user_id' => $user->id, 'expires_at' => now()->addMinutes(config('session.lifetime'))->toDateTimeString()]);
+    }
+
     public function test_a_new_mobile_login_replaces_the_old_device_even_for_a_super_admin(): void
     {
         $user = User::factory()->superAdmin()->create();

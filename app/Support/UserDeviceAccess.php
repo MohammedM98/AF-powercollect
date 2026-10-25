@@ -34,11 +34,16 @@ class UserDeviceAccess
             if ($device === null || CarbonImmutable::parse($device->expires_at)->lessThanOrEqualTo(now())) {
                 $this->assertCapacity($user);
             }
-            DB::table('user_login_devices')->updateOrInsert($identity, [
+            $timestamps = [
                 'created_at' => $device?->created_at ?? now(), 'updated_at' => now(),
                 'expires_at' => now()->addMinutes(config('session.lifetime')),
-            ]);
-            $id = DB::table('user_login_devices')->where($identity)->value('id');
+            ];
+            if ($device === null) {
+                $id = DB::table('user_login_devices')->insertGetId([...$identity, ...$timestamps]);
+            } else {
+                $id = $device->id;
+                DB::table('user_login_devices')->where($identity)->update($timestamps);
+            }
             if (! $this->allowed($user, 'web:'.$id)) {
                 throw ValidationException::withMessages(['username' => self::LIMIT_MESSAGE]);
             }

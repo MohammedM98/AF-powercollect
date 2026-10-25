@@ -31,11 +31,13 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentSettingController;
 use App\Http\Controllers\PeriodAuditController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\PrintSelectionController;
 use App\Http\Controllers\PrintTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileDeviceController;
 use App\Http\Controllers\ReadingAssignmentController;
 use App\Http\Controllers\ReadingCycleController;
+use App\Http\Controllers\ReadingPrintController;
 use App\Http\Controllers\ReadingScheduleController;
 use App\Http\Controllers\ReadingSubmissionController;
 use App\Http\Controllers\ReadNotificationController;
@@ -75,6 +77,9 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('aut
 
 Route::middleware('auth')->group(function () {
     Route::get('/auth/session', SessionStatusController::class)->name('auth.session');
+    Route::post('/print-selections', [PrintSelectionController::class, 'store'])->middleware('throttle:30,1')->name('print-selections.store');
+    Route::get('/reading-cycles/print', [ReadingPrintController::class, 'index'])->name('reading-cycles.print');
+    Route::get('/paper-sheets', [PaperSheetController::class, 'index'])->name('paper-sheets.index');
     Route::get('/settings/mobile-app', [MobileAppDownloadController::class, 'index'])->name('settings.mobile-app.index');
     Route::get('/settings/mobile-app/download', [MobileAppDownloadController::class, 'download'])->middleware('throttle:12,1')->name('settings.mobile-app.download');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

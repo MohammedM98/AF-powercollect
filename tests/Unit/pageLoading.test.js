@@ -23,9 +23,13 @@ test('the global search shortcut leaves page dialogs and handled keys alone', ()
     assert.deepEqual(changes, []);
 });
 
-test('opening a subscriber list does not download dormant forms, statements or print tools', async () => {
+test('opening lists does not download dormant forms, statements or print tools', async () => {
     const bundle = await rolldown({
-        input: path.resolve(import.meta.dirname, '../../resources/js/Pages/Subscriptions/Index.jsx'),
+        input: {
+            subscriptions: path.resolve(import.meta.dirname, '../../resources/js/Pages/Subscriptions/Index.jsx'),
+            readings: path.resolve(import.meta.dirname, '../../resources/js/Pages/MeterReadings/Index.jsx'),
+            distribution: path.resolve(import.meta.dirname, '../../resources/js/Pages/ReadingCycles/Show.jsx'),
+        },
         platform: 'browser', transform: { jsx: 'react-jsx' },
         external: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', '@inertiajs/react'],
         resolve: { alias: { '@': path.resolve(import.meta.dirname, '../../resources/js') } },
@@ -34,19 +38,21 @@ test('opening a subscriber list does not download dormant forms, statements or p
     try {
         const { output } = await bundle.generate({ format: 'esm' });
         const chunks = new Map(output.filter((item) => item.type === 'chunk').map((chunk) => [chunk.fileName, chunk]));
-        const initial = new Set();
-        function collect(file) {
-            if (initial.has(file) || !chunks.has(file)) return;
-            initial.add(file);
-            chunks.get(file).imports.forEach(collect);
-        }
-        collect(output.find((item) => item.type === 'chunk' && item.isEntry).fileName);
         const modulesOf = (files) => files.flatMap((file) => Object.keys(chunks.get(file).modules).map((id) => id.replaceAll('\\', '/')));
-        const initialModules = modulesOf([...initial]);
         const allModules = modulesOf([...chunks.keys()]);
-        for (const module of ['Subscriptions/SubscriptionModal.jsx', 'Subscriptions/SubscriptionDetailsModal.jsx', 'Subscriptions/ReadingHistoryModal.jsx', 'Subscriptions/StatementModal.jsx', 'Print/PrintDesigner.jsx', 'Messages/QuickMessageModal.jsx', 'Components/CommandPalette.jsx']) {
-            assert.ok(allModules.some((id) => id.endsWith(module)), `${module} must remain available to open`);
-            assert.equal(initialModules.some((id) => id.endsWith(module)), false, `${module} must wait until requested`);
+        for (const entry of output.filter((item) => item.type === 'chunk' && item.isEntry)) {
+            const initial = new Set();
+            function collect(file) {
+                if (initial.has(file) || !chunks.has(file)) return;
+                initial.add(file);
+                chunks.get(file).imports.forEach(collect);
+            }
+            collect(entry.fileName);
+            const initialModules = modulesOf([...initial]);
+            for (const module of ['Subscriptions/SubscriptionModal.jsx', 'Subscriptions/SubscriptionDetailsModal.jsx', 'Subscriptions/ReadingHistoryModal.jsx', 'Subscriptions/StatementModal.jsx', 'Print/PrintDesigner.jsx', 'Messages/QuickMessageModal.jsx', 'Components/CommandPalette.jsx']) {
+                assert.ok(allModules.some((id) => id.endsWith(module)), `${module} must remain available to open`);
+                assert.equal(initialModules.some((id) => id.endsWith(module)), false, `${module} must wait until requested on ${entry.name}`);
+            }
         }
     } finally {
         await bundle.close();

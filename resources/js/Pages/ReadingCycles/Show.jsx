@@ -15,6 +15,7 @@ import DistributionTable from './DistributionTable';
 import DistributionAreas from './DistributionAreas';
 import SearchableSelect from '@/Components/SearchableSelect';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
+import PrintButton from '@/Components/PrintButton';
 
 
 function DistributionSummary({ boxes }) {
@@ -220,6 +221,7 @@ export default function Show({ cycle, boards, readers, paperSheets, reviewCount,
                         meta={<>أسبوع القراءة <span dir="ltr">{cycle.weekStart}</span> — <span dir="ltr">{cycle.weekEnd}</span> · إتاحة المهام <span dir="ltr">{cycle.availableOn}</span>{cycle.readingDate !== cycle.weekEnd && ' · يوم القراءة مؤجل لهذه الدورة'}</>}
                     />
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <PrintButton title={`توزيع القراءات — ${cycle.branchName}`} base="/reading-cycles/print" params={{ cycle: cycle.id, search, area_ids: subAreaIds, box_id: boxId, assignment: assignmentFilter, print_page: currentPage, per_page: perPage }} selectedIds={[...selected]} selectionPage="/reading-cycles/print" />
                         {abilities.review && (
                             <Link href={`/reading-cycles/${cycle.id}/submissions`} className={secondaryButtonClass}>
                                 <Icon name="list" className="h-4 w-4" />

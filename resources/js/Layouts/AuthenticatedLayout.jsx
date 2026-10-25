@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import TopBar from '@/Components/TopBar/TopBar';
 import NavigationDrawer from '@/Components/TopBar/NavigationDrawer';
@@ -48,7 +48,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     const [tourOpen, setTourOpen] = useState(false);
     // The quick message window, with the subscriptions it was opened for (see lib/quickMessage.js); null when closed.
     const [quickMessage, setQuickMessage] = useState(null);
-    const [printSettings] = useState(currentPrintSettings);
+    const printSettings = useMemo(() => currentPrintSettings(new URL(url, window.location.origin).search), [url]);
     useEffect(() => watchSessionStatus(() => window.location.replace('/login')), []);
     const menuButtonRef = useRef(null);
     const titleEndRef = useRef(null);

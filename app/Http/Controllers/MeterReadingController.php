@@ -25,6 +25,8 @@ use App\Models\Tariff;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
 use App\Notifications\ReadingNeedsReapproval;
+use App\Support\PrintSelection;
+use App\Support\ReadingPrintData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -72,6 +74,13 @@ class MeterReadingController extends Controller
                     ->with(['recordedBy:id,name', 'approvedBy:id,name', 'chargeLine:id,meter_reading_id']),
             ])
             ->withExists(['meterReadings as has_later_week' => fn ($q) => $q->whereDate('week_start', '>', $week)]);
+        if ($request->boolean('print')) {
+            $query->with('branch:id,name');
+            $selected = PrintSelection::ids($request, '/meter-readings');
+            if ($selected !== null) {
+                $query->whereHas('meterReadings', fn (Builder $readings): Builder => $readings->whereKey($selected)->whereDate('week_start', $week));
+            }
+        }
 
         $this->withSheetColumns($query, $week);
         $this->applyMeterBoxSort($query, $request);
@@ -87,7 +96,23 @@ class MeterReadingController extends Controller
 
         $rows = fn () => $query->paginate($this->dataTablePerPage($request, 25))
             ->withQueryString()
-            ->through(fn (Subscription $subscription) => $this->sheetRow($subscription, $weekStart, $actor));
+            ->through(fn (Subscription $subscription) => $this->sheetRow($subscription, $weekStart, $actor, $request->boolean('print')));
+
+        if ($request->boolean('print')) {
+            $weekEnd = MeterReading::weekEndFor($weekStart, $weekBranchId);
+            $context = [
+                'templatePage' => '/meter-readings',
+                'title' => 'القراءات الأسبوعية',
+                'branchName' => $actor->workBranch()?->name ?? 'كل الفروع',
+                'readingDate' => $weekEnd->toDateString(),
+                'readingDayName' => $weekEnd->locale('ar')->dayName,
+                'weekStart' => $week,
+                'weekEnd' => $weekEnd->toDateString(),
+                'sourceUrl' => route('meter-readings.index'),
+            ];
+
+            return Inertia::render('Print/ReadingReport', ['printData' => fn (): array => ReadingPrintData::sheet($rows(), $context, $this->seesWhoRecorded($actor))]);
+        }
 
         $scope = $this->subscriptionsInScope($actor);
         $canApprove = $actor->can('approveAny', MeterReading::class);
@@ -714,7 +739,7 @@ class MeterReadingController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function sheetRow(Subscription $subscription, Carbon $weekStart, User $actor): array
+    private function sheetRow(Subscription $subscription, Carbon $weekStart, User $actor, bool $printing = false): array
     {
         $reading = $subscription->meterReadings->first(fn (MeterReading $r) => $r->week_start->equalTo($weekStart));
         $lastBefore = $subscription->meterReadings->first(fn (MeterReading $r) => $r->week_start->lessThan($weekStart));
@@ -723,6 +748,7 @@ class MeterReadingController extends Controller
             : [$subscription->standingDiscount?->method, $subscription->standingDiscount?->value, $subscription->standingDiscount?->segment];
 
         return [
+            ...($printing ? ['printDetails' => ['branchName' => $subscription->branch?->name, 'tariffName' => __($subscription->tariff->category->label()), 'breakerAmpere' => $subscription->circuitBreaker?->ampere, 'notes' => $reading?->notes]] : []),
             'id' => $subscription->id,
             'accountNumber' => $subscription->account_number,
             'fullName' => $subscription->displayName(),

@@ -5,7 +5,7 @@ import Icon from '@/Components/Icon';
 import { formatNumber } from '@/lib/format';
 import { secondaryButtonClass } from '@/Components/SecondaryButton';
 import PageHeader from '@/Components/PageHeader';
-import { printUrl } from '@/lib/print';
+import PrintButton from '@/Components/PrintButton';
 
 /**
  * A paper reading sheet as printed: its number and cycle, and for each box
@@ -39,10 +39,7 @@ export default function PaperSheet({ sheet, cycle, boxes }) {
                             <Icon name="pencil" className="h-4 w-4" />
                             إدخال القراءات من الكشف
                         </Link>
-                        <a href={printUrl(`كشف قراءة العدادات — ${cycle.branchName}`)} target="_blank" rel="noopener noreferrer" className={`${secondaryButtonClass} tone-print`}>
-                            <Icon name="printer" className="h-4 w-4" />
-                            طباعة وتخصيص الكشف
-                        </a>
+                        <PrintButton title={`كشف قراءة العدادات — ${cycle.branchName}`} />
                     </div>
                 </>
             }

@@ -134,9 +134,6 @@ button.card:active,.card .tap:active{transform:scale(.99)}
 .cur small{font-size:11.5px;color:var(--faint)}
 .cur b{font:700 15px var(--f-num)}
 
-.tools{display:grid;gap:10px}
-.tools button{background:var(--surface);border:1px solid var(--line-soft);border-radius:18px;padding:12px 10px;display:grid;gap:8px;justify-items:start;font-size:13px;font-weight:700;line-height:1.35}
-.tools button small{font-weight:500;color:var(--faint);font-size:11.5px}
 
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--sunken);border-radius:15px;padding:4px;gap:4px}
 .seg button{border-radius:11px;padding:7px 8px;text-align:center;font-weight:700;font-size:14px;color:var(--muted)}
@@ -249,7 +246,7 @@ td .tag{margin-inline-start:6px}
     <ul class="rules">
      <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>لا تفتح بطاقتان في الرئيسية الشاشة نفسها.</span></li>
      <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>الصلاحية الإضافية تضيف خيارًا داخل الشاشة، ولا تضيف بطاقة. الحوالة المقسّمة مثال: تظهر في صفحة المشترك.</span></li>
-     <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>ثلاث بطاقات كبيرة على الأكثر لمهام اليوم، وما يُستخدم أقل يصبح بلاطات صغيرة.</span></li>
+     <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>ما له مدخل في شاشة أخرى لا يظهر في الرئيسية: الرسائل من صفحة المشترك، والقراءات الأسبوعية من شاشة التحصيل.</span></li>
      <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>الرقم في أعلى الشاشة مدخل لتفاصيله: «تحصيل اليوم» يفتح دفعات اليوم.</span></li>
     </ul>
    </section>
@@ -275,8 +272,10 @@ td .tag{margin-inline-start:6px}
      <tr><td>حوالة مقسّمة</td><td>صفحة المشترك ← تسجيل دفعة مقسّمة</td><td>الحوالة تبدأ دائمًا من مشترك، والزر موجود هناك أصلًا.</td></tr>
      <tr><td>دفعاتي اليوم</td><td>رقم «تحصيل اليوم» في الأعلى، وتبويب داخل التحصيل</td><td>الرقم والتبويب يؤديان الوظيفة نفسها.</td></tr>
      <tr><td>كشوف حساب المشتركين</td><td>صفحة المشترك ← السجل المالي. تبقى بطاقة لمن لا يملك صلاحية التحصيل</td><td>للمحصّل تفتح شاشة التحصيل نفسها.</td></tr>
-     <tr><td>صندوقي <span class="tag tone-good">جديدة</span></td><td>بطاقة مستقلة</td><td>وظيفة لا تكررها أي شاشة: مجموع الصندوق بكل عملة، تأكيد الصندوق المستلم، والرد على ملاحظات المدقق. الخادم يوفّرها في <span class="num" dir="ltr">/api/mobile/cash-boxes</span> والتطبيق لا يستخدمها بعد.</td></tr>
-     <tr><td>القراءات الأسبوعية، توزيع القراءات، الرسائل</td><td>«أدوات أخرى» ببلاطات صغيرة</td><td>تُستخدم أقل من مهام اليوم، فلا تزاحمها.</td></tr>
+     <tr><td>صندوقي <span class="tag tone-good">جديدة</span></td><td>بطاقة مستقلة</td><td>وظيفة لا تكررها أي شاشة: كل صندوق مفتوح حسب نوعه (نقدي، حوالات بنكية، مقاصة) مع دفعاته ومجموعه بكل عملة. المحصّل يعرض فقط، ورئيس الفرع هو من يغلق الصندوق. البيانات من <span class="num" dir="ltr">/api/mobile/cash-boxes</span>.</td></tr>
+     <tr><td>إرسال الرسائل</td><td>صفحة المشترك ← إرسال رسالة</td><td>الرسالة تُرسل لمشترك بعينه. تبقى في الرئيسية فقط لمن لا يستطيع فتح المشتركين.</td></tr>
+     <tr><td>القراءات الأسبوعية</td><td>رابط في شاشة التحصيل</td><td>تبقى في الرئيسية فقط لمن لا يستطيع فتح المشتركين.</td></tr>
+     <tr><td>توزيع القراءات</td><td>«أدوات أخرى»</td><td>لا مدخل آخر لها، وتُستخدم أقل من مهام اليوم.</td></tr>
     </tbody>
    </table>
   </div>
@@ -306,7 +305,8 @@ const I = {
  pin:'<path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
  sliders:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
  chart:'<path d="M5 20V11M12 20V4M19 20v-7"/>',
- warn:'<path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17.5v.01"/>'
+ warn:'<path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17.5v.01"/>',
+ scale:'<path d="M12 4v16M8 20h8M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>'
 };
 const ic = (n, s = 20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
 const money = n => n.toLocaleString('en-US', {maximumFractionDigits: 2});
@@ -318,9 +318,9 @@ const PERMS = [
  ['split', 'الحوالات المقسّمة', 'تظهر داخل صفحة المشترك'],
  ['statements', 'كشوف حساب المشتركين', ''],
  ['adjust', 'الحركات المالية', 'تحميل، خصم، تسوية'],
- ['weekly', 'عرض القراءات الأسبوعية', ''],
+ ['weekly', 'عرض القراءات الأسبوعية', 'رابط في شاشة التحصيل'],
  ['distribute', 'توزيع القراءات', ''],
- ['messages', 'الرسائل', ''],
+ ['messages', 'الرسائل', 'من صفحة المشترك'],
 ];
 const PRESETS = {
  all: {read:1, collect:1, split:1, statements:1, adjust:1, weekly:1, distribute:1, messages:1},
@@ -342,9 +342,21 @@ const SUBS = [
  ['رنا فتحي الشريف', '12-0107', 'طبلون 12', 0], ['محمود عبد الرحيم سلامة', '10-0412', 'طبلون 3', 0],
  ['يوسف كامل البرغوثي', '12-0140', 'طبلون 15', 212]];
 const QUEUED = 3;
+const BOX_TYPES = [['cash', 'نقدي', 'cash', 'good'], ['bank', 'حوالات بنكية', 'bank', 'info'], ['clearing', 'مقاصة', 'scale', 'brand']];
+const BOXES = {
+ cash: {n: 214, since: '18/10 08:00', rows: [
+  ['محمود عبد الرحيم سلامة', '10-0412', 600, 'ILS', '25/10 09:12', ''], ['سعاد يوسف الخطيب', '10-0418', 350, 'ILS', '25/10 09:40', ''],
+  ['خالد إبراهيم عودة', '10-0451', 400, 'ILS', '25/10 10:05', ''], ['عبد الله مصطفى حمدان', '12-0119', 500, 'ILS', '25/10 11:30', ''],
+  ['هالة سمير النجار', '12-0124', 400, 'ILS', '25/10 12:10', ''], ['يوسف كامل البرغوثي', '12-0140', 120, 'USD', '23/10 13:00', '']]},
+ bank: {n: 215, since: '18/10 08:00', rows: [
+  ['مخبز النور', '10-0433', 1200, 'ILS', '25/10 09:55', 'بنك فلسطين · مرجع TR-889'],
+  ['رنا فتحي الشريف', '12-0107', 800, 'ILS', '25/10 11:02', 'البنك الإسلامي الفلسطيني · مرجع TR-902']]},
+ clearing: {n: 216, since: '20/10 10:00', rows: [['عبد الله مصطفى حمدان', '12-0119', 100, 'ILS', '22/10 14:20', 'صيانة مولد']]},
+};
+const paymentsCount = n => n === 1 ? 'دفعة واحدة' : n === 2 ? 'دفعتان' : n <= 10 ? `${n} دفعات` : `${n} دفعة`;
 
 const S = {mode: 'proposed', perms: {...PRESETS.all}, screen: 'home', tab: 'subs', sub: 0, forSplit: false,
- query: '', boxConfirmed: false, noteAnswered: false, preset: 'all'};
+ query: '', boxType: 'cash', preset: 'all'};
 const P = () => S.perms;
 const can = {
  browse: () => P().collect || P().statements || P().adjust,
@@ -388,7 +400,6 @@ function hero() {
 function strips() {
  let h = '';
  if (can.sync()) h += `<button class="strip tone-warn" data-go="sync">${ic('clock', 18)}<span>${num(QUEUED)} قراءات بانتظار المزامنة</span><em>عرض</em></button>`;
- if (S.mode === 'proposed' && can.box() && !S.noteAnswered) h += `<button class="strip tone-brand" data-go="cashbox">${ic('note', 18)}<span>ملاحظة من المدقق بانتظار ردك</span><em>رد</em></button>`;
  return h;
 }
 function svc({icon, tone, title, sub, summary, go, tab, split, key, dup}) {
@@ -408,28 +419,24 @@ function primaryCards() {
   <div class="meta"><span>${num(WEEK.total - WEEK.done)} قراءة متبقية في ${num(3)} طبلونات</span><span>الإدخال مفتوح حتى الخميس</span></div></button>`);
  if (can.browse()) out.push(`<div class="card tone-good">
   <button class="card-h tap" data-go="collections"><span class="tile">${ic(p.collect ? 'cash' : 'hist', 24)}</span>
-   <span class="t"><b>${p.collect ? 'التحصيل' : 'كشوف حساب المشتركين'}</b><small>${p.collect ? 'ابحث عن المشترك ثم اختر العملية' : 'الدفعات والقراءات والحركات المالية'}</small></span>${ic('chev', 18)}</button>
+   <span class="t"><b>${p.collect ? 'تسجيل الدفعات' : 'كشوف حساب المشتركين'}</b><small>${p.collect ? 'ابحث عن المشترك ثم اختر العملية' : 'الدفعات والقراءات والحركات المالية'}</small></span>${ic('chev', 18)}</button>
   <button class="search tap" data-go="collections" data-focus="1">${ic('search', 18)}<span>الاسم أو رقم الحساب أو الطبلون</span></button>
   <span class="hint">${ic('user', 14)}${p.collect ? 'الدفعة' + (p.split ? ' والحوالة المقسّمة' : '') + ' وكشف الحساب من صفحة المشترك' : 'كشف الحساب من صفحة المشترك'}</span></div>`);
- if (can.box()) out.push(`<button class="card tone-info" data-go="cashbox">
-  <div class="card-h"><span class="tile">${ic('box', 24)}</span>
-   <span class="t"><b>صندوقي</b><small>الصندوق المفتوح #${num(214)} منذ الأحد</small></span>
-   ${S.boxConfirmed ? '<span class="tag tone-good">مؤكد</span>' : '<span class="tag tone-warn">صندوق بانتظار تأكيدك</span>'}</div>
-  <div class="cur"><div><small>شيكل</small><b class="num" dir="ltr">2,250 ₪</b></div><div><small>دولار</small><b class="num" dir="ltr">120 $</b></div><div><small>دينار</small><b class="num" dir="ltr">0 JD</b></div></div></button>`);
+ if (can.box()) out.push(svc({icon:'box', tone:'info', title:'صندوقي', sub:'صناديقك المفتوحة ودفعاتها حسب النوع', summary:'نقدي · حوالات · مقاصة', go:'cashbox'}));
  return out;
 }
 function toolTiles() {
  const p = P(), out = [];
- if (p.weekly) out.push(`<button class="tone-info" data-go="weekly"><span class="tile sm">${ic('chart')}</span><span>القراءات الأسبوعية<small>عرض فقط</small></span></button>`);
- if (p.distribute) out.push(`<button class="tone-brand" data-go="distribute"><span class="tile sm">${ic('pin')}</span><span>توزيع القراءات<small>الدورة القادمة</small></span></button>`);
- if (p.messages) out.push(`<button class="tone-info" data-go="messages"><span class="tile sm">${ic('message')}</span><span>الرسائل<small>رسائل SMS</small></span></button>`);
+ if (p.weekly && !can.browse()) out.push(svc({icon:'chart', tone:'info', title:'القراءات الأسبوعية', sub:'قراءات المشتركين والاستهلاك', summary:'عرض فقط', go:'weekly'}));
+ if (p.distribute) out.push(svc({icon:'pin', tone:'brand', title:'توزيع القراءات', sub:'المناطق والطبلونات وقارئو العدادات', summary:'الدورة القادمة', go:'distribute'}));
+ if (p.messages && !can.browse()) out.push(svc({icon:'message', tone:'info', title:'إرسال الرسائل', sub:'رسائل المشترك وسجل الإرسال', summary:'رسائل SMS', go:'messages'}));
  return out;
 }
 function homeProposed() {
  const cards = primaryCards(), tools = toolTiles();
  return header('مرحبًا، أحمد', 'فرع الوسط') + `<div class="body">${hero()}${strips()}
   ${cards.length ? `<div class="sec">مهامك</div>${cards.join('')}` : ''}
-  ${tools.length ? `<div class="sec">أدوات أخرى</div><div class="tools" style="grid-template-columns:repeat(${tools.length},minmax(0,1fr))">${tools.join('')}</div>` : ''}
+  ${tools.length ? `<div class="sec">${cards.length ? 'أدوات أخرى' : 'خدماتك'}</div>${tools.join('')}` : ''}
   ${!cards.length && !tools.length ? `<div class="notice tone-warn">${ic('lock', 18)}<span>لا توجد خدمات مفعّلة لحسابك. تواصل مع الإدارة لمنحك الصلاحيات.</span></div>` : ''}
  </div>`;
 }
@@ -474,6 +481,7 @@ function collections() {
    <div class="rows">${TODAY.map(t => `<div class="row"><span class="tile sm ${t[3] === 'cash' ? 'tone-good' : 'tone-info'}">${ic(t[3] === 'cash' ? 'cash' : 'bank', 18)}</span>
    <span class="t"><b>${t[0]}</b><small>${num(t[1])} · ${t[3] === 'cash' ? 'نقدًا' : 'تحويل بنكي'}</small></span><span class="amt">${num(money(t[2]) + ' ₪')}</span></div>`).join('')}</div>`;
  } else {
+  if (p.weekly) h += `<button class="hint" data-go="weekly" style="color:var(--info);font-weight:600;font-size:13.5px">${ic('chart', 16)}القراءات الأسبوعية ${ic('chev', 14)}</button>`;
   h += `<label class="search">${ic('search', 18)}<input id="q" type="search" placeholder="الاسم أو رقم الحساب أو الطبلون" value="${S.query}" autocomplete="off"></label>
    <div id="subList">${subRows(S.query)}</div>`;
  }
@@ -501,18 +509,19 @@ function readings() {
    <span class="t"><b>${b[0]}</b><small>${b[1]}</small></span><span class="amt">${num(b[2] + '/' + b[3])}</span></button>`).join('')}</div></div>`;
 }
 function cashbox() {
- return header('صندوقي', 'فرع الوسط', 'home') + `<div class="body">
-  <div class="notice tone-info">${ic('box', 18)}<span>شاشة جديدة. الخادم يوفّر بياناتها في <span class="num" dir="ltr">/api/mobile/cash-boxes</span>.</span></div>
-  <div class="card"><div class="card-h"><span class="t"><b>الصندوق المفتوح #${num(214)}</b><small>منذ الأحد · ${num(5)} دفعات نقدية</small></span><span class="tag tone-good">مفتوح</span></div>
-   <div class="cur"><div><small>شيكل</small><b class="num" dir="ltr">2,250 ₪</b></div><div><small>دولار</small><b class="num" dir="ltr">120 $</b></div><div><small>دينار</small><b class="num" dir="ltr">0 JD</b></div></div></div>
-  <div class="card"><div class="card-h"><span class="t"><b>الصندوق #${num(213)}</b><small>استلمه المحاسب السبت وعدّه</small></span>
-   ${S.boxConfirmed ? '<span class="tag tone-good">مؤكد</span>' : '<span class="tag tone-warn">بانتظار تأكيدك</span>'}</div>
-   <div class="meta"><span>المتوقع ${num('3,180 ₪')}</span><span>المعدود ${num('3,180 ₪')}</span></div>
-   ${S.boxConfirmed ? '' : `<button class="primary" data-act="confirm">${ic('check')} تأكيد الصندوق</button>`}</div>
-  <div class="card tone-brand"><div class="card-h"><span class="tile sm">${ic('note', 18)}</span><span class="t"><b>ملاحظة المدقق على الصندوق #${num(211)}</b><small>فرق ${num('50 ₪')} في النقد. يرجى التوضيح.</small></span></div>
-   ${S.noteAnswered ? `<div class="notice tone-good">${ic('check', 18)}<span>أُرسل ردك إلى المدقق.</span></div>`
-     : `<textarea id="reply" aria-label="ردك على المدقق">الفرق دفعة أُلغيت للمشترك 10-0451 وأُعيد المبلغ له.</textarea><button class="ghost" data-act="reply">إرسال الرد</button>`}</div>
-  <div class="rows"><div class="row"><span class="tile sm tone-warn">${ic('warn', 18)}</span><span class="t"><b>ذمة على المحصّل</b><small>من الصندوق #${num(209)}</small></span><span class="amt">${num('50 ₪')}</span></div></div>
+ const [key, , icon, tone] = BOX_TYPES.find(t => t[0] === S.boxType);
+ const box = BOXES[key], sums = {ILS: 0, USD: 0, JOD: 0};
+ box.rows.forEach(r => { sums[r[3]] += r[2]; });
+ const sym = {ILS: '₪', USD: '$', JOD: 'JD'}, names = {ILS: 'شيكل', USD: 'دولار', JOD: 'دينار'};
+ const shown = Object.keys(sums).filter(c => c === 'ILS' || sums[c]);
+ return header('صندوقي', 'صناديقك المفتوحة حسب النوع', 'home') + `<div class="body">
+  <div class="notice tone-info">${ic('note', 18)}<span>رئيس الفرع هو من يغلق الصناديق. عندما تنتهي أخبره أن صندوقك جاهز للإغلاق.</span></div>
+  <div class="seg">${BOX_TYPES.map(t => `<button data-box="${t[0]}" aria-pressed="${t[0] === key}">${t[1]} ${num(BOXES[t[0]].rows.length)}</button>`).join('')}</div>
+  <div class="card tone-${tone}"><div class="card-h"><span class="tile sm">${ic(icon, 20)}</span>
+   <span class="t"><b>صندوق #${num(box.n)}</b><small>${paymentsCount(box.rows.length)} · مفتوح منذ ${num(box.since)}</small></span><span class="tag tone-good">مفتوح</span></div>
+   <div class="cur" style="grid-template-columns:repeat(${shown.length},minmax(0,1fr))">${shown.map(c => `<div><small>${names[c]}</small><b class="num" dir="ltr">${money(sums[c])} ${sym[c]}</b></div>`).join('')}</div></div>
+  <div class="rows">${box.rows.map(r => `<div class="row"><span class="tile sm tone-${tone}">${ic(icon, 18)}</span>
+   <span class="t"><b>${r[0]}</b><small>حساب ${num(r[1])} · ${num(r[4])}${r[5] ? ' · ' + r[5] : ''}</small></span><span class="amt">${num(money(r[2]) + ' ' + sym[r[3]])}</span></div>`).join('')}</div>
  </div>`;
 }
 function sync() {
@@ -584,8 +593,7 @@ document.getElementById('device').addEventListener('click', e => {
  const el = e.target.closest('button');
  if (!el || el.disabled) return;
  const d = el.dataset;
- if (d.act === 'confirm') { S.boxConfirmed = true; render(true); toast('أُكّد الصندوق #213'); return; }
- if (d.act === 'reply') { S.noteAnswered = true; render(true); toast('أُرسل الرد إلى المدقق'); return; }
+ if (d.box) { S.boxType = d.box; render(true); return; }
  if (d.toast) { toast(d.toast); return; }
  if (d.tab && !d.go) { S.tab = d.tab; render(true); return; }
  if (!d.go) return;

@@ -113,6 +113,8 @@ class ApiClient {
           query: {'page': '$page'});
   Future<Map<String, dynamic>> collectionsToday() =>
       _request('GET', '/api/mobile/collections');
+  Future<Map<String, dynamic>> cashBoxes() =>
+      _request('GET', '/api/mobile/cash-boxes');
   Future<Map<String, dynamic>> sendCollection(
           Map<String, dynamic> collection) =>
       _request('POST', '/api/mobile/collections', body: collection);

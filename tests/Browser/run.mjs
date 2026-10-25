@@ -7,8 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const suite = process.argv[2] === '--print' ? 'print-templates.cjs' : 'company-workflow.cjs';
-if (process.argv.slice(2).some((argument) => argument !== '--print')) throw new Error('Usage: node tests/Browser/run.mjs [--print]');
+const suite = process.argv[2] === '--print' ? 'print-templates.cjs' : process.argv[2] === '--distribution' ? 'reading-distribution.cjs' : 'company-workflow.cjs';
+if (process.argv.slice(2).some((argument) => !['--print', '--distribution'].includes(argument)) || process.argv.length > 3) throw new Error('Usage: node tests/Browser/run.mjs [--print|--distribution]');
 const work = mkdtempSync(path.join(tmpdir(), 'powercollect-browser-'));
 const output = path.join(root, 'storage/logs/browser-tests', path.basename(work));
 mkdirSync(output, { recursive: true });
@@ -59,6 +59,9 @@ try {
     }
     await run('php', ['artisan', 'tinker', '--no-interaction', '--execute',
         'App\\Models\\User::factory()->superAdmin()->create(["name" => "مالك الشركة", "username" => "owner", "password" => "Strong-Pass-2026"]);']);
+    if (suite === 'reading-distribution.cjs') {
+        await run('php', ['artisan', 'tinker', '--no-interaction', '--execute', 'require base_path("tests/Browser/reading-distribution-fixture.php");']);
+    }
     server = spawn('php', ['-S', `127.0.0.1:${port}`, '-t', path.join(root, 'public'), path.join(root, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php')],
         { cwd: path.join(root, 'public'), env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     server.stdout.pipe(log);

@@ -21,6 +21,7 @@ import { consumptionBetween, steppedReading, weeklyCharges } from '@/lib/reading
 import { activeReadingStatus, readingStatusFilters, readingWeekParams } from '@/lib/readingSheet';
 import ReadingContextBar from './ReadingContextBar';
 import ReadingApprovalDialog from './ReadingApprovalDialog';
+import PrintButton from '@/Components/PrintButton';
 import './ReadingEntry.css';
 import { WEEK_DAYS, formatWeekDay } from '@/lib/weekDays';
 import InfoTip from '@/Components/InfoTip';
@@ -548,6 +549,7 @@ export default function Index({
                 <div className="re-heading">
                     <div className="flex items-center gap-1"><h1>القراءات الأسبوعية</h1><InfoTip label="طريقة الإدخال">أدخل القراءة الحالية بجانب القراءة السابقة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</InfoTip></div>
                     <div className="re-actions">
+                        <PrintButton title="القراءات الأسبوعية" selectedIds={[...selectedIds]} selectionPage="/meter-readings" />
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">
                             <button type="button" aria-label="الأسبوع السابق" disabled={weekIndex < 0 || weekIndex === weekOptions.length - 1} onClick={() => changeWeek(weekOptions[weekIndex + 1].value)}><Icon name="chevron-right" /></button>
@@ -658,6 +660,7 @@ export default function Index({
             </div>
 
             <DataTableToolbar
+                printable={false}
                 search={search}
                 onSearchChange={setSearch}
                 placeholder="بحث بالاسم أو رقم الاشتراك أو الهاتف..."

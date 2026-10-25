@@ -132,7 +132,7 @@ class HandleInertiaRequests extends Middleware
      */
     private function printTemplates(Request $request): ?array
     {
-        $page = '/'.trim($request->path(), '/');
+        $page = PrintTemplate::pageForRequest($request);
 
         if (! array_key_exists($page, PrintTemplate::PAGES)) {
             return null;

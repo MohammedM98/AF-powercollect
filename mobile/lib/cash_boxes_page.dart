@@ -5,12 +5,18 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'app_identity.dart';
 
-/// Box type, its tab label and icon, in the website's order.
+/// Box type, its tab label, icon and full name, in the website's order.
 const _boxTypes = [
-  ('cash', 'نقدي', 'cash'),
-  ('bank_transfer', 'حوالات بنكية', 'bank'),
-  ('clearing', 'مقاصة', 'scale'),
+  ('cash', 'نقدي', 'cash', 'الصندوق النقدي'),
+  ('bank_transfer', 'حوالات بنكية', 'bank', 'صندوق الحوالات البنكية'),
+  ('clearing', 'مقاصة', 'scale', 'صندوق المقاصات'),
 ];
+
+/// The tab labels of [types] in the website's order: «نقدي · مقاصة».
+String cashBoxTypesSummary(Set<String> types) => _boxTypes
+    .where((type) => types.contains(type.$1))
+    .map((type) => type.$2)
+    .join(' · ');
 
 /// Currency code, symbol and name, in the website's order.
 const _currencies = [
@@ -22,8 +28,12 @@ const _currencies = [
 /// The collector's open boxes, one tab per box type, with every payment in
 /// them. Only the branch head closes a box, so the page only shows them.
 class CashBoxesPage extends StatefulWidget {
-  const CashBoxesPage({required this.api, super.key});
+  const CashBoxesPage({required this.api, required this.types, super.key});
   final ApiClient api;
+
+  /// The box types the collector's permissions take payments into. A box of
+  /// another type still shows while it is open with payments in it.
+  final Set<String> types;
 
   @override
   State<CashBoxesPage> createState() => _CashBoxesPageState();
@@ -31,7 +41,7 @@ class CashBoxesPage extends StatefulWidget {
 
 class _CashBoxesPageState extends State<CashBoxesPage> {
   int requestId = 0;
-  int selected = 0;
+  String? selectedType;
   bool tabChosen = false;
   bool busy = true;
   String? error;
@@ -47,6 +57,10 @@ class _CashBoxesPageState extends State<CashBoxesPage> {
 
   int countOf(String type) =>
       boxesOf(type).fold(0, (sum, box) => sum + entriesOf(box).length);
+
+  List<(String, String, String, String)> get shownTypes => _boxTypes
+      .where((type) => widget.types.contains(type.$1) || countOf(type.$1) > 0)
+      .toList();
 
   @override
   void initState() {
@@ -70,8 +84,8 @@ class _CashBoxesPageState extends State<CashBoxesPage> {
             .toList();
         if (!tabChosen) {
           tabChosen = true;
-          final first = _boxTypes.indexWhere((type) => countOf(type.$1) > 0);
-          if (first >= 0) selected = first;
+          selectedType =
+              shownTypes.where((type) => countOf(type.$1) > 0).firstOrNull?.$1;
         }
       });
     } on ApiException catch (exception) {
@@ -107,7 +121,11 @@ class _CashBoxesPageState extends State<CashBoxesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final (type, label, _) = _boxTypes[selected];
+    final types = shownTypes;
+    final (type, label, _, name) =
+        types.where((option) => option.$1 == selectedType).firstOrNull ??
+            types.firstOrNull ??
+            _boxTypes.first;
     final open = boxesOf(type);
     return AppKeyboardBackScope(
         child: Scaffold(
@@ -115,7 +133,9 @@ class _CashBoxesPageState extends State<CashBoxesPage> {
                 child: Column(children: [
       AppHeader(
           title: 'صندوقي',
-          subtitle: 'صناديقك المفتوحة حسب النوع',
+          subtitle: types.length == 1
+              ? '$name المفتوح'
+              : 'صناديقك المفتوحة حسب النوع',
           onBack: () => Navigator.pop(context)),
       Expanded(
           child: RefreshIndicator(
@@ -129,28 +149,32 @@ class _CashBoxesPageState extends State<CashBoxesPage> {
                         'رئيس الفرع هو من يغلق الصناديق. عندما تنتهي أخبره أن صندوقك جاهز للإغلاق.',
                         icon: 'info'),
                     const SizedBox(height: 12),
-                    AppSegment(
-                        key: const ValueKey('cash-box-types'),
-                        selected: selected,
-                        onChanged: (index) => setState(() => selected = index),
-                        labels: [
-                          for (final (code, name, _) in _boxTypes)
-                            (color) => FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text.rich(
-                                    TextSpan(children: [
-                                      TextSpan(text: '$name '),
-                                      TextSpan(
-                                          text: '${countOf(code)}',
-                                          style: AppIdentity.number(12,
-                                              color:
-                                                  color.withValues(alpha: .7))),
-                                    ]),
-                                    style: AppIdentity.body(14,
-                                        weight: FontWeight.w700,
-                                        color: color))),
-                        ]),
-                    const SizedBox(height: 12),
+                    if (types.length > 1) ...[
+                      AppSegment(
+                          key: const ValueKey('cash-box-types'),
+                          selected:
+                              types.indexWhere((option) => option.$1 == type),
+                          onChanged: (index) =>
+                              setState(() => selectedType = types[index].$1),
+                          labels: [
+                            for (final (code, name, _, _) in types)
+                              (color) => FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text.rich(
+                                      TextSpan(children: [
+                                        TextSpan(text: '$name '),
+                                        TextSpan(
+                                            text: '${countOf(code)}',
+                                            style: AppIdentity.number(12,
+                                                color: color.withValues(
+                                                    alpha: .7))),
+                                      ]),
+                                      style: AppIdentity.body(14,
+                                          weight: FontWeight.w700,
+                                          color: color))),
+                          ]),
+                      const SizedBox(height: 12),
+                    ],
                     if (busy)
                       Padding(
                           padding: const EdgeInsets.only(bottom: 10),

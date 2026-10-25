@@ -35,8 +35,17 @@ Map<String, dynamic> entry(int id, String amount, String name,
     };
 
 class BoxesApi extends CollectorApi {
-  BoxesApi({this.collects = true});
+  BoxesApi(
+      {this.collects = true,
+      this.methods = const ['cash', 'bank_transfer'],
+      this.clearings = true,
+      this.returned = const {'cash', 'bank_transfer', 'clearing'}});
   final bool collects;
+  final List<String> methods;
+  final bool clearings;
+
+  /// The box types the server has boxes of for this collector.
+  final Set<String> returned;
   bool allowed = true;
   int loads = 0;
 
@@ -51,6 +60,8 @@ class BoxesApi extends CollectorApi {
           'can_record_split_payments': collects,
           'can_view_subscriptions': true,
           'can_adjust_balances': collects,
+          'can_add_clearings': collects && clearings,
+          'payment_methods': collects ? methods : <String>[],
           'can_view_readings': true,
           'can_distribute_readings': true,
           'can_send_messages': true,
@@ -88,7 +99,7 @@ class BoxesApi extends CollectorApi {
         }),
         box(30, 'cash', 'received', [entry(5, '999.00', 'صندوق مغلق')],
             {'ILS': '999.00'}),
-      ],
+      ].where((box) => returned.contains(box['type'])).toList(),
     };
   }
 }
@@ -155,6 +166,45 @@ void main() {
     expect(find.text('صندوق #33'), findsOneWidget);
     expect(find.textContaining('صيانة مولد'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a collector with only bank transfers sees just that box',
+      (tester) async {
+    final api = BoxesApi(
+        methods: ['bank_transfer'],
+        clearings: false,
+        returned: {'bank_transfer'});
+    await openHome(tester, api);
+    final boxes = find.byKey(const ValueKey('collector-cash-boxes-service'));
+    await tester.ensureVisible(boxes);
+    expect(find.descendant(of: boxes, matching: find.text('حوالات بنكية')),
+        findsOneWidget);
+    await tester.tap(boxes);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('cash-box-types')), findsNothing);
+    expect(find.text('صندوق الحوالات البنكية المفتوح'), findsOneWidget);
+    expect(find.text('صندوق #32'), findsOneWidget);
+    expect(find.textContaining('بنك فلسطين'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'an open box of a type no longer permitted stays visible with its payments',
+      (tester) async {
+    final api = BoxesApi(
+        methods: ['bank_transfer'],
+        clearings: false,
+        returned: {'cash', 'bank_transfer'});
+    await openHome(tester, api);
+    final boxes = find.byKey(const ValueKey('collector-cash-boxes-service'));
+    await tester.ensureVisible(boxes);
+    await tester.tap(boxes);
+    await tester.pumpAndSettle();
+    expect(boxTab('نقدي'), findsOneWidget);
+    expect(boxTab('حوالات بنكية'), findsOneWidget);
+    expect(boxTab('مقاصة'), findsNothing);
+    expect(find.text('سعاد الخطيب'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

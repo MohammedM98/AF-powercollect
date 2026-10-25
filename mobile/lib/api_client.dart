@@ -190,7 +190,8 @@ class ApiClient {
       return await _decodeResponse(response, requestToken)
           .timeout(const Duration(seconds: 18));
     } on SocketException {
-      throw const ApiException('لا يمكن الوصول إلى خادم Laravel.', 0);
+      throw const ApiException(
+          'لا يوجد اتصال بالإنترنت. تحقّق من الاتصال وحاول مجددًا.', 0);
     } on TimeoutException {
       throw const ApiException('انتهت مهلة الاتصال بالخادم.', 0);
     } on HandshakeException {

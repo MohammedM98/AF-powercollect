@@ -122,7 +122,14 @@ class _PowerCollectAppState extends State<PowerCollectApp>
       throw const ApiException(
           'زامن القراءات غير المرسلة قبل تسجيل الخروج.', 0);
     }
-    await api.logout();
+    try {
+      await api.logout();
+    } on ApiException catch (error) {
+      // Offline, the session still ends on this phone: the token is erased
+      // from it, and the collector signs in again like anyone else.
+      if (!error.isNetwork) rethrow;
+      api.token = null;
+    }
     store.state.clear();
     store.state['appearance'] = appearance.name;
     await store.save();
@@ -724,6 +731,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
           api: widget.api,
           subscriber: subscriber,
           paymentMethods: paymentMethods,
+          exchangeRates: exchangeRatesFrom(currentUser['currencies']),
           transferBanks: currentUser['transfer_banks'] is List
               ? List<String>.from(currentUser['transfer_banks'] as List)
               : defaultTransferBanks,
@@ -748,7 +756,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
     }
     final confirmed = await showAppSheet<bool>(context,
         title: 'تسجيل الخروج؟',
-        message: 'ستحتاج إلى الإنترنت لتسجيل الدخول مرة أخرى.',
+        message:
+            'ستحتاج إلى الإنترنت لتسجيل الدخول مرة أخرى، حتى لو خرجت دون اتصال.',
         children: [_confirmButtons('تسجيل الخروج')]);
     if (confirmed != true) return;
     try {

@@ -408,8 +408,15 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       currentUser['can_adjust_balances'] == true;
   bool get canRecordSplitPayments =>
       canCollect && currentUser['can_record_split_payments'] == true;
-  bool get canViewOwnBoxes =>
-      canCollect || currentUser['can_adjust_balances'] == true;
+  /// The box types the user's payments go into: cash, bank transfers and
+  /// clearings, each by its own permission.
+  Set<String> get ownBoxTypes => {
+        if (canCollect && paymentMethods.contains('cash')) 'cash',
+        if (canCollect && paymentMethods.contains('bank_transfer'))
+          'bank_transfer',
+        if (currentUser['can_add_clearings'] == true) 'clearing',
+      };
+  bool get canViewOwnBoxes => ownBoxTypes.isNotEmpty;
   bool get canUseReadingSync =>
       canRead || widget.store.queuedReadings.isNotEmpty;
   bool collectionShowToday = false;
@@ -1211,15 +1218,18 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
             AppServiceCard(
                 key: const ValueKey('collector-cash-boxes-service'),
                 title: 'صندوقي',
-                subtitle: 'صناديقك المفتوحة ودفعاتها حسب النوع',
-                summary: 'نقدي · حوالات · مقاصة',
+                subtitle: ownBoxTypes.length == 1
+                    ? 'صندوقك المفتوح ودفعاته'
+                    : 'صناديقك المفتوحة ودفعاتها حسب النوع',
+                summary: cashBoxTypesSummary(ownBoxTypes),
                 icon: 'box',
                 color: AppIdentity.info,
                 tint: AppIdentity.infoTint,
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(
-                        builder: (_) => CashBoxesPage(api: widget.api)))),
+                        builder: (_) => CashBoxesPage(
+                            api: widget.api, types: ownBoxTypes)))),
           if (tools.isNotEmpty) ...[
             AppSection(hasTasks ? 'أدوات أخرى' : 'خدماتك'),
             ...tools,

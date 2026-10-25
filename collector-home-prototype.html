@@ -235,6 +235,7 @@ td .tag{margin-inline-start:6px}
     <div class="chips" id="presets">
      <button type="button" data-preset="all" aria-pressed="true">كل الصلاحيات</button>
      <button type="button" data-preset="collector" aria-pressed="false">محصّل</button>
+     <button type="button" data-preset="bank" aria-pressed="false">محصّل حوالات فقط</button>
      <button type="button" data-preset="reader" aria-pressed="false">قارئ عدادات</button>
      <button type="button" data-preset="viewer" aria-pressed="false">مراجع (عرض)</button>
     </div>
@@ -272,7 +273,7 @@ td .tag{margin-inline-start:6px}
      <tr><td>حوالة مقسّمة</td><td>صفحة المشترك ← تسجيل دفعة مقسّمة</td><td>الحوالة تبدأ دائمًا من مشترك، والزر موجود هناك أصلًا.</td></tr>
      <tr><td>دفعاتي اليوم</td><td>رقم «تحصيل اليوم» في الأعلى، وتبويب داخل التحصيل</td><td>الرقم والتبويب يؤديان الوظيفة نفسها.</td></tr>
      <tr><td>كشوف حساب المشتركين</td><td>صفحة المشترك ← السجل المالي. تبقى بطاقة لمن لا يملك صلاحية التحصيل</td><td>للمحصّل تفتح شاشة التحصيل نفسها.</td></tr>
-     <tr><td>صندوقي <span class="tag tone-good">جديدة</span></td><td>بطاقة مستقلة</td><td>وظيفة لا تكررها أي شاشة: كل صندوق مفتوح حسب نوعه (نقدي، حوالات بنكية، مقاصة) مع دفعاته ومجموعه بكل عملة. المحصّل يعرض فقط، ورئيس الفرع هو من يغلق الصندوق. البيانات من <span class="num" dir="ltr">/api/mobile/cash-boxes</span>.</td></tr>
+     <tr><td>صندوقي <span class="tag tone-good">جديدة</span></td><td>بطاقة مستقلة</td><td>وظيفة لا تكررها أي شاشة: كل صندوق مفتوح حسب نوعه (نقدي، حوالات بنكية، مقاصة) مع دفعاته ومجموعه بكل عملة. تظهر فقط الأنواع التي يملك المحصّل صلاحيتها، والمغلق يختفي. المحصّل يعرض فقط، ورئيس الفرع هو من يغلق الصندوق. البيانات من <span class="num" dir="ltr">/api/mobile/cash-boxes</span>.</td></tr>
      <tr><td>إرسال الرسائل</td><td>صفحة المشترك ← إرسال رسالة</td><td>الرسالة تُرسل لمشترك بعينه. تبقى في الرئيسية فقط لمن لا يستطيع فتح المشتركين.</td></tr>
      <tr><td>القراءات الأسبوعية</td><td>رابط في شاشة التحصيل</td><td>تبقى في الرئيسية فقط لمن لا يستطيع فتح المشتركين.</td></tr>
      <tr><td>توزيع القراءات</td><td>«أدوات أخرى»</td><td>لا مدخل آخر لها، وتُستخدم أقل من مهام اليوم.</td></tr>
@@ -315,16 +316,19 @@ const num = t => `<span class="num" dir="ltr">${t}</span>`;
 const PERMS = [
  ['read', 'إدخال القراءات', ''],
  ['collect', 'تسجيل الدفعات', ''],
- ['split', 'الحوالات المقسّمة', 'تظهر داخل صفحة المشترك'],
+ ['split', 'الحوالات المقسّمة', 'داخل صفحة المشترك، وتحتاج الدفع بحوالة'],
  ['statements', 'كشوف حساب المشتركين', ''],
- ['adjust', 'الحركات المالية', 'تحميل، خصم، تسوية'],
+ ['cashPay', 'الدفع نقدًا', 'الصندوق النقدي'],
+ ['bankPay', 'الدفع بحوالة بنكية', 'صندوق الحوالات البنكية'],
+ ['clearing', 'المقاصة', 'صندوق المقاصات'],
  ['weekly', 'عرض القراءات الأسبوعية', 'رابط في شاشة التحصيل'],
  ['distribute', 'توزيع القراءات', ''],
  ['messages', 'الرسائل', 'من صفحة المشترك'],
 ];
 const PRESETS = {
- all: {read:1, collect:1, split:1, statements:1, adjust:1, weekly:1, distribute:1, messages:1},
- collector: {collect:1, split:1, statements:1},
+ all: {read:1, collect:1, cashPay:1, bankPay:1, clearing:1, split:1, statements:1, weekly:1, distribute:1, messages:1},
+ collector: {collect:1, cashPay:1, bankPay:1, split:1, statements:1},
+ bank: {collect:1, bankPay:1, split:1, statements:1},
  reader: {read:1, weekly:1},
  viewer: {statements:1, weekly:1, messages:0},
 };
@@ -342,7 +346,9 @@ const SUBS = [
  ['رنا فتحي الشريف', '12-0107', 'طبلون 12', 0], ['محمود عبد الرحيم سلامة', '10-0412', 'طبلون 3', 0],
  ['يوسف كامل البرغوثي', '12-0140', 'طبلون 15', 212]];
 const QUEUED = 3;
-const BOX_TYPES = [['cash', 'نقدي', 'cash', 'good'], ['bank', 'حوالات بنكية', 'bank', 'info'], ['clearing', 'مقاصة', 'scale', 'brand']];
+const BOX_TYPES = [['cash', 'نقدي', 'cash', 'good', 'الصندوق النقدي'], ['bank', 'حوالات بنكية', 'bank', 'info', 'صندوق الحوالات البنكية'], ['clearing', 'مقاصة', 'scale', 'brand', 'صندوق المقاصات']];
+/* Each box type follows its own permission: cash payments, bank transfers, clearings. */
+const boxTypes = () => BOX_TYPES.filter(([k]) => k === 'cash' ? P().collect && P().cashPay : k === 'bank' ? P().collect && P().bankPay : P().clearing);
 const BOXES = {
  cash: {n: 214, since: '18/10 08:00', rows: [
   ['محمود عبد الرحيم سلامة', '10-0412', 600, 'ILS', '25/10 09:12', ''], ['سعاد يوسف الخطيب', '10-0418', 350, 'ILS', '25/10 09:40', ''],
@@ -359,8 +365,8 @@ const S = {mode: 'proposed', perms: {...PRESETS.all}, screen: 'home', tab: 'subs
  query: '', boxType: 'cash', preset: 'all'};
 const P = () => S.perms;
 const can = {
- browse: () => P().collect || P().statements || P().adjust,
- box: () => P().collect || P().adjust,
+ browse: () => P().collect || P().statements || P().clearing,
+ box: () => boxTypes().length > 0,
  sync: () => P().read,
 };
 const total = TODAY.reduce((s, p) => s + p[2], 0);
@@ -422,7 +428,7 @@ function primaryCards() {
    <span class="t"><b>${p.collect ? 'تسجيل الدفعات' : 'كشوف حساب المشتركين'}</b><small>${p.collect ? 'ابحث عن المشترك ثم اختر العملية' : 'الدفعات والقراءات والحركات المالية'}</small></span>${ic('chev', 18)}</button>
   <button class="search tap" data-go="collections" data-focus="1">${ic('search', 18)}<span>الاسم أو رقم الحساب أو الطبلون</span></button>
   <span class="hint">${ic('user', 14)}${p.collect ? 'الدفعة' + (p.split ? ' والحوالة المقسّمة' : '') + ' وكشف الحساب من صفحة المشترك' : 'كشف الحساب من صفحة المشترك'}</span></div>`);
- if (can.box()) out.push(svc({icon:'box', tone:'info', title:'صندوقي', sub:'صناديقك المفتوحة ودفعاتها حسب النوع', summary:'نقدي · حوالات · مقاصة', go:'cashbox'}));
+ if (can.box()) out.push(svc({icon:'box', tone:'info', title:'صندوقي', sub:boxTypes().length === 1 ? 'صندوقك المفتوح ودفعاته' : 'صناديقك المفتوحة ودفعاتها حسب النوع', summary:boxTypes().map(t => t[1]).join(' · '), go:'cashbox'}));
  return out;
 }
 function toolTiles() {
@@ -448,7 +454,7 @@ function currentCards() {
  if (p.collect) out.push(svc({icon:'cash', tone:'good', title:'تسجيل الدفعات', sub:'تحصيل دفعات المشتركين', summary:`اليوم ${money(total)} ₪`, go:'collections'}));
  if (p.collect && p.split) out.push(svc({icon:'bank', tone:'brand', title:'حوالة مقسّمة', sub:'اختر المشتركين ووزّع حوالة واحدة بينهم', summary:'إضافة حوالة', go:'collections', split:1, dup:dupMsg}));
  if (p.collect) out.push(svc({icon:'cash', tone:'good', title:'دفعاتي اليوم', sub:'مراجعة الدفعات التي سجّلتها اليوم', summary:`${TODAY.length} دفعات`, go:'collections', tab:'today', dup:'تبويب داخل شاشة التحصيل'}));
- if (p.statements || p.adjust) out.push(svc({icon:'hist', tone:'info', title:p.statements ? 'كشوف حساب المشتركين' : 'حركات المشتركين', sub:'الدفعات والقراءات والحركات المالية', summary:'عرض السجل المالي', go:'collections', dup:p.collect ? dupMsg : ''}));
+ if (p.statements || p.clearing) out.push(svc({icon:'hist', tone:'info', title:p.statements ? 'كشوف حساب المشتركين' : 'حركات المشتركين', sub:'الدفعات والقراءات والحركات المالية', summary:'عرض السجل المالي', go:'collections', dup:p.collect ? dupMsg : ''}));
  if (p.weekly) out.push(svc({icon:'hist', tone:'info', title:'القراءات الأسبوعية', sub:'قراءات المشتركين والاستهلاك', summary:'عرض فقط', go:'weekly'}));
  if (p.distribute) out.push(svc({icon:'bolt', tone:'brand', title:'توزيع القراءات', sub:'المناطق والطبلونات وقارئو العدادات', summary:'توزيع القراءة القادمة', go:'distribute'}));
  if (p.messages) out.push(svc({icon:'message', tone:'info', title:'إرسال الرسائل', sub:'رسائل المشترك وسجل الإرسال', summary:'رسائل نصية SMS', go:'messages'}));
@@ -498,7 +504,7 @@ function subscriber() {
   <div class="rows">
    ${p.collect ? row('split', 'split', 'تسجيل دفعة مقسّمة', p.split ? 'حوالة واحدة توزّع على عدة اشتراكات' : 'تحتاج صلاحية تسجيل دفعة بتحويل بنكي', p.split, 'اختر بقية الاشتراكات للحوالة', p.split && S.mode === 'proposed') : ''}
    ${row('hist', 'hist', 'السجل المالي', p.statements ? 'جميع الدفعات والقراءات والحركات' : 'تحتاج صلاحية عرض بيانات المشترك', p.statements, 'كشف حساب المشترك')}
-   ${p.adjust ? row('adj', 'sliders', 'إجراءات الحساب', 'تحميل، خصم، تسوية', true, 'إجراءات الحساب') : ''}
+   ${p.clearing ? row('adj', 'scale', 'إجراءات الحساب', 'مقاصة', true, 'نموذج المقاصة') : ''}
    ${p.messages ? row('msg', 'message', 'إرسال رسالة', 'رسالة نصية للمشترك', true, 'رسالة المشترك') : ''}
   </div></div>`;
 }
@@ -509,14 +515,15 @@ function readings() {
    <span class="t"><b>${b[0]}</b><small>${b[1]}</small></span><span class="amt">${num(b[2] + '/' + b[3])}</span></button>`).join('')}</div></div>`;
 }
 function cashbox() {
- const [key, , icon, tone] = BOX_TYPES.find(t => t[0] === S.boxType);
+ const types = boxTypes();
+ const [key, , icon, tone, fullName] = types.find(t => t[0] === S.boxType) || types[0];
  const box = BOXES[key], sums = {ILS: 0, USD: 0, JOD: 0};
  box.rows.forEach(r => { sums[r[3]] += r[2]; });
  const sym = {ILS: '₪', USD: '$', JOD: 'JD'}, names = {ILS: 'شيكل', USD: 'دولار', JOD: 'دينار'};
  const shown = Object.keys(sums).filter(c => c === 'ILS' || sums[c]);
- return header('صندوقي', 'صناديقك المفتوحة حسب النوع', 'home') + `<div class="body">
+ return header('صندوقي', types.length === 1 ? fullName + ' المفتوح' : 'صناديقك المفتوحة حسب النوع', 'home') + `<div class="body">
   <div class="notice tone-info">${ic('note', 18)}<span>رئيس الفرع هو من يغلق الصناديق. عندما تنتهي أخبره أن صندوقك جاهز للإغلاق.</span></div>
-  <div class="seg">${BOX_TYPES.map(t => `<button data-box="${t[0]}" aria-pressed="${t[0] === key}">${t[1]} ${num(BOXES[t[0]].rows.length)}</button>`).join('')}</div>
+  ${types.length > 1 ? `<div class="seg">${types.map(t => `<button data-box="${t[0]}" aria-pressed="${t[0] === key}">${t[1]} ${num(BOXES[t[0]].rows.length)}</button>`).join('')}</div>` : ''}
   <div class="card tone-${tone}"><div class="card-h"><span class="tile sm">${ic(icon, 20)}</span>
    <span class="t"><b>صندوق #${num(box.n)}</b><small>${paymentsCount(box.rows.length)} · مفتوح منذ ${num(box.since)}</small></span><span class="tag tone-good">مفتوح</span></div>
    <div class="cur" style="grid-template-columns:repeat(${shown.length},minmax(0,1fr))">${shown.map(c => `<div><small>${names[c]}</small><b class="num" dir="ltr">${money(sums[c])} ${sym[c]}</b></div>`).join('')}</div></div>

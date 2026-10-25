@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, groupLandingLink, isActiveLink, navigationGroups, isInsideAnyLink, pageTrail, topBarItems, shouldPrefetchPage } from '../../resources/js/lib/navigation.js';
+import { MAIN_LINKS, SETTINGS_LINKS, allowedNavigationGroups, groupLandingLink, isActiveLink, lockedLinkProps, navigationGroups, isInsideAnyLink, pageTrail, topBarItems, shouldPrefetchPage } from '../../resources/js/lib/navigation.js';
 
 test('hover navigation avoids background requests for financial and reading pages', () => {
     for (const href of ['/dashboard', '/subscriptions?sort=name', '/meter-readings', '/reading-cycles', '/reports', '/ledger', '/payments/summary', '/disconnection-lists', '/unknown']) {
@@ -137,6 +137,17 @@ test('clicking a section opens its first page the user may open, or nothing when
         infrastructure: null,
         administration: '/settings/mobile-app',
     });
+});
+
+test('a locked page\'s link opens nothing while an open one is left alone', () => {
+    const [locked, open] = [{ href: '/users', locked: true }, { href: '/subscriptions', locked: false }];
+    const event = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+
+    lockedLinkProps(locked).onClick(event);
+
+    assert.equal(lockedLinkProps(locked)['aria-disabled'], true);
+    assert.equal(event.defaultPrevented, true);
+    assert.deepEqual(lockedLinkProps(open), {});
 });
 
 test('the page trail names the section and page, also from a page inside it', () => {

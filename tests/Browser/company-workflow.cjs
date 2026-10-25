@@ -293,6 +293,7 @@ async function takePayment(page, subscriber, { amount, method, currency, bank, r
         await window.getByText(bank, { exact: true }).first().click();
         await window.locator('#reference_number').fill(reference);
     }
+    await snap(page, `payment-${subscriber}-${amount}`);
     await window.getByRole('button', { name: /^تسجيل / }).click();
     await confirmIfAsked(page);
     const receipt = page.getByRole('dialog', { name: 'سُجّلت الدفعة' });

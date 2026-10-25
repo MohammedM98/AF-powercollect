@@ -5,7 +5,11 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "test": "node --test tests/Unit/*.test.js"
+        "test": "node --test tests/Unit/*.test.js",
+        "check": "node .claude/automation/check.mjs --full",
+        "check:changed": "node .claude/automation/check.mjs --changed",
+        "check:watch": "node .claude/automation/watch.mjs",
+        "check:status": "node .claude/automation/check.mjs --status"
     },
     "devDependencies": {
         "@tailwindcss/forms": "^0.5.2",

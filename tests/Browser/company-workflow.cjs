@@ -7,6 +7,7 @@ const BASE_URL = process.env.BASE_URL;
 const OUT_DIR = process.env.OUT_DIR;
 const PASSWORD = 'Strong-Pass-2026';
 const steps = [];
+const pageErrors = [];
 let browser;
 let shot = 0;
 
@@ -18,9 +19,20 @@ function step(name, run) {
 async function signIn(username, viewport = { width: 1440, height: 900 }) {
     const context = await browser.newContext({ baseURL: BASE_URL, viewport, locale: 'ar', hasTouch: viewport.width < 600, isMobile: viewport.width < 600 });
     const page = await context.newPage();
-    page.on('pageerror', (error) => console.log(`  ! page error for ${username}: ${error.message}`));
+    page.on('pageerror', (error) => {
+        pageErrors.push(`${username}: ${error.message}`);
+        console.log(`  ! page error for ${username}: ${error.message}`);
+    });
+    page.on('console', (message) => {
+        if (message.type() === 'error') console.log(`  ! browser error for ${username}: ${message.text()}`);
+    });
     await page.goto('/login');
-    await page.locator('#username').fill(username);
+    try {
+        await page.locator('#username').fill(username);
+    } catch (error) {
+        await snap(page, 'login-failed');
+        throw error;
+    }
     await page.locator('#password').fill(PASSWORD);
     await page.getByRole('button', { name: 'تسجيل الدخول' }).click();
     await page.waitForURL((url) => !url.pathname.startsWith('/login'));
@@ -397,11 +409,13 @@ step('staff are kept out of the work that is not theirs', async () => {
 });
 
 (async () => {
-    browser = await chromium.launch({ headless: !process.env.HEADED });
+    browser = await chromium.launch({ headless: !process.env.HEADED,
+        ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}) });
     for (const [index, { name, run }] of steps.entries()) {
         const started = Date.now();
         try {
             await run();
+            assert.deepEqual(pageErrors, [], 'The website must not raise unhandled JavaScript errors.');
             console.log(`✓ ${index + 1}. ${name} (${Date.now() - started}ms)`);
         } catch (error) {
             console.log(`✗ ${index + 1}. ${name}\n${error.stack}`);

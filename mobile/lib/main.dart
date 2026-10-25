@@ -320,9 +320,18 @@ class _LoginPageState extends State<LoginPage> {
                                   setState(() => remember = value ?? false),
                           contentPadding: EdgeInsets.zero,
                           controlAffinity: ListTileControlAffinity.leading,
-                          title: const Text('تذكرني'),
-                          subtitle: const Text(
-                              'ابقَ مسجّل الدخول على هذا الجهاز لمدة تصل إلى 30 يومًا.')),
+                          title: Row(children: [
+                            const Text('تذكرني'),
+                            IconButton(
+                                tooltip: 'معلومات تذكرني',
+                                icon: AppIcon('err',
+                                    size: 18, color: AppIdentity.faint),
+                                onPressed: () => showAppSheet<void>(context,
+                                    title: 'تذكرني',
+                                    message:
+                                        'ابقَ مسجّل الدخول على هذا الجهاز لمدة تصل إلى 30 يومًا.',
+                                    children: const [])),
+                          ])),
                       if (error != null) ...[
                         AppNotice(error!, error: true),
                         const SizedBox(height: 12),
@@ -408,6 +417,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
       currentUser['can_adjust_balances'] == true;
   bool get canRecordSplitPayments =>
       canCollect && currentUser['can_record_split_payments'] == true;
+
   /// The box types the user's payments go into: cash, bank transfers and
   /// clearings, each by its own permission.
   Set<String> get ownBoxTypes => {
@@ -1070,12 +1080,10 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
             onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
-                    builder: (_) =>
-                        ReadingDistributionPage(api: widget.api)))),
+                    builder: (_) => ReadingDistributionPage(api: widget.api)))),
       if ((canSendMessages || canViewMessages) && !canBrowseSubscribers)
         AppServiceCard(
-            title:
-                canSendMessages ? 'إرسال الرسائل' : 'سجل رسائل المشتركين',
+            title: canSendMessages ? 'إرسال الرسائل' : 'سجل رسائل المشتركين',
             subtitle: 'رسائل المشترك وسجل الإرسال',
             summary: canSendMessages ? 'رسائل نصية SMS' : 'عرض فقط',
             icon: 'message',
@@ -1084,8 +1092,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
             onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
-                    builder: (_) =>
-                        MessageSubscribersPage(api: widget.api)))),
+                    builder: (_) => MessageSubscribersPage(api: widget.api)))),
     ];
     return refreshable(ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -1164,8 +1171,7 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                                   showToday: true),
                               child: heroStat('تحصيل اليوم',
                                   '${AppIdentity.grouped(total)} ₪',
-                                  note:
-                                      AppIdentity.paymentsCount(today.length),
+                                  note: AppIdentity.paymentsCount(today.length),
                                   linked: true)))),
                 if (!canRead && !canCollect)
                   Expanded(
@@ -1301,8 +1307,8 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
                     InkWell(
                       key: const ValueKey('home-subscriber-search'),
                       borderRadius: BorderRadius.circular(15),
-                      onTap: () => navigate(FieldSection.collections,
-                          focusSearch: true),
+                      onTap: () =>
+                          navigate(FieldSection.collections, focusSearch: true),
                       child: Container(
                         constraints: const BoxConstraints(minHeight: 48),
                         padding: const EdgeInsets.symmetric(

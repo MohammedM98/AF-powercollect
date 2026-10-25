@@ -320,10 +320,7 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
 
   void _back() {
     if (saving) return;
-    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
-      FocusScope.of(context).unfocus();
-      return;
-    }
+    if (dismissAppKeyboard(context)) return;
     if (view == 'boxes') {
       widget.onExit();
     } else if (view == 'box' && keypadOpen) {

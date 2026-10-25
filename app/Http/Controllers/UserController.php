@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Concerns\DeletesRecords;
 use App\Http\Concerns\FiltersDataTable;
 use App\Http\Concerns\ProvidesFormOptions;
+use App\Http\Concerns\ReturnsToDashboard;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Branch;
@@ -22,7 +23,7 @@ use Inertia\Response as InertiaResponse;
 
 class UserController extends Controller
 {
-    use DeletesRecords, FiltersDataTable, ProvidesFormOptions;
+    use DeletesRecords, FiltersDataTable, ProvidesFormOptions, ReturnsToDashboard;
 
     private const SORTABLE = ['name', 'username', 'role', 'is_active', 'created_at'];
 
@@ -113,7 +114,7 @@ class UserController extends Controller
         $user = User::create($data);
         $request->user()->notify(new ActionCompleted('user-created', $user->name));
 
-        return redirect()->route('users.index')->with('status', 'user-created');
+        return $this->redirectAfterSave($request, 'users.index', 'user-created');
     }
 
     /**

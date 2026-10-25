@@ -185,6 +185,8 @@ trait BuildsSubscriptionStatement
             'canAddCharge' => $actor->can('addCharge', $subscription),
             'canAddDiscount' => $canAddDiscount,
             'canAddClearing' => $actor->can('addClearing', $subscription),
+            // Whether the subscriber's own details may be edited (the window's "edit" button, where a page offers it).
+            'canUpdate' => $actor->can('update', $subscription),
             'currencies' => Currency::options(),
             'paymentMethods' => PaymentMethod::options(PaymentMethod::offered()),
             // The ways this user may take a payment: what the payment form offers.

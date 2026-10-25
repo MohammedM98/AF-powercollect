@@ -7,6 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const suite = process.argv[2] === '--print' ? 'print-templates.cjs' : 'company-workflow.cjs';
+if (process.argv.slice(2).some((argument) => argument !== '--print')) throw new Error('Usage: node tests/Browser/run.mjs [--print]');
 const work = mkdtempSync(path.join(tmpdir(), 'powercollect-browser-'));
 const output = path.join(root, 'storage/logs/browser-tests', path.basename(work));
 mkdirSync(output, { recursive: true });
@@ -75,7 +77,7 @@ try {
         await new Promise((resolve) => setTimeout(resolve, 200));
     }
     if (!ready) throw new Error('Browser test server did not become ready. See server.log.');
-    await run(process.execPath, ['tests/Browser/company-workflow.cjs']);
+    await run(process.execPath, [`tests/Browser/${suite}`]);
 } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

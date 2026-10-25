@@ -80,9 +80,13 @@ class ApiClient {
   Future<Map<String, dynamic>> approveReadingDistribution(int cycleId) =>
       _request('POST', '/api/mobile/reading-distribution/$cycleId/approve');
   Future<Map<String, dynamic>> weeklyReadings(
-          {String search = '', String? week, int page = 1}) =>
+          {String search = '',
+          String? week,
+          String subscriptionStatus = 'active',
+          int page = 1}) =>
       _request('GET', '/api/mobile/readings', query: {
         'search': search,
+        'subscription_status': subscriptionStatus,
         'page': '$page',
         if (week != null) 'week': week,
       });

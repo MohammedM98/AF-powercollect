@@ -24,6 +24,9 @@ class RecordingApi extends ApiClient {
       'currency': collection['currency'],
       'amount_in_shekels': collection['currency'] == 'USD' ? '74.00' : null,
       'voucher_number': 'P-77',
+      'reference_number': collection['reference_number'],
+      'bank_name': collection['bank_name'],
+      'sender_name': collection['sender_name'],
       'bank_received_on': collection['bank_received_on'],
       if (balanceAfter != null) 'balance_after': balanceAfter,
     };
@@ -156,8 +159,11 @@ void main() {
     expect(api.requests.last.containsKey('exchange_rate'), isFalse);
     expect(api.requests.last.containsKey('sender_bank_name'), isFalse);
     expect(find.text('تم تسجيل الدفعة'), findsOneWidget);
-    expect(find.text('P-77'), findsOneWidget);
     expect(find.text('تحويل إلى البنك الوطني الإسلامي'), findsOneWidget);
+    expect(find.text('P-77'), findsNothing);
+    expect(find.text('رقم المرجع'), findsOneWidget);
+    expect(find.text('TRANSFER-42'), findsOneWidget);
+    expect(find.text('رقم السند'), findsNothing);
     expect(find.text('\u206675 ₪\u2069 عليه'), findsOneWidget);
   });
 

@@ -1029,14 +1029,17 @@ class _PaymentPageState extends State<PaymentPage> {
         double.tryParse('${receipt?['amount_in_shekels']}') ?? inShekels ?? 0;
     final newBalance = balanceAfter(recordedInShekels);
     final recordedAmount = receipt?['amount'] ?? amount.text;
+    final recordedReference = receipt?['reference_number'] ?? reference.text;
+    final recordedVoucher = receipt?['voucher_number'] ?? '—';
     return AppSuccess(
       title: 'تم تسجيل الدفعة',
       message:
           '${AppIdentity.money(recordedAmount)} ${currencyLook.$3} من $subscriberName · سُجّلت مباشرة في السجل المالي.',
       facts: [
         (
-          'رقم السند',
-          AppFact('${receipt?['voucher_number'] ?? '—'}', number: true)
+          throughBank ? 'رقم المرجع' : 'رقم السند',
+          AppFact('${throughBank ? recordedReference : recordedVoucher}',
+              number: true)
         ),
         (
           'المبلغ',
@@ -1049,6 +1052,17 @@ class _PaymentPageState extends State<PaymentPage> {
             AppFact('${AppIdentity.grouped(recordedInShekels)} ₪', number: true)
           ),
         ('الطريقة', AppFact(methodText)),
+        if (throughBank) ...[
+          ('البنك المستلم', AppFact('${receipt?['bank_name'] ?? bank ?? '—'}')),
+          if ((receipt?['sender_bank_name'] ?? senderBank) != null)
+            (
+              'البنك المرسل',
+              AppFact('${receipt?['sender_bank_name'] ?? senderBank}')
+            ),
+          ('اسم المحوّل', AppFact('${receipt?['sender_name'] ?? sender.text}')),
+        ],
+        if ('${receipt?['notes'] ?? notes.text}'.trim().isNotEmpty)
+          ('ملاحظات', AppFact('${receipt?['notes'] ?? notes.text}')),
         if (receipt?['bank_received_on'] != null)
           (
             'وصول البنك',

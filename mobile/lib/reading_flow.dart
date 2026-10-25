@@ -755,7 +755,9 @@ class _ReadingFlowState extends State<ReadingFlow> with WidgetsBindingObserver {
                     warning: !_entryOpen)),
           if (query.isEmpty && total > 0) _progressCard(done, total),
           if (query.isEmpty && draftBox != null)
-            _resumeCard(draftBox.key, draftBox.value),
+            Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: _resumeCard(draftBox.key, draftBox.value)),
           const SizedBox(height: 12),
           AppSearchField(
               key: const ValueKey('reading-box-search'),

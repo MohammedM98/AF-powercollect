@@ -7,8 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const suite = process.argv[2] === '--print' ? 'print-templates.cjs' : 'company-workflow.cjs';
-if (process.argv.slice(2).some((argument) => argument !== '--print')) throw new Error('Usage: node tests/Browser/run.mjs [--print]');
+const suite = process.argv[2] === '--print' ? 'print-templates.cjs' : process.argv[2] === '--distribution' ? 'reading-distribution.cjs' : process.argv[2] === '--readings' ? 'weekly-readings.cjs' : 'company-workflow.cjs';
+if (process.argv.slice(2).some((argument) => !['--print', '--distribution', '--readings'].includes(argument)) || process.argv.length > 3) throw new Error('Usage: node tests/Browser/run.mjs [--print|--distribution|--readings]');
 const work = mkdtempSync(path.join(tmpdir(), 'powercollect-browser-'));
 const output = path.join(root, 'storage/logs/browser-tests', path.basename(work));
 mkdirSync(output, { recursive: true });
@@ -35,6 +35,23 @@ const env = {
     BRANCH_DOMAINS_ENABLED: 'false', BASE_URL: baseUrl, OUT_DIR: output,
 };
 
+let serverRouter = path.join(root, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php');
+if (suite === 'weekly-readings.cjs') {
+    env.SESSION_DRIVER = 'database';
+    env.BROWSER_TEST_CLOCK = path.join(work, 'clock.txt');
+    env.BROWSER_TEST_AUTOLOAD = path.join(root, 'vendor/autoload.php');
+    env.BROWSER_TEST_ROUTER = serverRouter;
+    const firstReadingDay = new Date();
+    firstReadingDay.setUTCDate(firstReadingDay.getUTCDate() + ((4 - firstReadingDay.getUTCDay() + 7) % 7 || 7));
+    writeFileSync(env.BROWSER_TEST_CLOCK, `${firstReadingDay.toISOString().slice(0, 10)}T10:00:00+03:00`);
+    serverRouter = path.join(work, 'clock-router.php');
+    writeFileSync(serverRouter, `<?php
+require_once getenv('BROWSER_TEST_AUTOLOAD');
+Illuminate\\Support\\Facades\\Date::setTestNow(new DateTimeImmutable(trim(file_get_contents(getenv('BROWSER_TEST_CLOCK')))));
+return require getenv('BROWSER_TEST_ROUTER');
+`);
+}
+
 function run(command, args) {
     return new Promise((resolve, reject) => {
         const child = spawn(command, args, { cwd: root, env, windowsHide: true, stdio: 'inherit' });
@@ -59,7 +76,13 @@ try {
     }
     await run('php', ['artisan', 'tinker', '--no-interaction', '--execute',
         'App\\Models\\User::factory()->superAdmin()->create(["name" => "مالك الشركة", "username" => "owner", "password" => "Strong-Pass-2026"]);']);
-    server = spawn('php', ['-S', `127.0.0.1:${port}`, '-t', path.join(root, 'public'), path.join(root, 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php')],
+    if (suite === 'reading-distribution.cjs') {
+        await run('php', ['artisan', 'tinker', '--no-interaction', '--execute', 'require base_path("tests/Browser/reading-distribution-fixture.php");']);
+    }
+    if (suite === 'weekly-readings.cjs') {
+        await run('php', ['artisan', 'tinker', '--no-interaction', '--execute', 'require base_path("tests/Browser/weekly-readings-fixture.php");']);
+    }
+    server = spawn('php', ['-S', `127.0.0.1:${port}`, '-t', path.join(root, 'public'), serverRouter],
         { cwd: path.join(root, 'public'), env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     server.stdout.pipe(log);
     server.stderr.pipe(log);

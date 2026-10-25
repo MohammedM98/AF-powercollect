@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class MobileAppDownloadTest extends TestCase
@@ -21,10 +22,9 @@ class MobileAppDownloadTest extends TestCase
 
     private function publishFixture(string $type = 'release'): void
     {
-        $apk = 'APK-download-fixture';
-        Storage::disk('local')->put('release/powercollect.apk', $apk);
         Storage::disk('local')->put('release/release.json', json_encode([
-            'version' => '1.0.1', 'type' => $type, 'size' => strlen($apk), 'sha256' => hash('sha256', $apk),
+            'version' => '1.0.1', 'type' => $type, 'size' => 19, 'sha256' => str_repeat('a', 64),
+            'download_url' => 'https://github.com/MohammedM98/AF-powercollect/releases/download/android-v1.0.1/powercollect.apk',
         ]));
     }
 
@@ -42,8 +42,10 @@ class MobileAppDownloadTest extends TestCase
         $this->actingAs($user)->get(route('settings.mobile-app.index'))->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page->component('Settings/MobileApp')
                 ->where('release.version', '1.0.1')->where('release.downloadUrl', route('settings.mobile-app.download')));
-        $this->get(route('settings.mobile-app.download'))->assertOk()->assertDownload('PowerCollect-1.0.1.apk')
-            ->assertHeader('Content-Type', 'application/vnd.android.package-archive')->assertHeader('Cache-Control', 'no-store, private');
+        $this->get(route('settings.mobile-app.download', ['url' => 'https://untrusted.test/app.apk']))
+            ->assertRedirect('https://github.com/MohammedM98/AF-powercollect/releases/download/android-v1.0.1/powercollect.apk')
+            ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('Referrer-Policy', 'no-referrer');
+        $this->assertFileDoesNotExist(Storage::disk('local')->path('release/powercollect.apk'));
         $this->get(route('settings.sms.edit'))->assertForbidden();
     }
 
@@ -52,8 +54,7 @@ class MobileAppDownloadTest extends TestCase
         $this->actingAs(User::factory()->create())->get(route('settings.mobile-app.index'))->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page->where('release', null));
         $this->get(route('settings.mobile-app.download'))->assertNotFound();
-        $this->publishFixture();
-        Storage::disk('local')->put('release/powercollect.apk', 'APK-download-fixturE');
+        Storage::disk('local')->put('release/release.json', '{"version":');
         $this->get(route('settings.mobile-app.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('release', null));
         $this->get(route('settings.mobile-app.download'))->assertNotFound();
     }
@@ -61,6 +62,27 @@ class MobileAppDownloadTest extends TestCase
     public function test_debug_builds_are_not_offered_as_production_downloads(): void
     {
         $this->publishFixture('debug');
+        $this->actingAs(User::factory()->create())->get(route('settings.mobile-app.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('release', null));
+        $this->get(route('settings.mobile-app.download'))->assertNotFound();
+    }
+
+    #[TestWith(['download_url', null])]
+    #[TestWith(['download_url', 'http://github.com/MohammedM98/AF-powercollect/releases/download/android-v1.0.1/powercollect.apk'])]
+    #[TestWith(['download_url', 'https://untrusted.test/powercollect.apk'])]
+    #[TestWith(['download_url', 'https://github.com/other/project/releases/download/android-v1.0.1/powercollect.apk'])]
+    #[TestWith(['download_url', 'https://github.com/MohammedM98/AF-powercollect/releases/download/android-v1.0.2/powercollect.apk'])]
+    #[TestWith(['version', '../1.0.1'])]
+    #[TestWith(['sha256', 'invalid'])]
+    #[TestWith(['size', 0])]
+    #[TestWith(['size', '19'])]
+    public function test_invalid_release_metadata_does_not_offer_a_download(string $field, mixed $value): void
+    {
+        $this->publishFixture();
+        $release = json_decode(Storage::disk('local')->get('release/release.json'), true);
+        $release[$field] = $value;
+        Storage::disk('local')->put('release/release.json', json_encode($release));
+
         $this->actingAs(User::factory()->create())->get(route('settings.mobile-app.index'))
             ->assertInertia(fn (AssertableInertia $page) => $page->where('release', null));
         $this->get(route('settings.mobile-app.download'))->assertNotFound();

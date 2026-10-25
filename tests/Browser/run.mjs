@@ -83,6 +83,8 @@ try {
     if (server && server.exitCode === null) server.kill();
     if (serverClosed) await serverClosed;
     log.end();
-    rmSync(work, { recursive: true, force: true });
+    if (path.dirname(work) === path.resolve(tmpdir()) && path.basename(work).startsWith('powercollect-browser-')) {
+        rmSync(work, { recursive: true, force: true });
+    }
     console.log(`Browser test evidence: ${output}`);
 }

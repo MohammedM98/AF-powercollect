@@ -8,16 +8,17 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) {
       return Scaffold(
           body: TextButton(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => Scaffold(
-                      body: Column(children: [
-                    Builder(builder: (context) {
-                      return AppHeader(
-                          title: 'Search',
-                          onBack: () => Navigator.pop(context));
-                    }),
-                    const TextField(),
-                  ])))),
+              onPressed: () =>
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => Scaffold(
+                              body: Column(children: [
+                            Builder(builder: (context) {
+                              return AppHeader(
+                                  title: 'Search',
+                                  onBack: () => Navigator.pop(context));
+                            }),
+                            const TextField(),
+                          ])))),
               child: const Text('Open search')));
     })));
     await tester.tap(find.text('Open search'));

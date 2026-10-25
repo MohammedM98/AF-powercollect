@@ -43,6 +43,8 @@ foreach (['أبو ذر', 'الشافعي', 'السوق', 'المدارس', 'ال
 }
 
 $messageSubscription = Subscription::query()->where('branch_id', $branch->id)->firstOrFail();
+$baselineSubscription = Subscription::query()->where('branch_id', $branch->id)->whereKeyNot($messageSubscription->id)->firstOrFail();
+$baselineSubscription->update(['initial_reading' => 123]);
 $messageWeek = MeterReading::latestEndedWeekStart($branch)->subWeeks(12)->toDateString();
 MeterReading::factory()->approved()->for($messageSubscription)->create([
     'week_start' => $messageWeek, 'previous_reading' => 100, 'current_reading' => 125,
@@ -52,4 +54,5 @@ MeterReading::factory()->approved()->for($messageSubscription)->create([
 file_put_contents(getenv('OUT_DIR').'/fixture.json', json_encode([
     'cycleId' => $cycle->id, 'readerId' => $readers[0]->id, 'branchId' => $branch->id,
     'messageWeek' => $messageWeek, 'messageSubscriptionName' => $messageSubscription->displayName(),
+    'baselineSubscriptionName' => $baselineSubscription->displayName(), 'baselineAccountNumber' => $baselineSubscription->account_number,
 ], JSON_THROW_ON_ERROR));

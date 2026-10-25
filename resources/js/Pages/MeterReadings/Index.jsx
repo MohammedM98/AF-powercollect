@@ -103,11 +103,15 @@ function focusReadingInput(currentInput, step = 1) {
  * week's own reading is entered separately after confirming the baseline.
  */
 function LastReadingCell({ row }) {
-    const lastReading = row.lastReading;
+    const lastReading = row.lastReading ?? row.initialReading;
     const editor = useLastReadingEdit({
         readingId: lastReading?.id,
         savedValue: row.previousReading,
         floor: lastReading?.previousReading ?? 0,
+        previewUrl: lastReading?.previewUrl,
+        saveUrl: lastReading?.saveUrl,
+        weekStart: lastReading?.isInitial ? lastReading.weekStart : undefined,
+        isInitial: lastReading?.isInitial ?? false,
     });
 
     return (
@@ -121,7 +125,7 @@ function LastReadingCell({ row }) {
                             className="re-last-pencil"
                             onClick={editor.open}
                             aria-label={`تعديل القراءة السابقة لـ ${row.fullName}`}
-                            title={`تعديل قراءة الأسبوع ${shortDate(lastReading.weekStart)} – ${lastReading.weekEnd ? shortDate(lastReading.weekEnd) : ''}`}
+                            title={lastReading.isInitial ? 'تعديل قراءة بداية الاشتراك لهذا الأسبوع' : `تعديل قراءة الأسبوع ${shortDate(lastReading.weekStart)} – ${lastReading.weekEnd ? shortDate(lastReading.weekEnd) : ''}`}
                         >
                             <Icon name="pencil" />
                         </button>
@@ -552,6 +556,12 @@ export default function Index({
                     <div className="flex items-center gap-1"><h1>القراءات الأسبوعية</h1><InfoTip label="طريقة الإدخال">أدخل القراءة الحالية بجانب القراءة السابقة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</InfoTip></div>
                     <div className="re-actions">
                         <PrintButton title="القراءات الأسبوعية" selectedIds={[...selectedIds]} selectionPage="/meter-readings" />
+                        {canSendReadingMessages && statusSummary.approved > 0 && (
+                            <Link href={`/messages/create?${new URLSearchParams({ kind: 'weekly_reading', week_start: week, approved_only: '1', branch_id: messageBranchId ?? '', status: filterValues.subscription_status === 'all' ? '' : filterValues.subscription_status || 'active' })}`} aria-label="إرسال رسائل القراءات المعتمدة" title="إرسال رسائل القراءات المعتمدة" className="inline-flex h-11 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-800 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white"><Icon name="send" className="h-4 w-4" /></span>
+                                إرسال القراءات
+                            </Link>
+                        )}
                         <span className={`re-open ${entryWindow.isOpen ? 'is-open' : ''}`}><i />الإدخال {entryWindow.isOpen ? 'مفتوح' : 'مغلق'}</span>
                         <div className="re-week">
                             <button type="button" aria-label="الأسبوع السابق" disabled={weekIndex < 0 || weekIndex === weekOptions.length - 1} onClick={() => changeWeek(weekOptions[weekIndex + 1].value)}><Icon name="chevron-right" /></button>
@@ -563,12 +573,6 @@ export default function Index({
                     </div>
                 </div>
                 {showHint && <div className="re-hint"><Icon name="info" /><p><b>كل قراءات الأسبوع في مكان واحد.</b> بعد حفظ القراءة تظهر في «بانتظار الاعتماد» حتى يراجعها المسؤول ويعتمدها. ويمكنك عرض القراءات المعتمدة بشكل منفصل.</p><button type="button" aria-label="إخفاء التوضيح" onClick={() => setShowHint(false)}>×</button></div>}
-                {canSendReadingMessages && statusSummary.approved > 0 && (
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-500/20 bg-brand-500/5 p-4">
-                        <p className="text-sm text-gray-700">يمكنك إرسال تفاصيل القراءات المعتمدة لهذا الأسبوع برسالة مخصصة لكل مشترك.</p>
-                        <Link href={`/messages/create?${new URLSearchParams({ kind: 'weekly_reading', week_start: week, approved_only: '1', branch_id: messageBranchId ?? '', status: filterValues.subscription_status === 'all' ? '' : filterValues.subscription_status || 'active' })}`} className="text-sm font-bold text-brand-600 hover:underline">إرسال رسائل القراءات المعتمدة</Link>
-                    </div>
-                )}
                 <div className="re-top">
                     <div className="re-tabs" role="group" aria-label="حالة القراءات">
                         {STATUS_TABS.map((tab) => <button type="button" key={tab.value} aria-pressed={activeStatus === tab.value} onClick={() => changeStatus(tab.value)}>{tab.value !== 'all' && <i className={tab.value} />}{tab.label}<span>{statusSummary[tab.count].toLocaleString('en')}</span></button>)}
@@ -690,7 +694,7 @@ export default function Index({
 
             <div className="re-table-wrap">
                 {/* While a last reading can be edited, its column keeps the editor's width, so opening it moves nothing. */}
-                <table className={`re-table w-full text-sm text-start ${rows.data.some((row) => row.lastReading?.canEdit) ? 'has-last-edit' : ''}`} {...printFieldsProps(PRINT_FIELDS)}>
+                <table className={`re-table w-full text-sm text-start ${rows.data.some((row) => row.lastReading?.canEdit || row.initialReading?.canEdit) ? 'has-last-edit' : ''}`} {...printFieldsProps(PRINT_FIELDS)}>
                     <thead>
                         <tr>
                             <SortableTh column="full_name" label="المشترك" sortState={filters} onSort={sort} className="re-sub" />

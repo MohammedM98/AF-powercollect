@@ -802,6 +802,14 @@ class MeterReadingController extends Controller
                 'status' => $lastBefore->status->value,
                 'canEdit' => ! $subscription->has_later_week && $actor->can('adjustLastReading', $lastBefore),
             ] : null,
+            'initialReading' => $lastBefore === null ? [
+                'isInitial' => true,
+                'weekStart' => $weekStart->toDateString(),
+                'previousReading' => 0,
+                'previewUrl' => route('subscriptions.reading-baseline.preview', $subscription),
+                'saveUrl' => route('subscriptions.reading-baseline.update', $subscription),
+                'canEdit' => ! $subscription->has_later_week && $actor->can('adjustInitialReading', [$subscription, $weekStart]),
+            ] : null,
             'hasLaterWeek' => (bool) $subscription->has_later_week,
             'canApprove' => $reading !== null && $actor->can('approve', $reading),
             'canEdit' => $reading

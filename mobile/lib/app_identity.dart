@@ -230,6 +230,15 @@ abstract final class AppIdentity {
         _ => '$count قراءة',
       };
 
+  /// How many payments, worded as Arabic counts them.
+  static String paymentsCount(int count) => switch (count) {
+        0 => 'لا دفعات',
+        1 => 'دفعة واحدة',
+        2 => 'دفعتان',
+        <= 10 => '$count دفعات',
+        _ => '$count دفعة',
+      };
+
   /// A week's start date as day/month, the way the field staff say it.
   static String shortDate(dynamic value) {
     final date = DateTime.tryParse('$value');
@@ -1266,6 +1275,7 @@ class AppSearchField extends StatelessWidget {
       this.onSubmitted,
       this.maxLength,
       this.fieldKey,
+      this.autofocus = false,
       super.key});
   final TextEditingController controller;
   final String hint;
@@ -1274,6 +1284,7 @@ class AppSearchField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final int? maxLength;
   final Key? fieldKey;
+  final bool autofocus;
   @override
   Widget build(BuildContext context) => TextFieldTapRegion(
           child: Container(
@@ -1291,6 +1302,7 @@ class AppSearchField extends StatelessWidget {
             child: TextField(
               key: fieldKey,
               controller: controller,
+              autofocus: autofocus,
               onChanged: onChanged,
               onTapOutside: (_) => FocusScope.of(context).unfocus(),
               onSubmitted: onSubmitted,

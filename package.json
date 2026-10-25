@@ -6,6 +6,7 @@
         "build": "vite build",
         "dev": "vite",
         "test": "node --test tests/Unit/*.test.js",
+        "test:browser": "node tests/Browser/run.mjs",
         "check": "node .claude/automation/check.mjs --full",
         "check:changed": "node .claude/automation/check.mjs --changed",
         "check:watch": "node .claude/automation/watch.mjs",

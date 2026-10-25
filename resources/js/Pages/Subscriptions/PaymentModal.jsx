@@ -346,7 +346,7 @@ function PaymentReceipt({ receipt, subscriptionName, title, onAnother, onDone })
             </span>
             <h3 className="font-luxe text-[26px] font-bold text-gray-900">{title}</h3>
             <p className="mt-1.5 text-gray-600">
-                {formatMoney(receipt.amount)} شيكل من {subscriptionName} · الرصيد الجديد {balanceText(after)}
+                {formatMoney(receipt.currency === 'ILS' ? receipt.amount : receipt.inShekels)} شيكل من {subscriptionName} · الرصيد الجديد {balanceText(after)}
             </p>
             <dl className="mx-auto mt-6 w-full max-w-[420px] rounded-[20px] border border-gray-100 bg-gray-50 px-[18px] py-1.5 text-start">
                 {rows.map(([label, value]) => (

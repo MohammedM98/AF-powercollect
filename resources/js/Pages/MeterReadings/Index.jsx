@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { notify } from '@/lib/notify';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ConfirmDialog from '@/Components/ConfirmDialog';
@@ -439,6 +439,8 @@ export default function Index({
     statusSummary,
     canRecord,
     canApprove,
+    canSendReadingMessages,
+    messageBranchId,
     seesWhoRecorded,
     pendingApproval,
     weekIsViewOnly,
@@ -448,7 +450,7 @@ export default function Index({
 }) {
     const weekParams = readingWeekParams(week, weekOptions[0]?.value);
     const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/meter-readings', filters, weekParams, {
-        only: ['rows', 'filters', 'filterOptions', 'week', 'weekEnd', 'weekOptions', 'summary', 'statusSummary', 'pendingApproval', 'can', 'canRecord', 'canApprove', 'seesWhoRecorded', 'weekIsViewOnly', 'entryWindow'],
+        only: ['rows', 'filters', 'filterOptions', 'week', 'weekEnd', 'weekOptions', 'summary', 'statusSummary', 'pendingApproval', 'can', 'canRecord', 'canApprove', 'canSendReadingMessages', 'messageBranchId', 'seesWhoRecorded', 'weekIsViewOnly', 'entryWindow'],
     });
     // The readings ticked for approval, and which approval is waiting on "are you sure?" ('selected' or 'all').
     const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -561,6 +563,12 @@ export default function Index({
                     </div>
                 </div>
                 {showHint && <div className="re-hint"><Icon name="info" /><p><b>كل قراءات الأسبوع في مكان واحد.</b> بعد حفظ القراءة تظهر في «بانتظار الاعتماد» حتى يراجعها المسؤول ويعتمدها. ويمكنك عرض القراءات المعتمدة بشكل منفصل.</p><button type="button" aria-label="إخفاء التوضيح" onClick={() => setShowHint(false)}>×</button></div>}
+                {canSendReadingMessages && statusSummary.approved > 0 && (
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-500/20 bg-brand-500/5 p-4">
+                        <p className="text-sm text-gray-700">يمكنك إرسال تفاصيل القراءات المعتمدة لهذا الأسبوع برسالة مخصصة لكل مشترك.</p>
+                        <Link href={`/messages/create?${new URLSearchParams({ kind: 'weekly_reading', week_start: week, approved_only: '1', branch_id: messageBranchId ?? '', status: filterValues.subscription_status === 'all' ? '' : filterValues.subscription_status || 'active' })}`} className="text-sm font-bold text-brand-600 hover:underline">إرسال رسائل القراءات المعتمدة</Link>
+                    </div>
+                )}
                 <div className="re-top">
                     <div className="re-tabs" role="group" aria-label="حالة القراءات">
                         {STATUS_TABS.map((tab) => <button type="button" key={tab.value} aria-pressed={activeStatus === tab.value} onClick={() => changeStatus(tab.value)}>{tab.value !== 'all' && <i className={tab.value} />}{tab.label}<span>{statusSummary[tab.count].toLocaleString('en')}</span></button>)}

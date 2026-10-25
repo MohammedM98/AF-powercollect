@@ -523,6 +523,29 @@ class MeterReadingTest extends TestCase
                 ->where('summary.entered', 0));
     }
 
+    public function test_subscription_status_filter_shows_inactive_subscriptions_without_allowing_new_readings(): void
+    {
+        $disconnected = Subscription::factory()->create(['branch_id' => $this->branch->id, 'status' => SubscriptionStatus::Disconnected]);
+        Subscription::factory()->create(['status' => SubscriptionStatus::Disconnected]);
+
+        $this->actingAs($this->dataEntry)->get(route('meter-readings.index', ['filter' => ['subscription_status' => 'disconnected']]))
+            ->assertInertia(fn ($page) => $page->has('rows.data', 1)
+                ->where('rows.data.0.id', $disconnected->id)->where('rows.data.0.canEdit', false)->where('summary.total', 1));
+        $this->get(route('meter-readings.index', ['filter' => ['subscription_status' => 'all']]))
+            ->assertInertia(fn ($page) => $page->has('rows.data', 2)->where('summary.total', 2));
+    }
+
+    public function test_reading_message_action_requires_both_approval_and_message_permissions(): void
+    {
+        $this->dataEntry->permissions()->sync(Permission::idsFor([PermissionKey::ViewMeterReadings, PermissionKey::ApproveMeterReadings]));
+        $this->actingAs($this->dataEntry)->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page->where('canSendReadingMessages', false));
+        $this->dataEntry->permissions()->attach(Permission::idsFor([PermissionKey::SendMessages]));
+        $this->dataEntry->unsetRelation('permissions');
+        $this->get(route('meter-readings.index'))
+            ->assertInertia(fn ($page) => $page->where('canSendReadingMessages', true)->where('messageBranchId', $this->branch->id));
+    }
+
     public function test_the_reading_sheet_passes_on_the_saved_status_for_the_success_message(): void
     {
         $this->actingAs($this->dataEntry)

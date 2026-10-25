@@ -346,7 +346,7 @@ export default function Show({ cycle, boards, readers, paperSheets, reviewCount,
                                     <span className="text-xs text-gray-500">
                                         {sheet.printCount > 0 ? `طُبع ${formatNumber(sheet.printCount)} مرة · آخرها ${sheet.lastPrintedAt} (${sheet.lastPrintedBy})` : 'لم يُطبع بعد'}
                                     </span>
-                                    {abilities.printSheets && <Link href={`/paper-sheets/${sheet.id}`} className="text-sm font-semibold text-brand-600 hover:underline">فتح للطباعة</Link>}
+                                    {abilities.printSheets && <Link href={`/paper-sheets/${sheet.id}?print=1`} className="text-sm font-semibold text-brand-600 hover:underline">طباعة وتخصيص</Link>}
                                 </li>
                             ))}
                         </ul>

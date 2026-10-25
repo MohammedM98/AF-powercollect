@@ -2,6 +2,7 @@
 
 use App\Models\Branch;
 use App\Models\MeterBox;
+use App\Models\MeterReading;
 use App\Models\ReadingAssignment;
 use App\Models\ReadingCycle;
 use App\Models\SubArea;
@@ -41,4 +42,14 @@ foreach (['أبو ذر', 'الشافعي', 'السوق', 'المدارس', 'ال
     }
 }
 
-file_put_contents(getenv('OUT_DIR').'/fixture.json', json_encode(['cycleId' => $cycle->id, 'readerId' => $readers[0]->id], JSON_THROW_ON_ERROR));
+$messageSubscription = Subscription::query()->where('branch_id', $branch->id)->firstOrFail();
+$messageWeek = MeterReading::latestEndedWeekStart($branch)->subWeeks(12)->toDateString();
+MeterReading::factory()->approved()->for($messageSubscription)->create([
+    'week_start' => $messageWeek, 'previous_reading' => 100, 'current_reading' => 125,
+    'consumption' => 25, 'unit_price' => 1.75, 'recorded_by' => $owner->id,
+]);
+
+file_put_contents(getenv('OUT_DIR').'/fixture.json', json_encode([
+    'cycleId' => $cycle->id, 'readerId' => $readers[0]->id, 'branchId' => $branch->id,
+    'messageWeek' => $messageWeek, 'messageSubscriptionName' => $messageSubscription->displayName(),
+], JSON_THROW_ON_ERROR));

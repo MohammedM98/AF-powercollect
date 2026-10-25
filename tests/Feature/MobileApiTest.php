@@ -147,6 +147,40 @@ class MobileApiTest extends TestCase
         $this->getJson(route('mobile.readings.index', ['search' => 'HIDDEN-99']))->assertJsonPath('total', 0);
     }
 
+    public function test_weekly_readings_filter_subscription_status_within_the_visible_branch(): void
+    {
+        $user = User::factory()->branchAdmin()->create();
+        Subscription::factory()->create(['branch_id' => $user->branch_id]);
+        $disconnected = Subscription::factory()->create(['branch_id' => $user->branch_id, 'status' => 'disconnected']);
+        Subscription::factory()->create(['status' => 'disconnected']);
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($user));
+
+        $this->getJson(route('mobile.readings.index'))->assertJsonPath('total', 1)->assertJsonPath('data.0.subscription_status', 'active');
+        $this->getJson(route('mobile.readings.index', ['subscription_status' => 'disconnected']))
+            ->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $disconnected->id)->assertJsonPath('data.0.subscription_status', 'disconnected');
+        $this->getJson(route('mobile.readings.index', ['subscription_status' => 'all']))->assertJsonPath('total', 2);
+        $this->getJson(route('mobile.readings.index', ['subscription_status' => 'invalid']))->assertUnprocessable()->assertJsonValidationErrors('subscription_status');
+    }
+
+    public function test_bank_transfer_receipt_returns_the_reference_and_saved_payment_details_on_retry(): void
+    {
+        $collector = $this->collectorWithPermission(...self::TAKES_PAYMENTS);
+        $subscription = Subscription::factory()->create(['branch_id' => $collector->branch_id]);
+        $payload = [
+            'mobile_operation_id' => (string) Str::uuid(), 'collector_confirmed' => true,
+            'subscription_id' => $subscription->id, 'amount' => '25', 'currency' => 'ILS',
+            'payment_method' => 'bank_transfer', 'bank_name' => 'بنك فلسطين', 'sender_name' => 'Sender',
+            'reference_number' => 'BANK-0042', 'notes' => 'Transfer details',
+        ];
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($collector));
+
+        $first = $this->postJson(route('mobile.collections.store'), $payload)->assertCreated();
+        $this->postJson(route('mobile.collections.store'), $payload)->assertCreated()
+            ->assertJsonPath('id', $first->json('id'))->assertJsonPath('reference_number', 'BANK-0042')
+            ->assertJsonPath('bank_name', 'بنك فلسطين')->assertJsonPath('sender_name', 'Sender')->assertJsonPath('notes', 'Transfer details');
+        $this->assertDatabaseCount('subscription_transactions', 1);
+    }
+
     public function test_weekly_reading_list_is_paginated_and_rejects_invalid_filters(): void
     {
         $user = User::factory()->collector()->create();

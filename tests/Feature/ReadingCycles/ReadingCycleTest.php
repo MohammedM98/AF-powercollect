@@ -361,9 +361,10 @@ class ReadingCycleTest extends TestCase
         $this->actingAs($this->branchAdmin)->post(route('reading-cycles.paper-sheets.store', $cycle), ['box_ids' => $boxes->pluck('id')->all()])
             ->assertSessionHasErrors('box_ids');
         $this->actingAs($this->branchAdmin)->post(route('reading-cycles.assignments.approve', $cycle), ['paper' => true]);
-        $this->actingAs($this->branchAdmin)->post(route('reading-cycles.paper-sheets.store', $cycle), ['box_ids' => $boxes->pluck('id')->all()]);
+        $created = $this->actingAs($this->branchAdmin)->post(route('reading-cycles.paper-sheets.store', $cycle), ['box_ids' => $boxes->pluck('id')->all()]);
 
         $sheet = PaperSheet::query()->sole();
+        $created->assertRedirect(route('paper-sheets.show', [$sheet, 'print' => 1]));
         $this->actingAs($this->branchAdmin)->get(route('paper-sheets.show', $sheet))
             ->assertInertia(fn ($page) => $page->component('ReadingCycles/PaperSheet')->has('boxes', 3)->where('boxes.0.subscriptions.0.previousReading', 100)->where('boxes.0.subscriptions.0.phone', '0599000001'));
         $this->actingAs($this->branchAdmin)->postJson(route('paper-sheets.printed', $sheet))->assertOk()->assertJsonPath('printed', true);

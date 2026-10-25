@@ -67,11 +67,28 @@ class MobileAppDownloadTest extends TestCase
         $this->get(route('settings.mobile-app.download'))->assertNotFound();
     }
 
+    public function test_an_existing_github_apk_can_be_downloaded_from_an_immutable_commit(): void
+    {
+        $this->publishFixture();
+        $release = json_decode(Storage::disk('local')->get('release/release.json'), true);
+        $release['download_url'] = 'https://raw.githubusercontent.com/MohammedM98/AF-powercollect/218e664cc0c0a965a4ffd5024ea8fac35da954ca/resources/mobile/powercollect.apk';
+        Storage::disk('local')->put('release/release.json', json_encode($release));
+
+        $this->actingAs(User::factory()->collector()->create())->get(route('settings.mobile-app.index'))->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('release.version', '1.0.1'));
+        $this->get(route('settings.mobile-app.download'))->assertRedirect($release['download_url'])
+            ->assertHeader('Cache-Control', 'no-store, private');
+    }
+
     #[TestWith(['download_url', null])]
     #[TestWith(['download_url', 'http://github.com/MohammedM98/AF-powercollect/releases/download/android-v1.0.1/powercollect.apk'])]
     #[TestWith(['download_url', 'https://untrusted.test/powercollect.apk'])]
     #[TestWith(['download_url', 'https://github.com/other/project/releases/download/android-v1.0.1/powercollect.apk'])]
     #[TestWith(['download_url', 'https://github.com/MohammedM98/AF-powercollect/releases/download/android-v1.0.2/powercollect.apk'])]
+    #[TestWith(['download_url', 'https://raw.githubusercontent.com/MohammedM98/AF-powercollect/main/resources/mobile/powercollect.apk'])]
+    #[TestWith(['download_url', 'https://raw.githubusercontent.com/other/project/218e664cc0c0a965a4ffd5024ea8fac35da954ca/resources/mobile/powercollect.apk'])]
+    #[TestWith(['download_url', 'http://raw.githubusercontent.com/MohammedM98/AF-powercollect/218e664cc0c0a965a4ffd5024ea8fac35da954ca/resources/mobile/powercollect.apk'])]
+    #[TestWith(['download_url', 'https://raw.githubusercontent.com/MohammedM98/AF-powercollect/218e664cc0c0a965a4ffd5024ea8fac35da954ca/resources/mobile/powercollect.apk?url=https://untrusted.test'])]
     #[TestWith(['version', '../1.0.1'])]
     #[TestWith(['sha256', 'invalid'])]
     #[TestWith(['size', 0])]

@@ -45,7 +45,9 @@ class MobileAppDownloadController extends Controller
             || ! is_string($release['version'] ?? null) || ! preg_match('/^\d+\.\d+\.\d+$/', $release['version'])
             || ! is_string($release['sha256'] ?? null) || ! preg_match('/^[a-f0-9]{64}$/', $release['sha256'])
             || ! is_int($release['size'] ?? null) || $release['size'] <= 0
-            || ($release['download_url'] ?? null) !== 'https://github.com/MohammedM98/AF-powercollect/releases/download/android-v'.$release['version'].'/powercollect.apk') {
+            || ! is_string($release['download_url'] ?? null)
+            || ($release['download_url'] !== 'https://github.com/MohammedM98/AF-powercollect/releases/download/android-v'.$release['version'].'/powercollect.apk'
+                && ! preg_match('~\Ahttps://raw\.githubusercontent\.com/MohammedM98/AF-powercollect/[a-f0-9]{40}/resources/mobile/powercollect\.apk\z~', $release['download_url']))) {
             return null;
         }
 

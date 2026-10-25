@@ -78,9 +78,10 @@ function labelled(label) {
     return new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\*?\\s*$`);
 }
 
-/** Fills fields by label: text, a choice from a list (`{ select: value }`), a chip (`{ chip }`), a switch (`{ switch: bool }`) or a switch (`{ check: bool }`). */
+/** Fills fields by label (skipping those given as null): text, a choice from a list (`{ select: value }`), a chip (`{ chip }`), a switch (`{ switch: bool }`) or a switch (`{ check: bool }`). */
 async function fillFields(scope, fields) {
     for (const [label, value] of Object.entries(fields)) {
+        if (value === null) continue;
         const field = scope.getByLabel(labelled(label)).first();
         if (value && typeof value === 'object' && 'select' in value) {
             if ((await field.evaluate((element) => element.tagName)) === 'SELECT') {
@@ -228,7 +229,7 @@ step('readings are opened for entry today, whatever day the run is on', async ()
     await snap(page, 'reading-schedule');
 });
 
-step('the branch manager registers two subscribers on the tablons', async () => {
+step('the branch manager registers subscribers on the tablons, one an old record without an ID or mobile', async () => {
     people.manager = await signIn(staff.manager.username);
     const page = people.manager;
     const subscriber = (fields) => addThroughWindow(page, '/subscriptions', 'مشترك جديد', {
@@ -240,8 +241,10 @@ step('the branch manager registers two subscribers on the tablons', async () => 
         'الاسم': 'خالد يوسف', 'رقم الهوية': '402345678', 'رقم الجوال': '0599765432', 'نوع الاشتراك': { select: 'تجاري' },
         'الطبلون (الاسم والرقم)': { select: 'T-103' }, 'القراءة السابقة': '500', 'رسوم الاشتراك': '400',
     });
+    // An old record brought in without an identity or mobile number.
+    await subscriber({ 'الاسم': 'حاج قديم بلا هوية', 'الطبلون (الاسم والرقم)': { select: 'T-102' }, 'تحميل رسوم اشتراك': { switch: false }, 'رسوم الاشتراك': null });
     await page.goto('/subscriptions');
-    for (const account of ['202600001', '202600002']) {
+    for (const account of ['202600001', '202600002', '202600003']) {
         await page.getByText(account).first().waitFor();
     }
     await snap(page, 'subscribers');

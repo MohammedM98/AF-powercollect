@@ -175,10 +175,9 @@ class MeterReadingTest extends TestCase
     {
         $this->recordedReading('2026-09-18', 1200, 1250);
 
-        // Only the Super Admin may enter an earlier week at all.
         $this->actingAs(User::factory()->superAdmin()->create())
             ->post(route('meter-readings.store'), $this->payload(['week_start' => '2026-09-11']))
-            ->assertSessionHasErrors(['week_start' => 'يوجد قراءة لأسبوع لاحق لهذا المشترك، لا يمكن إدخال أسبوع سابق.']);
+            ->assertSessionHasErrors(['week_start' => 'يمكن إدخال قراءات الأسبوع الأخير فقط؛ الأسابيع السابقة للعرض فقط.']);
     }
 
     public function test_only_the_latest_week_can_be_entered_and_earlier_weeks_are_view_only(): void
@@ -203,13 +202,15 @@ class MeterReadingTest extends TestCase
                 ->where('rows.data.0.canEdit', true));
     }
 
-    public function test_the_super_admin_can_enter_a_reading_for_an_earlier_week(): void
+    public function test_the_super_admin_cannot_enter_a_missing_reading_for_an_earlier_week(): void
     {
         $this->actingAs(User::factory()->superAdmin()->create())
             ->post(route('meter-readings.store'), $this->payload(['week_start' => '2026-09-11']))
-            ->assertSessionHasNoErrors();
+            ->assertSessionHasErrors(['week_start' => 'يمكن إدخال قراءات الأسبوع الأخير فقط؛ الأسابيع السابقة للعرض فقط.']);
 
-        $this->assertSame('2026-09-11', MeterReading::sole()->week_start->toDateString());
+        $this->assertDatabaseCount('meter_readings', 0);
+        $this->get(route('meter-readings.index', ['week' => '2026-09-11']))
+            ->assertInertia(fn ($page) => $page->where('weekIsViewOnly', true)->where('rows.data.0.canEdit', false));
     }
 
     public function test_the_sheet_stays_on_the_week_that_ended_on_thursday_when_entering_late(): void

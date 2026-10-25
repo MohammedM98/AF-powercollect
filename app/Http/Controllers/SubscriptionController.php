@@ -86,8 +86,8 @@ class SubscriptionController extends Controller
             'statusOptions' => SubscriptionStatus::options(),
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => fn () => $this->filterOptions($actor, $request),
-            // Only the Super Admin may enter a reading for an earlier week.
-            'readingWeekOptions' => fn () => MeterReading::recentWeekOptionsFor($actor, $actor->isSuperAdmin() ? 8 : 1),
+            // New reading forms offer only the latest week of each branch.
+            'readingWeekOptions' => fn () => MeterReading::recentWeekOptionsFor($actor, 1),
             'statement' => fn () => $this->requestedStatement($request, $actor),
             ...$this->subscriptionFormOptions(),
         ]);

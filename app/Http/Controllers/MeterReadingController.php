@@ -143,7 +143,7 @@ class MeterReadingController extends Controller
             'statusSummary' => fn () => $this->statusSummary($summaryQuery, $week),
             'pendingApproval' => fn () => $canApprove ? $this->pendingApprovalSummary($request, $actor, $week) : null,
             // The actor could record now, just not in this earlier week.
-            'weekIsViewOnly' => $actor->can('createOnReadingDay', MeterReading::class) && ! $actor->can('createOnReadingDay', [MeterReading::class, $weekStart]),
+            'weekIsViewOnly' => $actor->can('createOnReadingDay', MeterReading::class) && ! $actor->can('createOnReadingDay', [MeterReading::class, $weekStart, $weekBranchId]),
             'entryWindow' => $this->entryWindow($actor),
             'filters' => $this->dataTableState($request, 'full_name', 'asc', 25),
             'filterOptions' => fn () => $this->filterOptions($actor, $request),
@@ -806,7 +806,7 @@ class MeterReadingController extends Controller
             'canApprove' => $reading !== null && $actor->can('approve', $reading),
             'canEdit' => $reading
                 ? ! $subscription->has_later_week && $actor->can('update', $reading)
-                : $subscription->status === SubscriptionStatus::Active && ! $subscription->has_later_week && $actor->can('createOnReadingDay', [MeterReading::class, $weekStart]),
+                : $subscription->status === SubscriptionStatus::Active && ! $subscription->has_later_week && $actor->can('createOnReadingDay', [MeterReading::class, $weekStart, $subscription->branch_id]),
         ];
     }
 

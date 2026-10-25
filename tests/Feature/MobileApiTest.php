@@ -83,6 +83,21 @@ class MobileApiTest extends TestCase
         $this->assertDatabaseHas('meter_readings', ['subscription_id' => $subscription->id, 'current_reading' => 130]);
     }
 
+    public function test_super_admin_mobile_entry_cannot_fill_in_a_previous_week(): void
+    {
+        $this->travelTo('2026-09-24 10:00:00');
+        $actor = User::factory()->superAdmin()->create();
+        $subscription = Subscription::factory()->create(['initial_reading' => 100]);
+
+        $this->withHeader('Authorization', 'Bearer '.MobileAccessToken::issue($actor))
+            ->postJson(route('mobile.readings.store'), [
+                'subscription_id' => $subscription->id, 'week_start' => '2026-09-11',
+                'current_reading' => 125, 'mobile_operation_id' => (string) Str::uuid(),
+            ])->assertUnprocessable()->assertJsonValidationErrors(['week_start' => 'يمكن إدخال قراءات الأسبوع الأخير فقط؛ الأسابيع السابقة للعرض فقط.']);
+
+        $this->assertDatabaseCount('meter_readings', 0);
+    }
+
     public function test_weekly_reading_view_requires_permission_and_does_not_grant_write_access(): void
     {
         $this->getJson(route('mobile.readings.index'))->assertUnauthorized();

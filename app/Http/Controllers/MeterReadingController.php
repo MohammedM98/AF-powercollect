@@ -68,7 +68,7 @@ class MeterReadingController extends Controller
                 'circuitBreaker',
                 'standingDiscount',
                 'meterBox.subArea',
-                'meterReadings' => fn ($q) => $q->whereDate('week_start', '<=', $week)->orderByDesc('week_start')
+                'meterReadings' => fn ($q) => $q->chaperone()->withLaterReadingsCount()->whereDate('week_start', '<=', $week)->orderByDesc('week_start')->limit(2)
                     ->with(['recordedBy:id,name', 'approvedBy:id,name', 'chargeLine:id,meter_reading_id']),
             ])
             ->withExists(['meterReadings as has_later_week' => fn ($q) => $q->whereDate('week_start', '>', $week)]);
@@ -80,12 +80,12 @@ class MeterReadingController extends Controller
         $this->applyDataTableFilterSelects($query, $request, ['branch_id', 'meter_box_id', 'tariff_id']);
         $this->applyMeterBoxNameFilter($query, $request);
         $this->applySheetFilters($query, $request, $week, includeStatus: false);
-        $statusSummary = $this->statusSummary($query, $week);
+        $summaryQuery = clone $query;
         $this->applySheetStatusFilters($query, $request, $week);
 
         $enteredThisWeek = fn (Builder $q) => $q->whereDate('week_start', $week);
 
-        $rows = $query->paginate($this->dataTablePerPage($request, 25))
+        $rows = fn () => $query->paginate($this->dataTablePerPage($request, 25))
             ->withQueryString()
             ->through(fn (Subscription $subscription) => $this->sheetRow($subscription, $weekStart, $actor));
 
@@ -98,8 +98,8 @@ class MeterReadingController extends Controller
             'weekEnd' => MeterReading::weekEndFor($weekStart, $weekBranchId)->toDateString(),
             // The weeks back to the first reading (at least fourteen months), for the year, month and week pickers;
             // only the latest one for someone who may not browse earlier weeks.
-            'weekOptions' => MeterReading::recentWeekOptions($weekBranchId, $canBrowseWeeks ? $this->weeksToOffer($actor, $weekBranchId) : 1),
-            'summary' => [
+            'weekOptions' => fn () => MeterReading::recentWeekOptions($weekBranchId, $canBrowseWeeks ? $this->weeksToOffer($actor, $weekBranchId) : 1),
+            'summary' => fn () => [
                 'total' => (clone $scope)->count(),
                 'entered' => (clone $scope)->whereHas('meterReadings', $enteredThisWeek)->count(),
                 'amountDue' => number_format((float) MeterReading::query()
@@ -110,13 +110,13 @@ class MeterReadingController extends Controller
             'canRecord' => $actor->can('createOnReadingDay', MeterReading::class),
             'canApprove' => $canApprove,
             'seesWhoRecorded' => $this->seesWhoRecorded($actor),
-            'statusSummary' => $statusSummary,
-            'pendingApproval' => $canApprove ? $this->pendingApprovalSummary($request, $actor, $week) : null,
+            'statusSummary' => fn () => $this->statusSummary($summaryQuery, $week),
+            'pendingApproval' => fn () => $canApprove ? $this->pendingApprovalSummary($request, $actor, $week) : null,
             // The actor could record now, just not in this earlier week.
             'weekIsViewOnly' => $actor->can('createOnReadingDay', MeterReading::class) && ! $actor->can('createOnReadingDay', [MeterReading::class, $weekStart]),
             'entryWindow' => $this->entryWindow($actor),
             'filters' => $this->dataTableState($request, 'full_name', 'asc', 25),
-            'filterOptions' => $this->filterOptions($actor, $request),
+            'filterOptions' => fn () => $this->filterOptions($actor, $request),
         ]);
     }
 

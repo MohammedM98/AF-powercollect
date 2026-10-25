@@ -1,13 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import CommandPalette from '@/Components/CommandPalette';
-import PrintDesigner from '@/Components/Print/PrintDesigner';
 import TopBar from '@/Components/TopBar/TopBar';
 import NavigationDrawer from '@/Components/TopBar/NavigationDrawer';
-import KeyboardShortcuts from '@/Components/TopBar/KeyboardShortcuts';
-import QuickTour from '@/Components/TopBar/QuickTour';
 import { Breadcrumb, SectionPages } from '@/Components/TopBar/PageTrail';
-import { pageWindowOpen } from '@/Components/TopBar/shortcuts';
+import { handlePaletteShortcut, pageWindowOpen } from '@/Components/TopBar/shortcuts';
 import { useTheme } from '@/hooks/useTheme';
 import { currentPrintSettings } from '@/lib/print';
 import DevelopmentCredits from '@/Components/DevelopmentCredits';
@@ -15,7 +11,13 @@ import { watchSessionStatus } from '@/lib/sessionStatus';
 import { HOME_LINK, MAIN_LINKS, allowedNavigationGroups, navigationGroups, pageTrail } from '@/lib/navigation';
 import { useResponsiveTables } from '@/hooks/useResponsiveTables';
 import { QUICK_MESSAGE_EVENT, openQuickMessage } from '@/lib/quickMessage';
-import QuickMessageModal from '@/Pages/Messages/QuickMessageModal';
+const CommandPalette = lazy(() => import('@/Components/CommandPalette'));
+const PrintDesigner = lazy(() => import('@/Components/Print/PrintDesigner'));
+const KeyboardShortcuts = lazy(() => import('@/Components/TopBar/KeyboardShortcuts'));
+const QuickTour = lazy(() => import('@/Components/TopBar/QuickTour'));
+const QuickMessageModal = lazy(() => import('@/Pages/Messages/QuickMessageModal'));
+
+const loadingTool = <p role="status" className="fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 rounded-control border border-gray-200 bg-surface px-4 py-3 text-sm text-gray-600 shadow-card">جارٍ تحميل الأدوات…</p>;
 
 const NO_BADGES = {};
 
@@ -100,6 +102,9 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
     // keys: a page that uses one of them (a table's / to its search) keeps it, and nothing fires over a page's window.
     useEffect(() => {
         function onKeyDown(event) {
+            if (handlePaletteShortcut(event, paletteOpen, onPaletteOpenChange)) {
+                return;
+            }
             if (event.defaultPrevented || isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey || anyLayerOpen || pageWindowOpen()) {
                 return;
             }
@@ -122,7 +127,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
         window.addEventListener('keydown', onKeyDown);
 
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [anyLayerOpen, can?.recordPayments, can?.sendMessages]);
+    }, [anyLayerOpen, paletteOpen, onPaletteOpenChange, can?.recordPayments, can?.sendMessages]);
 
     // Any page opens the quick message window through openQuickMessage().
     useEffect(() => {
@@ -177,7 +182,7 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
 
     // Opened from a table's print button: the page without the menus (see lib/print.js).
     if (printSettings) {
-        return <PrintDesigner settings={printSettings} beforePrint={beforePrint}>{children}</PrintDesigner>;
+        return <Suspense fallback={loadingTool}><PrintDesigner settings={printSettings} beforePrint={beforePrint}>{children}</PrintDesigner></Suspense>;
     }
 
     return (
@@ -221,25 +226,27 @@ export default function AuthenticatedLayout({ header, badges = NO_BADGES, childr
                 onOpenPalette={() => onPaletteOpenChange(true)}
                 returnFocusTo={menuButtonRef}
             />
-            <CommandPalette
-                open={paletteOpen}
-                onOpenChange={onPaletteOpenChange}
-                sections={paletteSections}
-                commands={commands}
-                onCommand={runCommand}
-                searchSubscribers={searchesSubscribers}
-            />
-            <KeyboardShortcuts
-                open={shortcutsOpen}
-                onClose={closeShortcuts}
-                canRecordPayments={Boolean(can?.recordPayments)}
-                canSendMessages={Boolean(can?.sendMessages)}
-                searchesSubscribers={searchesSubscribers}
-            />
-            {quickMessage && (
-                <QuickMessageModal key={quickMessage.openedAt} subscriptionIds={quickMessage.subscriptionIds} selection={quickMessage.selection} onClose={() => setQuickMessage(null)} />
-            )}
-            <QuickTour open={tourOpen} onClose={closeTour} searchesSubscribers={searchesSubscribers} />
+            <Suspense fallback={loadingTool}>
+                {paletteOpen && <CommandPalette
+                    open={paletteOpen}
+                    onOpenChange={onPaletteOpenChange}
+                    sections={paletteSections}
+                    commands={commands}
+                    onCommand={runCommand}
+                    searchSubscribers={searchesSubscribers}
+                />}
+                {shortcutsOpen && <KeyboardShortcuts
+                    open={shortcutsOpen}
+                    onClose={closeShortcuts}
+                    canRecordPayments={Boolean(can?.recordPayments)}
+                    canSendMessages={Boolean(can?.sendMessages)}
+                    searchesSubscribers={searchesSubscribers}
+                />}
+                {quickMessage && (
+                    <QuickMessageModal key={quickMessage.openedAt} subscriptionIds={quickMessage.subscriptionIds} selection={quickMessage.selection} onClose={() => setQuickMessage(null)} />
+                )}
+                {tourOpen && <QuickTour open={tourOpen} onClose={closeTour} searchesSubscribers={searchesSubscribers} />}
+            </Suspense>
         </div>
     );
 }

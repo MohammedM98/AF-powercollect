@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
@@ -14,10 +14,12 @@ import PageHeader from '@/Components/PageHeader';
 import SearchableSelect from '@/Components/SearchableSelect';
 import { secondaryButtonClass } from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
-import BranchModal from '@/Pages/Branches/BranchModal';
-import UserModal from '@/Pages/Users/UserModal';
 import { formatMoney, formatNumber, formatShortDay, percentOf, timeAgo } from '@/lib/format';
 import { formatWeekDay } from '@/lib/weekDays';
+import { shouldPrefetchPage } from '@/lib/navigation';
+
+const BranchModal = lazy(() => import('@/Pages/Branches/BranchModal'));
+const UserModal = lazy(() => import('@/Pages/Users/UserModal'));
 
 /** The period's name on the tabs and in sentences. */
 const periodLabel = (days) => (days === 7 ? '7 أيام' : `${days} يومًا`);
@@ -85,7 +87,7 @@ function Panel({ icon, title, info, action, className = '', children }) {
 /** "فتح" at the end of a card's title, to the page the card sums up. */
 function OpenLink({ href }) {
     return (
-        <Link href={href} prefetch className="inline-flex items-center gap-1 text-sm font-semibold text-gray-500 transition hover:text-gray-900">
+        <Link href={href} prefetch={shouldPrefetchPage(href)} className="inline-flex items-center gap-1 text-sm font-semibold text-gray-500 transition hover:text-gray-900">
             عرض الكل
             <Icon name="chevron-left" className="h-4 w-4" strokeWidth={2} />
         </Link>
@@ -97,7 +99,7 @@ function TileLink({ href, children }) {
     return (
         <Link
             href={href}
-            prefetch
+            prefetch={shouldPrefetchPage(href)}
             className="block rounded-panel transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 [&>div]:h-full"
         >
             {children}
@@ -118,7 +120,7 @@ function AttentionItem({ icon, title, subtitle, count, href, tone = 'amber' }) {
     return (
         <Link
             href={href}
-            prefetch
+            prefetch={shouldPrefetchPage(href)}
             className="rise-in flex items-center gap-3 rounded-card border border-gray-100 bg-surface p-4 shadow-card transition hover:-translate-y-0.5 hover:border-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
         >
             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-control ${toneClass}`}>
@@ -312,7 +314,7 @@ export default function Dashboard({
                     actions={
                         <>
                             {can?.viewUserTypes && (
-                                <Link href="/users?tab=types" prefetch className={secondaryButtonClass}>
+                                <Link href="/users?tab=types" className={secondaryButtonClass}>
                                     أنواع المستخدمين
                                 </Link>
                             )}
@@ -543,7 +545,7 @@ export default function Dashboard({
                                             <Link
                                                 key={action.href}
                                                 href={action.href}
-                                                prefetch
+                                                prefetch={shouldPrefetchPage(action.href)}
                                                 className={`flex items-center gap-3 rounded-row border px-3.5 py-3 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
                                                     action.main
                                                         ? 'col-span-2 border-transparent bg-brand-gradient py-4 shadow-glow hover:brightness-110'
@@ -883,25 +885,27 @@ export default function Dashboard({
                 </div>
             )}
 
-            {branchForm && (
-                <BranchModal
-                    show={creating === 'branch'}
-                    onClose={() => setCreating(null)}
-                    branch={null}
-                    governorates={branchForm.governorates}
-                    areas={branchForm.areas}
-                />
-            )}
-            {userForm && (
-                <UserModal
-                    show={creating === 'user'}
-                    onClose={() => setCreating(null)}
-                    user={null}
-                    branches={userForm.branches}
-                    canChooseBranch={userForm.canChooseBranch}
-                    userTypeOptions={userForm.userTypeOptions}
-                />
-            )}
+            <Suspense fallback={<p role="status" className="fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 rounded-control border border-gray-200 bg-surface px-4 py-3 text-sm text-gray-600 shadow-card">جارٍ تحميل النموذج…</p>}>
+                {branchForm && creating === 'branch' && (
+                    <BranchModal
+                        show={creating === 'branch'}
+                        onClose={() => setCreating(null)}
+                        branch={null}
+                        governorates={branchForm.governorates}
+                        areas={branchForm.areas}
+                    />
+                )}
+                {userForm && creating === 'user' && (
+                    <UserModal
+                        show={creating === 'user'}
+                        onClose={() => setCreating(null)}
+                        user={null}
+                        branches={userForm.branches}
+                        canChooseBranch={userForm.canChooseBranch}
+                        userTypeOptions={userForm.userTypeOptions}
+                    />
+                )}
+            </Suspense>
         </AuthenticatedLayout>
     );
 }

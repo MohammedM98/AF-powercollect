@@ -1,3 +1,10 @@
+const PREFETCH_PAGES = new Set(['/profile', '/settings/mobile-app', '/governorates', '/tariffs', '/circuit-breakers']);
+
+/** Only small lookup pages are fetched on hover; financial lists wait for an explicit visit. */
+export function shouldPrefetchPage(href) {
+    return typeof href === 'string' && PREFETCH_PAGES.has(href.split(/[?#]/)[0]);
+}
+
 /**
  * Every page in the top bar and the Ctrl+K search. `can` names the flag in
  * the shared `can` props (HandleInertiaRequests) that must be true to open

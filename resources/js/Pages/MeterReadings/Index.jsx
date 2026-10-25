@@ -446,7 +446,9 @@ export default function Index({
     filterOptions,
 }) {
     const weekParams = readingWeekParams(week, weekOptions[0]?.value);
-    const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/meter-readings', filters, weekParams);
+    const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/meter-readings', filters, weekParams, {
+        only: ['rows', 'filters', 'filterOptions', 'week', 'weekEnd', 'weekOptions', 'summary', 'statusSummary', 'pendingApproval', 'can', 'canRecord', 'canApprove', 'seesWhoRecorded', 'weekIsViewOnly', 'entryWindow'],
+    });
     // The readings ticked for approval, and which approval is waiting on "are you sure?" ('selected' or 'all').
     const [selectedIds, setSelectedIds] = useState(() => new Set());
     const [confirming, setConfirming] = useState(null);

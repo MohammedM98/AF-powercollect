@@ -87,9 +87,8 @@ class MeterReadingPolicy
         }
 
         return $meterReading->week_start->lessThan(MeterReading::latestEndedWeekStart($meterReading->branch_id))
-            && ! $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)
-                ->where('week_start', '<', MeterReading::latestEndedWeekStart($meterReading->branch_id))->exists()
-            && $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)->count() <= 1;
+            && ! $meterReading->hasLaterReadingBefore(MeterReading::latestEndedWeekStart($meterReading->branch_id))
+            && $meterReading->laterReadingsCount() <= 1;
     }
 
     public function updateUnitPrice(User $user, MeterReading $meterReading): bool
@@ -107,7 +106,7 @@ class MeterReadingPolicy
         return $meterReading->subscription->archived_at === null && ! $meterReading->requires_reentry
             && ($user->isSuperAdmin() || $user->workBranchId() === $meterReading->branch_id)
             && $meterReading->week_start->equalTo(MeterReading::latestEndedWeekStart($meterReading->branch_id))
-            && ! $meterReading->subscription->meterReadings()->where('week_start', '>', $meterReading->week_start)->exists();
+            && $meterReading->laterReadingsCount() === 0;
     }
 
     /**

@@ -554,8 +554,8 @@ export default function Index({
             <div className="reading-entry" dir="rtl">
                 <div className="re-heading">
                     <div className="flex items-center gap-1"><h1>القراءات الأسبوعية</h1><InfoTip label="طريقة الإدخال">أدخل القراءة الحالية بجانب القراءة السابقة، واضغط Enter أو السهم لأسفل للحفظ والانتقال للمشترك التالي، والسهم لأعلى للرجوع.</InfoTip></div>
-                    <div className="re-actions">
-                        <PrintButton title="القراءات الأسبوعية" selectedIds={[...selectedIds]} selectionPage="/meter-readings" />
+                    <div className="re-actions items-center">
+                        <PrintButton title="القراءات الأسبوعية" selectedIds={[...selectedIds]} selectionPage="/meter-readings" buttonClassName="!h-11 !rounded-xl !px-3 !py-0 !text-xs" />
                         {canSendReadingMessages && statusSummary.approved > 0 && (
                             <Link href={`/messages/create?${new URLSearchParams({ kind: 'weekly_reading', week_start: week, approved_only: '1', branch_id: messageBranchId ?? '', status: filterValues.subscription_status === 'all' ? '' : filterValues.subscription_status || 'active' })}`} aria-label="إرسال رسائل القراءات المعتمدة" title="إرسال رسائل القراءات المعتمدة" className="inline-flex h-11 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-800 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900">
                                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white"><Icon name="send" className="h-4 w-4" /></span>

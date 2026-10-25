@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\DiscountMethod;
 use App\Enums\PermissionKey;
 use App\Models\MeterReading;
 use App\Models\Permission;
@@ -36,6 +37,8 @@ class SubscriptionReadingBaselineTest extends TestCase
         $subscription = Subscription::factory()->for($actor->branch)->create(['initial_reading' => 0]);
         $this->actingAs($actor)->get(route('meter-readings.index'))
             ->assertInertia(fn ($page) => $page->where('rows.data.0.initialReading.canEdit', true)->where('rows.data.0.previousReading', 0));
+        $this->get(route('subscriptions.index'))
+            ->assertInertia(fn ($page) => $page->where('subscriptions.data.0.initialReading.canEdit', true)->where('subscriptions.data.0.initialReading.value', 0));
 
         $this->postJson(route('subscriptions.reading-baseline.preview', $subscription), $this->payload())
             ->assertOk()->assertJsonPath('before', 0)->assertJsonPath('after', 123)->assertJsonPath('clearsCurrentReading', false);
@@ -66,6 +69,10 @@ class SubscriptionReadingBaselineTest extends TestCase
         $this->assertSame(0.0, $subscription->fresh()->balance());
         $this->assertSame(1, $subscription->meterReadings()->count());
         $this->assertSame('initial_reading_adjustment', $current->fresh()->adjustment_history[0]['kind']);
+        $this->get(route('subscriptions.index'))->assertInertia(fn ($page) => $page
+            ->where('subscriptions.data.0.initialReading.value', 130)
+            ->where('subscriptions.data.0.meterReadings.0.requiresReentry', true)
+            ->where('subscriptions.data.0.meterReadings.0.canApprove', false));
     }
 
     #[TestWith(['subscriptions.reading-baseline.preview', 'postJson'])]
@@ -130,5 +137,22 @@ class SubscriptionReadingBaselineTest extends TestCase
         $this->put(route('subscriptions.reading-baseline.update', $subscription), $this->payload(['expected_reading' => 123]))->assertForbidden();
 
         $this->assertSame(123.0, $subscription->fresh()->initial_reading);
+    }
+
+    public function test_history_supplies_the_discount_captured_with_the_reading_for_live_corrections(): void
+    {
+        $actor = User::factory()->branchAdmin()->create();
+        $subscription = Subscription::factory()->for($actor->branch)->create(['initial_reading' => 100]);
+        MeterReading::factory()->for($subscription)->create([
+            'week_start' => '2026-09-18', 'previous_reading' => 100, 'current_reading' => 120,
+            'consumption' => 20, 'unit_price' => 0.5, 'reading_fee' => 10, 'minimum_payment' => 0,
+            'discount_method' => DiscountMethod::Percentage, 'discount_value' => 20, 'discount_amount' => 2,
+            'amount_due' => 8, 'recorded_by' => $actor->id,
+        ]);
+
+        $this->actingAs($actor)->get(route('subscriptions.index'))->assertInertia(fn ($page) => $page
+            ->where('subscriptions.data.0.meterReadings.0.discount.method', 'percentage')
+            ->where('subscriptions.data.0.meterReadings.0.discount.value', '20.00')
+            ->where('subscriptions.data.0.meterReadings.0.canUpdate', true));
     }
 }

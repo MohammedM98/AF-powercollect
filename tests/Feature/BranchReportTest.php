@@ -204,6 +204,28 @@ class BranchReportTest extends TestCase
             ->where('transactions.data', fn ($lines): bool => collect($lines)->pluck('type')->all() === ['penalty']));
     }
 
+    public function test_the_excel_editor_gets_every_line_oldest_first_with_the_pages_filters(): void
+    {
+        $this->at('2026-10-01 08:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', 'late'));
+        $first = $this->at('2026-10-01 08:10', fn () => $this->pay('40'));
+        $second = $this->at('2026-10-01 09:00', fn () => $this->pay('15.5'));
+        $this->at('2026-10-01 09:30', fn () => $this->pay('20', [], Subscription::factory()->create(['branch_id' => $this->south->id])));
+        $this->actingAs($this->preparer());
+
+        $this->getJson(route('reports.lines', ['kind' => 'payments', 'branch' => $this->south->id]))
+            ->assertOk()
+            ->assertJsonCount(2, 'lines')
+            ->assertJsonPath('lines.0.id', $first->id)
+            ->assertJsonPath('lines.0.amount', '40.00')
+            ->assertJsonPath('lines.0.isCredit', true)
+            ->assertJsonPath('lines.0.branchName', 'North')
+            ->assertJsonPath('lines.1.id', $second->id);
+        $this->getJson(route('reports.lines'))->assertJsonCount(3, 'lines');
+        $this->getJson(route('reports.lines', ['from' => '2026-10-02']))->assertUnprocessable();
+
+        $this->actingAs($this->collector)->getJson(route('reports.lines'))->assertForbidden();
+    }
+
     public function test_a_period_is_valid_and_at_most_a_quarter_and_never_past_today(): void
     {
         $this->actingAs($this->preparer());

@@ -125,6 +125,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/company-documents/{company_document}/source', [CompanyDocumentController::class, 'source'])->name('company-documents.source');
     Route::get('/company-documents/{company_document}', [CompanyDocumentController::class, 'show'])->name('company-documents.show');
     Route::get('/reports/lines.csv', [ReportController::class, 'export'])->name('reports.export');
+    Route::get('/reports/lines.json', [ReportController::class, 'lines'])->name('reports.lines');
     Route::get('/branch-performance', [BranchPerformanceController::class, 'index'])->name('branch-performance.index');
     Route::get('/branch-performance/{branch}', [BranchPerformanceController::class, 'show'])->name('branch-performance.show');
 

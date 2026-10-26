@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
+import BranchBanner from '@/Components/BranchBanner';
 import BarChart from '@/Components/Charts/BarChart';
 import MeterBar from '@/Components/Charts/MeterBar';
 import Pagination from '@/Components/DataTable/Pagination';
@@ -196,6 +197,7 @@ const READING_PARTS = (readings) => [
 export default function Dashboard({
     greeting,
     scope,
+    branchScope,
     filters,
     periods,
     branchOptions,
@@ -361,6 +363,7 @@ export default function Dashboard({
 
     return (
         <AuthenticatedLayout
+            scope={branchScope?.name ?? null}
             header={
                 <PageHeader
                     title={
@@ -416,6 +419,7 @@ export default function Dashboard({
                 </div>
             ) : (
                 <div className="space-y-5">
+                    {branchScope && <BranchBanner scope={branchScope} meta={`آخر ${period}`} className="" />}
                     <div className="flex flex-wrap items-center gap-3">
                         <SegmentedTabs
                             label="الفترة"

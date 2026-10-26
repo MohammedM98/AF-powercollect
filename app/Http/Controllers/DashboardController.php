@@ -12,6 +12,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use App\Models\User;
 use App\Support\BranchDomainContext;
+use App\Support\BranchScope;
 use App\Support\DailySeries;
 use App\Support\DashboardOverview;
 use Closure;
@@ -80,6 +81,10 @@ class DashboardController extends Controller
                 'governorates' => $branches->pluck('governorate_id')->filter()->unique()->count(),
                 'today' => DailySeries::today()->toDateString(),
             ],
+            // The head of the company reads, large at the top, whose figures these are: the company, a governorate or a branch.
+            'branchScope' => fn (): ?array => $company && $branches->isNotEmpty()
+                ? BranchScope::describe($branches, $governorateId && ! $branchId ? $allBranches->firstWhere('governorate_id', $governorateId)?->governorate?->name : null)
+                : null,
             'filters' => [
                 'days' => $days,
                 'branch' => $branchId,

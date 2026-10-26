@@ -5,19 +5,33 @@ import { formatNumber } from '@/lib/format';
 
 /**
  * Whose figures the page shows, large at its top: one branch's name, with
- * its place, phone and subscribers, or "جميع الفروع" with how many — so
- * whoever sees more than one branch never mistakes one branch's money for
- * another's. `scope` is what App\Support\BranchScope::describe() sends.
+ * its place, phone and subscribers, a governorate's with how many branches
+ * it has, or "جميع الفروع" with how many — so whoever sees more than one
+ * branch never mistakes one branch's money for another's. `scope` is what App\Support\BranchScope::describe() sends.
  * With more than one `options` ({ value, label }), the branch is changed
  * here (`allValue` is the choice for every branch); `meta` adds a fact to
  * the line under the name (the period, say) and `children` a row under it
  * (a chip per branch when all are shown). On paper it prints as the
- * page's heading, without the colours and the controls.
+ * page's heading, without the colours and the controls. `className`
+ * replaces its space below, for a page that spaces its parts itself.
  */
-export default function BranchBanner({ scope, eyebrow = 'تعرض الآن البيانات المالية لـ', options = [], value = '', allValue = 'all', onChange = null, meta = null, children = null }) {
+/** "فرع واحد", "فرعان", "5 فروع", "12 فرعاً": a count of branches as Arabic says it. */
+function branchCount(count) {
+    if (count === 1) {
+        return 'فرع واحد';
+    }
+
+    if (count === 2) {
+        return 'فرعان';
+    }
+
+    return `${formatNumber(count)} ${count % 100 >= 3 && count % 100 <= 10 ? 'فروع' : 'فرعاً'}`;
+}
+
+export default function BranchBanner({ scope, eyebrow = 'تعرض الآن البيانات المالية لـ', options = [], value = '', allValue = 'all', onChange = null, meta = null, children = null, className = 'mb-5' }) {
     const facts = [
         scope.place && { icon: 'pin', text: scope.place },
-        scope.all && { icon: 'building', text: `${formatNumber(scope.branches)} فروع` },
+        scope.all && { icon: 'building', text: branchCount(scope.branches) },
         { icon: 'users', text: `${formatNumber(scope.subscribers)} مشترك` },
         scope.phone && { icon: 'phone', text: <bdi>{scope.phone}</bdi> },
         meta && { icon: 'calendar', text: meta },
@@ -26,19 +40,19 @@ export default function BranchBanner({ scope, eyebrow = 'تعرض الآن ال�
     return (
         <section
             aria-label="الفرع المعروض"
-            className="relative mb-5 overflow-hidden rounded-card bg-graphite-gradient p-5 text-white shadow-card sm:p-6 print:mb-4 print:overflow-visible print:rounded-none print:border-b-2 print:border-[#a51d26] print:bg-none print:p-0 print:pb-3 print:text-[#111820] print:shadow-none"
+            className={`relative overflow-hidden rounded-card bg-graphite-gradient p-5 text-white shadow-card sm:p-6 print:mb-4 print:overflow-visible print:rounded-none print:border-b-2 print:border-[#a51d26] print:bg-none print:p-0 print:pb-3 print:text-[#111820] print:shadow-none ${className}`}
         >
             <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-spectrum print:hidden" />
             <div className="flex flex-wrap items-center gap-x-5 gap-y-4">
                 <span aria-hidden="true" className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 sm:flex print:hidden">
-                    <Icon name={scope.all ? 'layers' : 'building'} className="h-7 w-7" />
+                    <Icon name={scope.level === 'governorate' ? 'map' : scope.all ? 'layers' : 'building'} className="h-7 w-7" />
                 </span>
                 <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm font-semibold text-white/70 print:text-[#4c5460]">
                         <span>{eyebrow}</span>
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white print:hidden">
-                            <span aria-hidden="true" className={`h-2 w-2 rounded-full ${scope.all ? 'bg-amber-400' : scope.isActive ? 'bg-emerald-400' : 'bg-gray-400'}`} />
-                            {scope.all ? `تقرير مجمّع لـ ${formatNumber(scope.branches)} فروع` : scope.isActive ? 'فرع واحد' : 'فرع واحد · متوقف'}
+                            <span aria-hidden="true" className={`h-2 w-2 rounded-full ${scope.level === 'governorate' ? 'bg-sky-400' : scope.all ? 'bg-amber-400' : scope.isActive ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+                            {scope.level === 'governorate' ? `محافظة · ${branchCount(scope.branches)}` : scope.all ? `تقرير مجمّع · ${branchCount(scope.branches)}` : scope.isActive ? 'فرع واحد' : 'فرع واحد · متوقف'}
                         </span>
                     </p>
                     <h2 className="mt-1 text-balance font-display text-3xl font-bold leading-tight sm:text-4xl" dir="auto">

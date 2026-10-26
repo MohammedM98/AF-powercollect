@@ -6,7 +6,8 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import Switch from '@/Components/Switch';
 import TextInput from '@/Components/TextInput';
-import { buildWorkbookModel, columnLetter, defaultExcelSettings, excelFileName, fitExcelSettings, formatExcelCell } from '@/lib/excelSheet';
+import SegmentedTabs from '@/Components/SegmentedTabs';
+import { buildWorkbookModel, COLUMN_WIDTH_RANGE, columnLetter, columnWidth, defaultExcelSettings, EXCEL_FONT_SIZES, EXCEL_ORIENTATIONS, EXCEL_ROW_HEIGHTS, EXCEL_THEMES, excelFileName, excelLook, fitExcelSettings, formatExcelCell } from '@/lib/excelSheet';
 
 const PREVIEW_ROWS = 80;
 
@@ -116,6 +117,10 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
         changePart(part.key, { columns });
     }
 
+    function setColumnWidth(key, width) {
+        changePart(part.key, { columns: partSettings.columns.map((candidate) => (candidate.key === key ? { ...candidate, width } : candidate)) });
+    }
+
     function saveTemplate() {
         const name = templateName.trim();
         if (!name) return;
@@ -196,12 +201,30 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
                                                             <span className="truncate">{definition.label}</span>
                                                             {definition.sum && <span className="text-xs text-gray-400">مجموع</span>}
                                                         </label>
+                                                        <input
+                                                            type="number"
+                                                            min={COLUMN_WIDTH_RANGE[0]}
+                                                            max={COLUMN_WIDTH_RANGE[1]}
+                                                            value={columnWidth(definition, partSettings)}
+                                                            onChange={(event) => setColumnWidth(column.key, event.target.value === '' ? undefined : Number(event.target.value))}
+                                                            className="w-14 rounded-md border-gray-200 px-1.5 py-0.5 text-center font-display text-xs"
+                                                            aria-label={`عرض عمود ${definition.label}`}
+                                                            title="عرض العمود بالأحرف"
+                                                        />
                                                         <button type="button" onClick={() => moveColumn(index, -1)} disabled={index === 0} className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label={`نقل ${definition.label} للأعلى`}><Icon name="arrow-up" className="h-4 w-4" /></button>
                                                         <button type="button" onClick={() => moveColumn(index, 1)} disabled={index === partSettings.columns.length - 1} className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label={`نقل ${definition.label} للأسفل`}><Icon name="arrow-down" className="h-4 w-4" /></button>
                                                     </li>
                                                 );
                                             })}
                                         </ul>
+                                        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                                            <span>الرقم بجانب كل عمود: عرضه بالأحرف ({COLUMN_WIDTH_RANGE[0]}–{COLUMN_WIDTH_RANGE[1]}).</span>
+                                            {partSettings.columns.some((column) => column.width !== undefined) && (
+                                                <button type="button" className="font-semibold text-gray-700 hover:text-gray-900" onClick={() => changePart(part.key, { columns: partSettings.columns.map(({ width: _width, ...column }) => column) })}>
+                                                    العرض الافتراضي
+                                                </button>
+                                            )}
+                                        </div>
                                         {(part.groupBys ?? []).length > 0 && (
                                             <label className="mt-3 block text-sm font-semibold text-gray-700">
                                                 تجميع الصفوف حسب
@@ -225,6 +248,43 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
                                         اسم الملف
                                         <TextInput className="mt-1.5 w-full font-display text-sm" dir="auto" value={settings.fileName} onChange={(event) => change({ fileName: event.target.value })} />
                                     </label>
+                                </Section>
+
+                                <Section title="الألوان والخط">
+                                    <p className="mb-2 text-sm font-semibold text-gray-700">ألوان صف العناوين والعنوان</p>
+                                    <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="الألوان">
+                                        {Object.entries(EXCEL_THEMES).map(([key, theme]) => (
+                                            <button
+                                                key={key}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={settings.theme === key}
+                                                onClick={() => change({ theme: key })}
+                                                className={`flex flex-col items-center gap-1 rounded-control border p-1.5 text-[11px] font-semibold transition ${settings.theme === key ? 'border-excel-500 bg-excel-500/5 text-gray-900' : 'border-gray-100 text-gray-600 hover:border-gray-200'}`}
+                                            >
+                                                <span className="flex h-7 w-full flex-col overflow-hidden rounded border border-gray-200" aria-hidden="true">
+                                                    <span className="h-2" style={{ background: `#${theme.title}` }} />
+                                                    <span className="flex-1" style={{ background: `#${theme.head}` }} />
+                                                    <span className="h-1.5" style={{ background: `#${theme.group}` }} />
+                                                </span>
+                                                {theme.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="mt-4 space-y-3 text-sm font-semibold text-gray-700">
+                                        <div className="flex items-center justify-between gap-3">
+                                            حجم الخط
+                                            <SegmentedTabs label="حجم الخط" value={settings.fontSize} onChange={(value) => change({ fontSize: value })} options={Object.entries(EXCEL_FONT_SIZES).map(([value, size]) => ({ value, label: size.label }))} />
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            ارتفاع الصفوف
+                                            <SegmentedTabs label="ارتفاع الصفوف" value={settings.rowHeight} onChange={(value) => change({ rowHeight: value })} options={Object.entries(EXCEL_ROW_HEIGHTS).map(([value, height]) => ({ value, label: height.label }))} />
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3">
+                                            اتجاه الصفحة عند الطباعة
+                                            <SegmentedTabs label="اتجاه الصفحة" value={settings.orientation} onChange={(value) => change({ orientation: value })} options={Object.entries(EXCEL_ORIENTATIONS).map(([value, label]) => ({ value, label }))} />
+                                        </div>
+                                    </div>
                                 </Section>
 
                                 <Section title="الشكل داخل Excel">
@@ -295,12 +355,13 @@ function Section({ title, hint = null, children }) {
     );
 }
 
+/** The weight and lines of each kind of row; its colours, size and height come from the look the user chose. */
 const ROW_STYLE = {
-    title: 'text-base font-bold text-brand-600',
+    title: 'font-bold',
     subtitle: 'font-bold text-gray-900',
-    meta: 'text-xs text-gray-500',
-    head: 'bg-graphite-gradient text-center font-bold text-white',
-    group: 'bg-brand-500/10 font-bold text-brand-600',
+    meta: 'text-gray-500',
+    head: 'text-center font-bold',
+    group: 'font-bold',
     subtotal: 'bg-gray-100 font-bold',
     total: 'border-t-4 border-double border-gray-500 bg-gray-200 font-bold',
 };
@@ -312,6 +373,16 @@ function Preview({ sheet, sheets, sheetIndex, onSheet, shownCell, onCell, settin
     }
 
     const shown = sheet.rows.slice(0, PREVIEW_ROWS);
+    const { theme, font, rows: heights } = excelLook(settings);
+    // Points to pixels, as Excel draws at 100%.
+    const px = (points) => Math.round(points * 1.333);
+    const rowStyle = (kind) => ({
+        title: { color: `#${theme.title}`, fontSize: px(font.title), height: px(font.title * 1.75) },
+        subtitle: { fontSize: px(font.subtitle), height: px(font.subtitle * 1.65) },
+        meta: { fontSize: px(font.body - 1), height: px(heights.data) },
+        head: { background: `#${theme.head}`, color: `#${theme.headText}`, height: px(heights.data + 6) },
+        group: { background: `#${theme.group}`, color: `#${theme.groupText}` },
+    })[kind] ?? { height: px(heights.data) };
     const width = 40 + sheet.widths.reduce((total, columnWidth) => total + columnWidth * 7.5, 0);
 
     return (
@@ -327,7 +398,7 @@ function Preview({ sheet, sheets, sheetIndex, onSheet, shownCell, onCell, settin
                 <code className="truncate px-3 py-1.5" dir="auto">{shownCell ? (shownCell.formula ? `=${shownCell.formula}` : shownCell.text) : ''}</code>
             </div>
             <div className="min-h-0 flex-1 overflow-auto" dir={settings.rtl ? 'rtl' : 'ltr'}>
-                <table className="border-collapse text-xs" style={{ width, tableLayout: 'fixed', fontFamily: 'Arial, sans-serif' }}>
+                <table className="border-collapse" style={{ width, tableLayout: 'fixed', fontFamily: 'Arial, sans-serif', fontSize: px(font.body) }}>
                     <colgroup>
                         <col style={{ width: 40 }} />
                         {sheet.widths.map((columnWidth, index) => (
@@ -346,12 +417,12 @@ function Preview({ sheet, sheets, sheetIndex, onSheet, shownCell, onCell, settin
                         {shown.map((row) => {
                             const merged = ['title', 'subtitle', 'meta', 'group'].includes(row.kind) && row.cells.length === 1;
                             return (
-                                <tr key={row.row} className={`${ROW_STYLE[row.kind] ?? ''} ${row.zebra ? 'bg-gray-50' : ''}`}>
+                                <tr key={row.row} className={`${ROW_STYLE[row.kind] ?? ''} ${row.zebra ? 'bg-gray-50' : ''}`} style={rowStyle(row.kind)}>
                                     <td className="border border-gray-200 bg-gray-50 px-1 text-center font-normal text-gray-400">{row.row}</td>
                                     {row.kind === 'blank' ? (
                                         <td colSpan={sheet.widths.length} className="h-5 border border-gray-200" />
                                     ) : merged ? (
-                                        <td colSpan={sheet.widths.length} className="h-6 truncate border border-gray-200 px-2">{row.cells[0].v}</td>
+                                        <td colSpan={sheet.widths.length} className="truncate border border-gray-200 px-2">{row.cells[0].v}</td>
                                     ) : (
                                         sheet.widths.map((_, index) => {
                                             const cell = row.cells[index] ?? { v: '' };
@@ -359,7 +430,7 @@ function Preview({ sheet, sheets, sheetIndex, onSheet, shownCell, onCell, settin
                                             const address = `${columnLetter(index)}${row.row}`;
                                             const numeric = ['money', 'decimal', 'int'].includes(cell.t);
                                             return (
-                                                <td key={index} onClick={() => onCell({ address, formula: cell.f, text })} className={`h-6 cursor-cell truncate border border-gray-200 px-2 ${numeric ? 'font-display tabular-nums' : ''} ${shownCell?.address === address ? 'outline outline-2 -outline-offset-2 outline-excel-500' : ''}`} style={{ textAlign: numeric ? (settings.rtl ? 'left' : 'right') : undefined }}>
+                                                <td key={index} onClick={() => onCell({ address, formula: cell.f, text })} className={`cursor-cell truncate border border-gray-200 px-2 ${numeric ? 'font-display tabular-nums' : ''} ${shownCell?.address === address ? 'outline outline-2 -outline-offset-2 outline-excel-500' : ''}`} style={{ textAlign: numeric ? (settings.rtl ? 'left' : 'right') : undefined }}>
                                                     {cell.f && <span className="me-1 text-[9px] italic text-excel-600">ƒ</span>}
                                                     {text}
                                                 </td>

@@ -4,7 +4,10 @@ import {
     buildPartSheet,
     buildWorkbookModel,
     columnLetter,
+    columnWidth,
     defaultExcelSettings,
+    excelLook,
+    excelOrientation,
     excelFileName,
     fitExcelSettings,
     formatExcelCell,
@@ -125,4 +128,24 @@ test('cells read in the preview as they will in Excel', () => {
 test('file names keep Arabic and lose what a file system refuses', () => {
     assert.equal(excelFileName('التقارير_مكتب البريج: 2026/10'), 'التقارير_مكتب-البريج-2026-10.xlsx');
     assert.equal(excelFileName('report.xlsx'), 'report.xlsx');
+});
+
+test('a column takes the width the user set, within bounds, and its own otherwise', () => {
+    const settings = defaultExcelSettings([lines]);
+    settings.header = false;
+    settings.parts.lines.columns = settings.parts.lines.columns.map((column) => ({ ...column, width: { day: 30, collector: 200, amount: 'x' }[column.key] }));
+
+    assert.deepEqual(buildPartSheet(lines, settings).widths, [30, 80, 14]);
+    assert.equal(columnWidth({ key: 'day', width: 12 }, { columns: [{ key: 'day', width: 2 }] }), 4);
+    assert.equal(columnWidth({ key: 'day', width: 12 }, undefined), 12);
+});
+
+test('the look falls back to the usual one, and a wide sheet lies across the page unless the user says otherwise', () => {
+    assert.equal(excelLook({ theme: 'gone', fontSize: 'large', rowHeight: undefined }).theme.head, '1B2026');
+    assert.equal(excelLook({ fontSize: 'large' }).font.body, 12);
+    assert.equal(excelLook({}).rows.data, 18);
+    assert.equal(excelOrientation({ orientation: 'auto' }, 7), 'landscape');
+    assert.equal(excelOrientation({ orientation: 'auto' }, 3), 'portrait');
+    assert.equal(excelOrientation({ orientation: 'portrait' }, 12), 'portrait');
+    assert.equal(excelOrientation({ orientation: 'landscape' }, 2), 'landscape');
 });

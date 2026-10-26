@@ -419,7 +419,43 @@ export default function Dashboard({
                 </div>
             ) : (
                 <div className="space-y-5">
-                    {branchScope && <BranchBanner scope={branchScope} meta={`آخر ${period}`} className="" />}
+                    {branchScope && (
+                        <BranchBanner
+                            scope={branchScope}
+                            meta={`آخر ${period}`}
+                            className=""
+                            controls={
+                                <>
+                                    {governorateOptions.length > 0 && (
+                                        <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/70 sm:w-56">
+                                            المحافظة
+                                            <SearchableSelect
+                                                value={filters.governorate ?? ''}
+                                                onChange={(value) => visit({ governorate: value || null, branch: null })}
+                                                options={governorateOptions}
+                                                placeholder="كل المحافظات"
+                                                searchable={governorateOptions.length > 6}
+                                                active={Boolean(filters.governorate)}
+                                                portal
+                                            />
+                                        </label>
+                                    )}
+                                    <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/70 sm:w-56">
+                                        الفرع
+                                        <SearchableSelect
+                                            value={filters.branch ?? ''}
+                                            onChange={(value) => visit({ branch: value || null })}
+                                            options={branchOptions.filter((branch) => !filters.governorate || String(branch.governorate) === String(filters.governorate))}
+                                            placeholder="كل الفروع"
+                                            searchPlaceholder="ابحث عن فرع..."
+                                            active={Boolean(filters.branch)}
+                                            portal
+                                        />
+                                    </label>
+                                </>
+                            }
+                        />
+                    )}
                     <div className="flex flex-wrap items-center gap-3">
                         <SegmentedTabs
                             label="الفترة"
@@ -427,34 +463,8 @@ export default function Dashboard({
                             onChange={(days) => visit({ days })}
                             options={periods.map((days) => ({ value: days, label: periodLabel(days) }))}
                         />
-                        {scope.company ? (
-                            <>
-                                {governorateOptions.length > 1 && (
-                                    <div className="w-full sm:w-52">
-                                        <SearchableSelect
-                                            value={filters.governorate ?? ''}
-                                            onChange={(value) => visit({ governorate: value || null, branch: null })}
-                                            options={governorateOptions}
-                                            placeholder="كل المحافظات"
-                                            searchable={governorateOptions.length > 6}
-                                            active={Boolean(filters.governorate)}
-                                        />
-                                    </div>
-                                )}
-                                <div className="w-full sm:w-52">
-                                    <SearchableSelect
-                                        value={filters.branch ?? ''}
-                                        onChange={(value) => visit({ branch: value || null })}
-                                        options={branchOptions.filter(
-                                            (branch) => !filters.governorate || String(branch.governorate) === String(filters.governorate),
-                                        )}
-                                        placeholder="كل الفروع"
-                                        searchPlaceholder="ابحث عن فرع..."
-                                        active={Boolean(filters.branch)}
-                                    />
-                                </div>
-                            </>
-                        ) : (
+                        {/* The head of the company picks the governorate and branch in the banner above; everyone else sees their own branch here. */}
+                        {!scope.company && (
                             scope.label && (
                                 <span className="inline-flex items-center gap-2 rounded-control border border-gray-100 bg-surface px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm">
                                     <Icon name="lock" className="h-4 w-4 text-gray-400" />

@@ -160,7 +160,8 @@ export default function SearchableSelect({
 
     useEffect(() => {
         if (open) {
-            searchRef.current?.focus();
+            // A portalled list is placed (fixed, beside the field) only after this first render, so focusing it must not scroll the page to where it was drawn before.
+            searchRef.current?.focus({ preventScroll: portal });
         }
     }, [open]);
 

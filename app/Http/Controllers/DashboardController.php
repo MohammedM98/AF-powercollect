@@ -82,8 +82,8 @@ class DashboardController extends Controller
                 'today' => DailySeries::today()->toDateString(),
             ],
             // The head of the company reads, large at the top, whose figures these are: the company, a governorate or a branch.
-            'branchScope' => fn (): ?array => $company && $branches->isNotEmpty()
-                ? BranchScope::describe($branches, $governorateId && ! $branchId ? $allBranches->firstWhere('governorate_id', $governorateId)?->governorate?->name : null)
+            'branchScope' => fn (): ?array => $company
+                ? BranchScope::describe($branches, $governorateId && ! $branchId ? Governorate::query()->whereKey($governorateId)->value('name') : null)
                 : null,
             'filters' => [
                 'days' => $days,

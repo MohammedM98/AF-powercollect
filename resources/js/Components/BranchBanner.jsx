@@ -9,7 +9,8 @@ import { formatNumber } from '@/lib/format';
  * it has, or "جميع الفروع" with how many — so whoever sees more than one
  * branch never mistakes one branch's money for another's. `scope` is what App\Support\BranchScope::describe() sends.
  * With more than one `options` ({ value, label }), the branch is changed
- * here (`allValue` is the choice for every branch); `meta` adds a fact to
+ * here (`allValue` is the choice for every branch); a page with its own
+ * pickers passes them as `controls` instead; `meta` adds a fact to
  * the line under the name (the period, say) and `children` a row under it
  * (a chip per branch when all are shown). On paper it prints as the
  * page's heading, without the colours and the controls. `className`
@@ -28,7 +29,7 @@ function branchCount(count) {
     return `${formatNumber(count)} ${count % 100 >= 3 && count % 100 <= 10 ? 'فروع' : 'فرعاً'}`;
 }
 
-export default function BranchBanner({ scope, eyebrow = 'تعرض الآن البيانات المالية لـ', options = [], value = '', allValue = 'all', onChange = null, meta = null, children = null, className = 'mb-5' }) {
+export default function BranchBanner({ scope, eyebrow = 'تعرض الآن البيانات المالية لـ', options = [], value = '', allValue = 'all', onChange = null, controls = null, meta = null, children = null, className = 'mb-5' }) {
     const facts = [
         scope.place && { icon: 'pin', text: scope.place },
         scope.all && { icon: 'building', text: branchCount(scope.branches) },
@@ -67,6 +68,7 @@ export default function BranchBanner({ scope, eyebrow = 'تعرض الآن ال�
                         ))}
                     </ul>
                 </div>
+                {controls && <div className="flex w-full flex-wrap gap-3 sm:w-auto print:hidden">{controls}</div>}
                 {onChange && options.length > 1 && (
                     <label className="flex w-full flex-col gap-1.5 sm:w-64 print:hidden">
                         <span className="text-xs font-semibold text-white/70">تغيير الفرع</span>

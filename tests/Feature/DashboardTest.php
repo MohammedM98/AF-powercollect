@@ -68,6 +68,12 @@ class DashboardTest extends TestCase
         $this->get(route('dashboard', ['governorate' => $governorate->id, 'branch' => $second->id]))->assertInertia(fn ($page) => $page
             ->where('branchScope.level', 'branch')
             ->where('branchScope.name', $second->name));
+        // A governorate with no branch yet still names itself, so the banner and its pickers stay to choose another.
+        $empty = Governorate::create(['name' => 'محافظة الشمال']);
+        $this->get(route('dashboard', ['governorate' => $empty->id]))->assertInertia(fn ($page) => $page
+            ->where('branchScope.level', 'governorate')
+            ->where('branchScope.name', 'محافظة الشمال')
+            ->where('branchScope.branches', 0));
     }
 
     public function test_a_branch_manager_sees_only_their_branch(): void

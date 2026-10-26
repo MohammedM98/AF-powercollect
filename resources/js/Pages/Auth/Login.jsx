@@ -35,7 +35,7 @@ export default function Login() {
                     <TextInput
                         id="username"
                         className="mt-2 block w-full py-3"
-                        dir="ltr"
+                        dir="auto"
                         value={data.username}
                         autoFocus
                         autoComplete="username"

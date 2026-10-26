@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\SubscriptionTransaction;
 use App\Support\BranchReport;
+use App\Support\BranchScope;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
 use App\Support\FinancialReportAccess;
@@ -58,6 +59,7 @@ class ReportController extends Controller
             'branches' => $branches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name])->values(),
             'filters' => ['branch' => $branch, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'kind' => $kind],
             'scopeLabel' => $chosen->count() === 1 ? $chosen->first()->name : 'كل الفروع',
+            'branchScope' => BranchScope::describe($chosen),
             'canExport' => FinancialReportAccess::export($request->user()),
             'period' => $period,
             'branchSummary' => $branchSummary,
@@ -81,7 +83,8 @@ class ReportController extends Controller
 
     /**
      * The report's lines, oldest first, as a CSV file for a spreadsheet,
-     * with the same filters as on the page.
+     * with the same filters as on the page. The branch's name heads the
+     * file and names it, so a file shared later still says whose it is.
      */
     public function export(Request $request): StreamedResponse
     {
@@ -91,11 +94,15 @@ class ReportController extends Controller
             ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
             ->orderBy('subscription_transactions.created_at')
             ->orderBy('subscription_transactions.id');
+        $scope = BranchScope::describe($chosen)['name'];
         $columns = ['التاريخ', 'الوقت', 'الفرع', 'رقم السند', 'المشترك', 'رقم الحساب', 'الطبلون', 'النوع', 'البيان', 'طريقة الدفع', 'الحساب', 'العملة', 'المبلغ بالعملة', 'عليه', 'له', 'سجّله', 'ملغى'];
 
-        return response()->streamDownload(function () use ($lines, $columns): void {
+        return response()->streamDownload(function () use ($lines, $columns, $scope, $from, $to): void {
             $file = fopen('php://output', 'w');
             fwrite($file, "\u{FEFF}");
+            fputcsv($file, ["{$scope} — التقارير المالية"]);
+            fputcsv($file, ['الفترة: '.$from->format('d/m/Y').' – '.$to->format('d/m/Y')]);
+            fputcsv($file, []);
             fputcsv($file, $columns);
 
             foreach ($lines->lazy(500) as $line) {
@@ -108,7 +115,7 @@ class ReportController extends Controller
             }
 
             fclose($file);
-        }, "report-{$from->toDateString()}-{$to->toDateString()}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'التقارير_'.str_replace(' ', '-', $scope)."_{$from->toDateString()}_{$to->toDateString()}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**

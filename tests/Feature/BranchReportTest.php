@@ -126,6 +126,9 @@ class BranchReportTest extends TestCase
 
         $this->actingAs($this->preparer())->get(route('reports.index', ['branch' => $this->south->id]))->assertInertia(fn ($page) => $page
             ->where('filters.branch', $this->north->id)
+            ->where('branchScope.all', false)
+            ->where('branchScope.name', 'North')
+            ->where('branchScope.subscribers', 1)
             ->where('collections.total', '10.00'));
         $this->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page->where('collections.total', '10.00'));
         $this->assertStringNotContainsString('South', $this->get(route('reports.export'))->streamedContent());
@@ -136,6 +139,10 @@ class BranchReportTest extends TestCase
         $this->actingAs($auditor)->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page
             ->where('filters.branch', 'all')
             ->where('scopeLabel', 'كل الفروع')
+            ->where('branchScope.all', true)
+            ->where('branchScope.name', 'جميع الفروع')
+            ->where('branchScope.branches', Branch::count())
+            ->where('branchScope.subscribers', Subscription::count())
             ->where('collections.total', '30.00'));
     }
 
@@ -185,9 +192,12 @@ class BranchReportTest extends TestCase
         $payment = $this->at('2026-10-01 08:10', fn () => $this->pay('40'));
         $this->actingAs($this->preparer());
 
-        $csv = $this->get(route('reports.export', ['kind' => 'payments']))->assertOk()->streamedContent();
+        $response = $this->get(route('reports.export', ['kind' => 'payments']))->assertOk();
+        $csv = $response->streamedContent();
 
-        $this->assertStringStartsWith("\u{FEFF}التاريخ,الوقت,الفرع", $csv);
+        $this->assertStringContainsString(rawurlencode('التقارير_North_2026-10-01_2026-10-01.csv'), $response->headers->get('Content-Disposition'));
+
+        $this->assertStringStartsWith("\u{FEFF}\"North — التقارير المالية\"\n\"الفترة: 01/10/2026 – 01/10/2026\"\n\nالتاريخ,الوقت,الفرع", $csv);
         $this->assertStringContainsString($payment->printedVoucherNumber(), $csv);
         $this->assertStringNotContainsString(__(ChargeType::Penalty->label()), $csv);
         $this->get(route('reports.index', ['kind' => 'charges']))->assertInertia(fn ($page) => $page

@@ -35,9 +35,12 @@ class SessionRequest implements HttpClientRequest {
   final SessionHeaders headers = SessionHeaders();
   @override
   bool followRedirects = true;
-  String? body;
   @override
-  void write(Object? value) => body = '$value';
+  int contentLength = -1;
+  List<int>? bodyBytes;
+  String? get body => bodyBytes == null ? null : utf8.decode(bodyBytes!);
+  @override
+  void add(List<int> data) => bodyBytes = List<int>.from(data);
   @override
   Future<HttpClientResponse> close() async => response;
   @override
@@ -114,5 +117,33 @@ void main() {
             (error) => error.message, 'message', contains('إعادة توجيه'))));
     expect(request.followRedirects, false);
     expect(api.token, 'existing');
+  });
+
+  test('login sends a fixed UTF-8 byte length for Arabic credentials',
+      () async {
+    final request =
+        SessionRequest(SessionResponse(200, '{"token":"signed-in","user":{}}'));
+    final api = ApiClient(httpClient: SessionHttpClient(request));
+
+    await api.login('محمد حمدان', 'password');
+
+    final expected = utf8.encode(jsonEncode({
+      'username': 'محمد حمدان',
+      'password': 'password',
+      'remember': false,
+    }));
+    expect(request.bodyBytes, expected);
+    expect(request.contentLength, expected.length);
+    expect(request.contentLength, greaterThan(request.body!.length));
+  });
+
+  test('bodyless requests use a zero content length', () async {
+    final request = SessionRequest(SessionResponse(200, '{}'));
+    final api = ApiClient(httpClient: SessionHttpClient(request));
+
+    await api.logout();
+
+    expect(request.contentLength, 0);
+    expect(request.bodyBytes, isNull);
   });
 }

@@ -119,6 +119,28 @@ class ListPageBranchBannerTest extends TestCase
         }
     }
 
+    public function test_the_cash_boxes_and_their_entries_name_the_branch_for_whoever_has_several(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        [, $south] = Branch::factory()->count(2)->create();
+
+        $this->actingAs($superAdmin);
+        foreach (['payments.cash-boxes', 'payments.cash-boxes.entries'] as $route) {
+            $this->get(route($route, ['branch_id' => $south->id]))->assertInertia(fn ($page) => $page
+                ->where('branch.id', $south->id)
+                ->where('branchScope.level', 'branch')
+                ->where('branchScope.name', $south->name));
+        }
+    }
+
+    public function test_the_cash_boxes_of_someone_with_one_branch_have_no_banner(): void
+    {
+        $manager = User::factory()->branchAdmin()->create();
+
+        $this->actingAs($manager)->get(route('payments.cash-boxes'))->assertInertia(fn ($page) => $page
+            ->where('branchScope', null));
+    }
+
     /**
      * @param  array<int, Branch>  $branches
      * @param  array<int, string>  $actions

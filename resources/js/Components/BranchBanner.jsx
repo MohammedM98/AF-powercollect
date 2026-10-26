@@ -115,8 +115,12 @@ export function splitBranchFilter(scope, groups, values) {
     };
 }
 
-/** The banner of a list page whose table narrows to one branch: the branch's name, with the branch picked in it. */
-export function BranchFilterBanner({ scope, eyebrow, group, value, onChange }) {
+/**
+ * The banner of a list page whose table narrows to one branch: the branch's
+ * name, with the branch picked in it. `allowAll={false}` leaves out the
+ * choice of every branch, for a page that always shows one.
+ */
+export function BranchFilterBanner({ scope, eyebrow, group, value, onChange, allowAll = true }) {
     return (
         <BranchBanner
             scope={scope}
@@ -129,9 +133,10 @@ export function BranchFilterBanner({ scope, eyebrow, group, value, onChange }) {
                             value={value ?? ''}
                             onChange={onChange}
                             options={group.options}
-                            placeholder={scope.allName}
+                            placeholder={allowAll ? scope.allName : scope.name}
                             searchPlaceholder="ابحث عن فرع..."
-                            active={Boolean(value)}
+                            active={allowAll && Boolean(value)}
+                            clearable={allowAll}
                             portal
                             onDark
                         />

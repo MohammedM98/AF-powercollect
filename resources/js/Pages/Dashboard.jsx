@@ -437,6 +437,7 @@ export default function Dashboard({
                                                 searchable={governorateOptions.length > 6}
                                                 active={Boolean(filters.governorate)}
                                                 portal
+                                                onDark
                                             />
                                         </label>
                                     )}
@@ -450,6 +451,7 @@ export default function Dashboard({
                                             searchPlaceholder="ابحث عن فرع..."
                                             active={Boolean(filters.branch)}
                                             portal
+                                            onDark
                                         />
                                     </label>
                                 </>

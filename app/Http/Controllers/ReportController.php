@@ -61,7 +61,7 @@ class ReportController extends Controller
             'branches' => $branches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name])->values(),
             'filters' => ['branch' => $branch, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'kind' => $kind],
             'scopeLabel' => $chosen->count() === 1 ? $chosen->first()->name : 'كل الفروع',
-            'branchScope' => BranchScope::describe($chosen),
+            'branchScope' => BranchScope::shownTo($request->user()) ? BranchScope::describe($chosen) : null,
             'canExport' => FinancialReportAccess::export($request->user()),
             'period' => $period,
             'branchSummary' => $branchSummary,

@@ -104,7 +104,7 @@ class LedgerController extends Controller
             'today' => DailySeries::today()->toDateString(),
             'scopeLabel' => $this->scopeLabel($request, $actor),
             // An auditor of several branches reads, large above the log, which branch it holds.
-            'branchScope' => fn () => $actor->hasFinancialAuditAccess() ? BranchScope::forFilter($actor, $this->filterValue($request, 'branch_id')) : null,
+            'branchScope' => fn () => BranchScope::shownTo($actor) ? BranchScope::forFilter($actor, $this->filterValue($request, 'branch_id')) : null,
             'filters' => $this->dataTableState($request, 'created_at', 'desc', self::DEFAULT_PER_PAGE),
             'filterOptions' => $this->filterOptions($actor),
             // A line's subscription's statement, opened over the log.

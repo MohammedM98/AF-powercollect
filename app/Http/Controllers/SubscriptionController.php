@@ -88,7 +88,7 @@ class SubscriptionController extends Controller
             'filters' => $this->dataTableState($request, 'display_name'),
             'filterOptions' => fn () => $this->filterOptions($actor, $request),
             // Whoever sees every branch's subscribers reads, large above the table, which branch the list holds.
-            'branchScope' => fn () => $actor->canViewAllSubscriberAccounts() ? BranchScope::forFilter($actor, $request->input('filter.branch_id')) : null,
+            'branchScope' => fn () => BranchScope::shownTo($actor) ? BranchScope::forFilter($actor, $request->input('filter.branch_id')) : null,
             // New reading forms offer only the latest week of each branch.
             'readingWeekOptions' => fn () => MeterReading::recentWeekOptionsFor($actor, 1),
             'statement' => fn () => $this->requestedStatement($request, $actor),

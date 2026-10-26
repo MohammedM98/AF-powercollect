@@ -67,7 +67,7 @@ class ReceivableController extends Controller
             'today' => DailySeries::today()->toDateString(),
             'scopeLabel' => $this->scopeLabel($request, $actor),
             // The Super Admin reads, large above the report, which branch it holds.
-            'branchScope' => fn () => $actor->isSuperAdmin() ? BranchScope::forFilter($actor, $this->filterValue($request, 'branch_id')) : null,
+            'branchScope' => fn () => BranchScope::shownTo($actor) ? BranchScope::forFilter($actor, $this->filterValue($request, 'branch_id')) : null,
             'filters' => $this->dataTableState($request, 'balance', 'desc', self::DEFAULT_PER_PAGE),
             'filterOptions' => $this->filterOptions($actor),
             // A debtor's statement, opened over the report.

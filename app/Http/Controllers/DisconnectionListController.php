@@ -112,7 +112,7 @@ class DisconnectionListController extends Controller
         return Inertia::render('Disconnections/Index', [
             'lists' => $lists,
             'summary' => $this->summary($actor, $branchId),
-            'branchScope' => fn () => $actor->isSuperAdmin() ? BranchScope::forFilter($actor, $branchId) : null,
+            'branchScope' => fn () => BranchScope::shownTo($actor) ? BranchScope::forFilter($actor, $branchId) : null,
             'canCreate' => $actor->can('create', DisconnectionList::class),
             'branchOptions' => $actor->isSuperAdmin() ? $this->modelOptions(Branch::orderBy('name')->get()) : [],
             'filters' => $this->dataTableState($request, 'created_at', 'desc'),

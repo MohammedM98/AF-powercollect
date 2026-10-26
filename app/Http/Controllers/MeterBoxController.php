@@ -101,7 +101,7 @@ class MeterBoxController extends Controller
             'filters' => $this->dataTableState($request, 'box_number'),
             'filterOptions' => $this->filterOptions($actor),
             // The Super Admin reads, large above the list, which branch's boxes it holds.
-            'branchScope' => fn () => $actor->isSuperAdmin() ? BranchScope::forFilter($actor, $request->input('filter.branch_id')) : null,
+            'branchScope' => fn () => BranchScope::shownTo($actor) ? BranchScope::forFilter($actor, $request->input('filter.branch_id')) : null,
             ...$this->formOptions(),
         ]);
     }

@@ -16,6 +16,17 @@ use Illuminate\Support\Collection;
 class BranchScope
 {
     /**
+     * Whether `$actor` sees the banner: the company's general management
+     * (a Super Admin on the company's own address). Everyone else, a branch
+     * manager or an auditor of some branches included, keeps the page as it
+     * was, with the branch named or picked in its usual place.
+     */
+    public static function shownTo(User $actor): bool
+    {
+        return $actor->isSuperAdmin() && BranchDomainContext::id() === null;
+    }
+
+    /**
      * The banner of a list page whose table narrows to one branch with its
      * `filter[branch_id]`: that branch, or every branch the user may see
      * (the same ones the filter offers) when none, or one out of reach, is
@@ -28,12 +39,7 @@ class BranchScope
     {
         $visible = Branch::query()->orderBy('name')->tap(fn (Builder $branches) => $actor->scopeAuditBranches($branches, 'branches.id'))->get(['id', 'name']);
         $chosen = is_scalar($branchId) && (string) $branchId !== '' ? $visible->where('id', (int) $branchId)->values() : collect();
-        // An auditor given some branches only is not shown "every branch".
-        $allName = match (true) {
-            $visible->count() === 1 => $visible->first()->name,
-            ! $actor->isSuperAdmin() && $actor->auditSettings()['scope'] === 'selected' => 'الفروع المحددة للتدقيق',
-            default => 'جميع الفروع',
-        };
+        $allName = $visible->count() === 1 ? $visible->first()->name : 'جميع الفروع';
 
         $scope = self::describe($chosen->isNotEmpty() ? $chosen : $visible);
 

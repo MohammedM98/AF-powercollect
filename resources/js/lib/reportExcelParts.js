@@ -13,7 +13,7 @@ const count = (key, label, extra = {}) => ({ key, label, type: 'int', width: 10,
 const text = (key, label, width = 18, extra = {}) => ({ key, label, type: 'text', width, ...extra });
 
 /** What the subscribers owe at the start and end of the period, what was charged and what was collected. */
-function summaryPart(flow, collections) {
+function summaryPart(flow, collections, comparison) {
     const change = Number(flow.change);
 
     return {
@@ -28,6 +28,10 @@ function summaryPart(flow, collections) {
             { label: 'تحويلات وشيكات', value: collections.nonCash },
             { label: 'الرصيد الختامي', value: flow.closing, note: change > 0 ? 'زاد' : change < 0 ? 'نقص' : 'لم يتغير' },
             { label: 'التغيّر خلال الفترة', value: flow.change },
+            ...(comparison ? [
+                { label: 'المحصّل في الفترة السابقة', value: comparison.total, note: `${comparison.from} – ${comparison.to}` },
+                { label: 'فرق التحصيل عن الفترة السابقة', value: comparison.difference, note: comparison.percentage === null ? 'لا تحصيل في الفترة السابقة' : `${comparison.percentage}%` },
+            ] : []),
         ],
     };
 }
@@ -191,11 +195,11 @@ export function linesPart(lines, { showBranch = false } = {}) {
 }
 
 /** The parts of the report the page shows now; `lines` joins them once fetched. */
-export function reportExcelParts({ flow, collections, readings, days = [], branchSummary = [], lines = null, showBranch = false }) {
+export function reportExcelParts({ flow, collections, comparison = null, readings, days = [], branchSummary = [], lines = null, showBranch = false }) {
     const parts = [];
 
     if (flow && collections) {
-        parts.push(summaryPart(flow, collections), flowPart(flow));
+        parts.push(summaryPart(flow, collections, comparison), flowPart(flow));
     }
 
     if (days.length > 0) {

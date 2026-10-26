@@ -59,6 +59,7 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
     const id = useId();
     const [parts, setParts] = useState(null);
     const [failed, setFailed] = useState(false);
+    const [loadedRows, setLoadedRows] = useState(0);
     const [settings, setSettings] = useState(null);
     const [editing, setEditing] = useState(null);
     const [sheetIndex, setSheetIndex] = useState(0);
@@ -80,12 +81,14 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
         }
 
         let cancelled = false;
+        const controller = new AbortController();
         setParts(null);
         setFailed(false);
+        setLoadedRows(0);
         setError('');
         setTemplates(store.read(`excel-templates:${storageKey}`, []));
         const companyTemplates = listHttp.get(`/excel-templates/${storageKey}`).catch(() => ({ templates: [], canManage: false }));
-        Promise.all([loadParts(), companyTemplates])
+        Promise.all([loadParts({ signal: controller.signal, onProgress: setLoadedRows }), companyTemplates])
             .then(([loaded, shared]) => {
                 if (cancelled) return;
                 const base = defaultExcelSettings(loaded, defaults);
@@ -101,6 +104,7 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
 
         return () => {
             cancelled = true;
+            controller.abort();
         };
     }, [show]);
 
@@ -153,7 +157,8 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
         saveHttp.clearErrors();
         saveHttp.transform(() => data);
         try {
-            await saveHttp[method](url);
+            const response = await saveHttp[method](url);
+            if (!response) return false;
             await reloadCompany();
 
             return true;
@@ -211,7 +216,7 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
                 {failed ? (
                     <p role="alert" className="m-6 rounded-control bg-red-500/10 p-4 text-sm text-red-700">تعذّر تحميل بيانات التقرير. أغلق النافذة وأعد المحاولة.</p>
                 ) : !parts || !settings ? (
-                    <div className="flex flex-1 items-center justify-center p-10 text-sm text-gray-500" role="status">جارٍ تجهيز بيانات التقرير…</div>
+                    <div className="flex flex-1 items-center justify-center p-10 text-sm text-gray-500" role="status">جارٍ تجهيز بيانات التقرير…{loadedRows > 0 && ` تم تحميل ${loadedRows.toLocaleString('en-US')} حركة`}</div>
                 ) : (
                     <>
                         <div className="flex shrink-0 gap-1 border-b border-gray-100 p-2 lg:hidden" role="tablist">

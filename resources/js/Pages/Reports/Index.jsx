@@ -13,6 +13,8 @@ import SearchableSelect from '@/Components/SearchableSelect';
 import { secondaryButtonClass } from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { reportExcelParts } from '@/lib/reportExcelParts';
+import { loadReportLines } from '@/lib/reportLines';
+import { isPrintMode, printUrl } from '@/lib/print';
 import { reportMoney, shortDate } from '@/lib/reportFormatting';
 import { weekDayName } from '@/lib/weekDays';
 import ReportPrintSheet from './ReportPrintSheet';
@@ -43,10 +45,12 @@ const NUM = 'px-3 py-2.5 text-end font-display tabular-nums text-gray-900';
  * branches side by side and every line. It prints as a clean sheet of the
  * period and its summaries, and exports to Excel through the editor.
  */
-export default function Index({ branches, filters, scopeLabel, branchScope, presets, today, kinds, flow, collections, readings, days, transactions, period, branchSummary, canExport }) {
+export default function Index({ branches, filters, scopeLabel, branchScope, presets, today, kinds, flow, collections, readings, days, transactions, period, comparison, branchSummary, canExport }) {
     const { errors, auth } = usePage().props;
     const [excelOpen, setExcelOpen] = useState(false);
     const [section, setSection] = useState('summary');
+    const [printView, setPrintView] = useState('summary');
+    const printing = isPrintMode();
     const oneDay = filters.from === filters.to;
     const query = new URLSearchParams(
         Object.entries({ branch: filters.branch ?? '', from: filters.from, to: filters.to, kind: filters.kind }).filter(([, value]) => value !== ''),
@@ -67,19 +71,18 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
             ['الفرع', scopeName],
             ['الفترة', `${shortDate(filters.from, true)} – ${shortDate(filters.to, true)}`],
             ['نوع التقرير', periodLabel(period?.mode, period)],
-            ['الحركات المضمّنة', kindLabel],
+            ['تصفية ورقة الحركات فقط', kindLabel],
+            ['الملخص والتحصيل', 'جميع أنواع الحركات في الفترة المحددة'],
             ['أعدّه', auth?.user?.name ?? ''],
             ['تاريخ الإعداد', new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })],
         ],
     }), [scopeName, period, periodText, filters.from, filters.to, kindLabel, auth?.user?.name, excelOpen]);
 
     /** The parts on the page now, and every line of the period fetched with the same filters. */
-    async function loadExcelParts() {
-        const response = await fetch(`/reports/lines.json?${query}`, { headers: { Accept: 'application/json' } });
-        if (!response.ok) throw new Error('lines');
-        const { lines } = await response.json();
+    async function loadExcelParts(options) {
+        const lines = await loadReportLines(query, options);
 
-        return reportExcelParts({ flow, collections, readings, days, branchSummary: branchSummary ?? [], lines, showBranch: filters.branch === 'all' });
+        return reportExcelParts({ flow, collections, comparison, readings, days, branchSummary: branchSummary ?? [], lines, showBranch: filters.branch === 'all' });
     }
 
     const sections = [
@@ -107,10 +110,14 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
                                         تصدير Excel
                                     </button>
                                 )}
-                                <button type="button" className={`${secondaryButtonClass} tone-print`} onClick={() => window.print()}>
+                                <select aria-label="محتوى الطباعة" className="text-sm" value={printView} onChange={(event) => setPrintView(event.target.value)}>
+                                    <option value="summary">الملخص المالي</option>
+                                    <option value="lines">الحركات التفصيلية</option>
+                                </select>
+                                <a className={`${secondaryButtonClass} tone-print`} href={printUrl(`${printView === 'lines' ? 'الحركات التفصيلية' : 'الملخص المالي'} — ${scopeName} — ${periodText}`, `/reports?${query}&print_view=${printView}`)} target="_blank" rel="noopener noreferrer">
                                     <Icon name="printer" className="h-4 w-4" />
-                                    طباعة
-                                </button>
+                                    طباعة وتخصيص / PDF
+                                </a>
                             </>
                         )
                     }
@@ -173,6 +180,7 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
                 )}
 
                 {hasFigures && <Figures flow={flow} collections={collections} />}
+                {comparison && <Comparison comparison={comparison} />}
 
                 {sections.length > 0 && (
                     <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
@@ -206,7 +214,7 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
                 )}
             </div>
 
-            {hasFigures && (
+            {hasFigures && !printing && (
                 <ReportPrintSheet
                     scopeName={scopeName}
                     periodName={periodLabel(period?.mode, period)}
@@ -219,6 +227,23 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
                 />
             )}
         </AuthenticatedLayout>
+    );
+}
+
+function Comparison({ comparison }) {
+    const difference = Number(comparison.difference);
+
+    return (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-gray-100 bg-surface p-4 shadow-card" aria-label="المقارنة بالفترة السابقة">
+            <div>
+                <h3 className="text-sm font-bold text-gray-900">التحصيل مقارنة بالفترة السابقة</h3>
+                <p className="mt-1 text-xs text-gray-500">{shortDate(comparison.from, true)} – {shortDate(comparison.to, true)} · المحصّل سابقًا {reportMoney(comparison.total)} ₪</p>
+            </div>
+            <p className={`text-sm font-semibold ${difference > 0 ? 'text-emerald-700 dark:text-emerald-400' : difference < 0 ? 'text-red-700 dark:text-red-400' : 'text-gray-600'}`}>
+                {difference > 0 ? 'زيادة' : difference < 0 ? 'انخفاض' : 'لم يتغير'} {reportMoney(Math.abs(difference))} ₪
+                {comparison.percentage === null ? ' · لا تحصيل في الفترة السابقة' : ` (${Math.abs(comparison.percentage)}%)`}
+            </p>
+        </section>
     );
 }
 
@@ -672,6 +697,7 @@ function BranchComparison({ rows, filters }) {
 function Transactions({ transactions, kinds, filters, showDay, showBranch, onKind }) {
     return (
         <Panel icon="list" title="الحركات" hint={`${transactions.total} حركة`}>
+            <p className="mb-3 text-xs leading-6 text-gray-500">تصفية النوع تخص الحركات التفصيلية وتصديرها فقط؛ الملخص والتحصيل يعرضان جميع أنواع الحركات للفترة والفرع المحددين.</p>
             <div className="mb-4 overflow-x-auto pb-1">
                 <SegmentedTabs label="نوع الحركات" value={filters.kind} onChange={onKind} options={kinds} />
             </div>

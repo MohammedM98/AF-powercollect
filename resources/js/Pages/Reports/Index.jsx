@@ -29,7 +29,7 @@ function periodLabel(mode, details) {
  * before it is closed — how what the subscriptions owe moved, where the
  * payments came in, the readings, and every line.
  */
-export default function Index({ branches, filters, branchScope, presets, today, kinds, flow, collections, readings, days, transactions, period, branchSummary, canExport }) {
+export default function Index({ branches, filters, scopeLabel, branchScope, presets, today, kinds, flow, collections, readings, days, transactions, period, branchSummary, canExport }) {
     const { errors } = usePage().props;
     const oneDay = filters.from === filters.to;
     const query = new URLSearchParams(
@@ -41,14 +41,16 @@ export default function Index({ branches, filters, branchScope, presets, today, 
     }
 
     const periodText = oneDay ? `${weekDayName(filters.from)} ${shortDate(filters.from, true)}` : `${shortDate(filters.from, true)} – ${shortDate(filters.to, true)}`;
+    // The branch banner is for whoever reports on more than one branch; someone with one branch sees it named in the controls, as before.
+    const seesManyBranches = branches.length > 1;
 
     return (
         <AuthenticatedLayout
-            scope={branchScope.name}
+            scope={seesManyBranches ? branchScope.name : null}
             header={
                 <PageHeader
                     title="التقارير"
-                    meta={`${periodLabel(period?.mode, period)} · ${periodText}${oneDay && filters.from === today ? ' · اليوم الجاري' : ''}`}
+                    meta={`${seesManyBranches ? '' : `${scopeLabel} · `}${periodLabel(period?.mode, period)} · ${periodText}${oneDay && filters.from === today ? ' · اليوم الجاري' : ''}`}
                     actions={
                         <>
                             {canExport && (
@@ -66,9 +68,9 @@ export default function Index({ branches, filters, branchScope, presets, today, 
                 />
             }
         >
-            <Head title={branchScope.name ? `التقارير — ${branchScope.name}` : 'التقارير'} />
+            <Head title={seesManyBranches ? `التقارير — ${branchScope.name}` : 'التقارير'} />
             <div className="financial-report report-page" dir="rtl">
-                {branches.length > 0 && (
+                {seesManyBranches && (
                     <BranchBanner
                         scope={branchScope}
                         options={branches}
@@ -90,6 +92,13 @@ export default function Index({ branches, filters, branchScope, presets, today, 
                     </BranchBanner>
                 )}
                 <div className="ctl">
+                    {branches.length === 1 && (
+                        <label className="cb">
+                            <Icon name="pin" />
+                            <small>الفرع</small>
+                            <b style={{ fontFamily: 'inherit', fontWeight: 700 }}>{scopeLabel}</b>
+                        </label>
+                    )}
                     <div className="segx report-period-tabs" role="group" aria-label="نوع التقرير">
                         {[
                             ['daily', 'يومي'],

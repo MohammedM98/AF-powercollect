@@ -1,5 +1,5 @@
 import BankReceivedDate from '@/Components/BankReceivedDate';
-import BranchBanner from '@/Components/BranchBanner';
+import { BranchFilterBanner, splitBranchFilter } from '@/Components/BranchBanner';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -255,10 +255,9 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
     const statementWindow = useStatementWindow(statement);
     const grouped = filters.sort !== 'amount';
     // An auditor of several branches picks the branch in the banner above the log, not among the filters; clearing those keeps it.
-    const branchGroup = branchScope ? filterOptions.find((group) => group.key === 'branch_id') : null;
-    const panelGroups = branchGroup ? filterOptions.filter((group) => group !== branchGroup) : filterOptions;
-    const activeFilters = Object.entries(filterValues).filter(([key, value]) => !(branchGroup && key === 'branch_id') && value !== '' && value !== null && value !== undefined).length;
-    const clearPanelFilters = () => (branchGroup ? setFilters(Object.fromEntries(Object.keys(filterValues).filter((key) => key !== 'branch_id').map((key) => [key, '']))) : clearFilters());
+    const branchFilter = splitBranchFilter(branchScope, filterOptions, filterValues);
+    const activeFilters = Object.values(branchFilter.values).filter((value) => value !== '' && value !== null && value !== undefined).length;
+    const clearPanelFilters = () => branchFilter.clear(setFilters, clearFilters);
 
     function changePeriod(next, dates = {}) {
         router.get('/ledger', { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, filter: filterValues, date_basis: dateBasis, period: next, ...dates }, { preserveState: true, preserveScroll: true, replace: true });
@@ -301,29 +300,7 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
             }
         >
             <Head title="السجل المالي" />
-            {branchScope && (
-                <BranchBanner
-                    scope={branchScope}
-                    eyebrow="يعرض السجل المالي لـ"
-                    controls={
-                        branchGroup && (
-                            <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/70 sm:w-64">
-                                الفرع
-                                <SearchableSelect
-                                    value={filterValues.branch_id ?? ''}
-                                    onChange={(value) => setFilter('branch_id', value)}
-                                    options={branchGroup.options}
-                                    placeholder={branchScope.allName}
-                                    searchPlaceholder="ابحث عن فرع..."
-                                    active={Boolean(filterValues.branch_id)}
-                                    portal
-                                    onDark
-                                />
-                            </label>
-                        )
-                    }
-                />
-            )}
+            {branchScope && <BranchFilterBanner scope={branchScope} eyebrow="يعرض السجل المالي لـ" group={branchFilter.branch} value={filterValues.branch_id} onChange={(value) => setFilter('branch_id', value)} />}
             <div className="ledger-page">
                 <div className="mb-4 flex flex-wrap items-end gap-3">
                     <div className="w-56"><div className="mb-1.5 flex items-center gap-1"><label htmlFor="ledger-date-basis" className="block text-sm font-semibold text-gray-700">تصفية الفترة حسب</label><InfoTip label="عن تصفية الفترة">{dateBasis === 'paid' ? 'عرض حسب تاريخ الدفع الفعلي للدفعات المتأخرة، وتاريخ التسجيل لبقية الحركات. الأرصدة وترتيب الحركات يبقيان حسب التسجيل.' : 'الأرصدة والفترات تُحتسب حسب تاريخ التسجيل. تاريخ الدفع السابق محفوظ للتدقيق.'}</InfoTip></div><SearchableSelect id="ledger-date-basis" clearable={false} searchable={false} value={dateBasis} options={[{value: 'recorded', label: 'تاريخ التسجيل بالنظام'}, {value: 'paid', label: 'تاريخ الدفع الفعلي'}]} onChange={(value) => changePeriod(period, { ...(period === 'custom' ? dateRange : {}), date_basis: value })} /></div>
@@ -342,7 +319,7 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
                         <button type="button" className="btn fbtn" onClick={() => setFiltersOpen(!filtersOpen)} aria-expanded={filtersOpen} aria-controls="ledger-filters"><Icon name="filter" />الفلاتر{activeFilters > 0 && <span className="num">{activeFilters}</span>}</button>
                     </div>
                     <div className={`fb ${filtersOpen ? 'open' : ''}`} id="ledger-filters">
-                        {panelGroups.map((group) => (
+                        {branchFilter.groups.map((group) => (
                             <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-44" key={group.key}>
                                 <label htmlFor={`ledger-filter-${group.key}`} className={`flex items-center gap-1.5 text-xs font-semibold ${filterValues[group.key] ? 'text-gray-900' : 'text-gray-500'}`}>
                                     {group.label}

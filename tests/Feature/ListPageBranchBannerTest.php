@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\DisconnectionList;
+use App\Models\DisconnectionListItem;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -75,14 +77,46 @@ class ListPageBranchBannerTest extends TestCase
             ->where('branchScope.name', $branch->name));
     }
 
+    public function test_the_super_admin_reads_which_branch_the_debts_and_meter_boxes_hold(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        [$branch] = Branch::factory()->count(2)->create();
+
+        $this->actingAs($superAdmin);
+        foreach (['receivables.index', 'meter-boxes.index', 'disconnection-lists.index'] as $route) {
+            $this->get(route($route))->assertInertia(fn ($page) => $page
+                ->where('branchScope.level', 'all'));
+            $this->get(route($route, ['filter' => ['branch_id' => $branch->id]]))->assertInertia(fn ($page) => $page
+                ->where('branchScope.level', 'branch')
+                ->where('branchScope.name', $branch->name));
+        }
+    }
+
+    public function test_the_disconnection_figures_follow_the_branch_the_banner_names(): void
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        [$north, $south] = Branch::factory()->count(2)->create();
+        foreach ([$north, $north, $south] as $branch) {
+            DisconnectionListItem::factory()->for(DisconnectionList::factory()->create(['branch_id' => $branch->id]), 'list')->create();
+        }
+
+        $this->actingAs($superAdmin)->get(route('disconnection-lists.index'))->assertInertia(fn ($page) => $page
+            ->where('summary.openLists', 3)
+            ->where('summary.scheduled', 3));
+        $this->get(route('disconnection-lists.index', ['filter' => ['branch_id' => $north->id]]))->assertInertia(fn ($page) => $page
+            ->where('summary.openLists', 2)
+            ->where('summary.scheduled', 2));
+    }
+
     public function test_someone_who_sees_only_their_own_branch_gets_no_banner(): void
     {
         $manager = User::factory()->branchAdmin()->create();
 
-        $this->actingAs($manager)->get(route('subscriptions.index'))->assertInertia(fn ($page) => $page
-            ->where('branchScope', null));
-        $this->get(route('ledger.index'))->assertInertia(fn ($page) => $page
-            ->where('branchScope', null));
+        $this->actingAs($manager);
+        foreach (['subscriptions.index', 'ledger.index', 'receivables.index', 'meter-boxes.index', 'disconnection-lists.index'] as $route) {
+            $this->get(route($route))->assertInertia(fn ($page) => $page
+                ->where('branchScope', null));
+        }
     }
 
     /**

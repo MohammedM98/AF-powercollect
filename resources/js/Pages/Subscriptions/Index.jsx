@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AddButton from '@/Components/AddButton';
-import BranchBanner from '@/Components/BranchBanner';
+import { BranchFilterBanner, splitBranchFilter } from '@/Components/BranchBanner';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import AreaChip from '@/Components/DataTable/AreaChip';
@@ -33,7 +33,6 @@ import Balance from '@/Components/Balance';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import PageHeader from '@/Components/PageHeader';
 import InfoTip from '@/Components/InfoTip';
-import SearchableSelect from '@/Components/SearchableSelect';
 
 const MeterReadingModal = lazy(() => import('@/Pages/MeterReadings/MeterReadingModal'));
 const SubscriptionMessageHistoryModal = lazy(() => import('@/Pages/Messages/SubscriptionMessageHistoryModal'));
@@ -144,10 +143,8 @@ export default function Index({
     const balanceLabel = balanceFilterLabel(filters.filter);
     const standardFilterValues = Object.fromEntries(Object.entries(filterValues).filter(([key]) => key !== 'archived' && !BALANCE_FILTER_KEYS.includes(key)));
     // Whoever sees every branch picks the branch in the banner above the table, not among the other filters; clearing those keeps it.
-    const branchGroup = branchScope ? filterOptions?.find((group) => group.key === 'branch_id') : null;
-    const menuGroups = branchGroup ? filterOptions.filter((group) => group !== branchGroup) : filterOptions;
-    const menuValues = branchGroup ? Object.fromEntries(Object.entries(standardFilterValues).filter(([key]) => key !== 'branch_id')) : standardFilterValues;
-    const keptOnClear = [...(showArchived ? ['archived'] : []), ...(branchGroup ? ['branch_id'] : [])];
+    const branchFilter = splitBranchFilter(branchScope, filterOptions, standardFilterValues);
+    const keptOnClear = [...(showArchived ? ['archived'] : []), ...branchFilter.kept];
     const canSelect = !showArchived && (bulkActions.minimumCharge || bulkActions.status || bulkActions.message || bulkActions.meterBox);
 
     // A new search or filter is a new list: start the choice over.
@@ -363,29 +360,7 @@ export default function Index({
         >
             <Head title="المشتركون" />
 
-            {branchScope && (
-                <BranchBanner
-                    scope={branchScope}
-                    eyebrow="تعرض الآن مشتركي"
-                    controls={
-                        branchGroup && (
-                            <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/70 sm:w-64">
-                                الفرع
-                                <SearchableSelect
-                                    value={filterValues.branch_id ?? ''}
-                                    onChange={(value) => setFilter('branch_id', value)}
-                                    options={branchGroup.options}
-                                    placeholder={branchScope.allName}
-                                    searchPlaceholder="ابحث عن فرع..."
-                                    active={Boolean(filterValues.branch_id)}
-                                    portal
-                                    onDark
-                                />
-                            </label>
-                        )
-                    }
-                />
-            )}
+            {branchScope && <BranchFilterBanner scope={branchScope} eyebrow="تعرض الآن مشتركي" group={branchFilter.branch} value={filterValues.branch_id} onChange={(value) => setFilter('branch_id', value)} />}
 
             {canViewArchived && <div className="mb-5 flex flex-wrap items-center gap-1"><SegmentedTabs label="قائمة الاشتراكات" value={showArchived ? 'archived' : 'current'} options={[{ value: 'current', label: 'الاشتراكات الحالية' }, { value: 'archived', label: 'الاشتراكات المؤرشفة' }]} onChange={(value) => setFilter('archived', value === 'archived' ? '1' : '')} /><InfoTip label="عن الأرشيف">{showArchived ? 'ملفات محفوظة بعد إنهاء الخدمة؛ الأرصدة والحركات السابقة باقية.' : 'أرشفة الاشتراك المنتهي متاحة من قائمة إجراءاته حسب الصلاحية.'}</InfoTip></div>}
 
@@ -399,8 +374,8 @@ export default function Index({
                 filterMenu={
                     <DataTableFilterMenu
                         tableKey="subscriptions"
-                        groups={menuGroups}
-                        values={menuValues}
+                        groups={branchFilter.groups}
+                        values={branchFilter.values}
                         onChange={setFilter}
                         onChangeMany={setFilters}
                         onClear={() => keptOnClear.length ? setFilters(Object.fromEntries(Object.keys(filterValues).filter((key) => !keptOnClear.includes(key)).map((key) => [key, '']))) : clearFilters()}

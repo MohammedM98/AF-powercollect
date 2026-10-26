@@ -19,16 +19,25 @@ class BranchScope
      * The banner of a list page whose table narrows to one branch with its
      * `filter[branch_id]`: that branch, or every branch the user may see
      * (the same ones the filter offers) when none, or one out of reach, is
-     * chosen.
+     * chosen. `allName` names what the page shows with no branch chosen,
+     * for the picker's empty choice.
      *
-     * @return array{level: string, all: bool, name: string, place: ?string, phone: ?string, isActive: bool, branches: int, subscribers: int}
+     * @return array{level: string, all: bool, name: string, allName: string, place: ?string, phone: ?string, isActive: bool, branches: int, subscribers: int}
      */
     public static function forFilter(User $actor, mixed $branchId): array
     {
-        $visible = Branch::query()->orderBy('name')->tap(fn (Builder $branches) => $actor->scopeAuditBranches($branches, 'branches.id'))->get(['id']);
+        $visible = Branch::query()->orderBy('name')->tap(fn (Builder $branches) => $actor->scopeAuditBranches($branches, 'branches.id'))->get(['id', 'name']);
         $chosen = is_scalar($branchId) && (string) $branchId !== '' ? $visible->where('id', (int) $branchId)->values() : collect();
+        // An auditor given some branches only is not shown "every branch".
+        $allName = match (true) {
+            $visible->count() === 1 => $visible->first()->name,
+            ! $actor->isSuperAdmin() && $actor->auditSettings()['scope'] === 'selected' => 'الفروع المحددة للتدقيق',
+            default => 'جميع الفروع',
+        };
 
-        return self::describe($chosen->isNotEmpty() ? $chosen : $visible);
+        $scope = self::describe($chosen->isNotEmpty() ? $chosen : $visible);
+
+        return [...$scope, 'name' => $scope['level'] === 'all' ? $allName : $scope['name'], 'allName' => $allName];
     }
 
     /**

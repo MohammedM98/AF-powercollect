@@ -375,7 +375,7 @@ export default function Index({
                                     value={filterValues.branch_id ?? ''}
                                     onChange={(value) => setFilter('branch_id', value)}
                                     options={branchGroup.options}
-                                    placeholder="جميع الفروع"
+                                    placeholder={branchScope.allName}
                                     searchPlaceholder="ابحث عن فرع..."
                                     active={Boolean(filterValues.branch_id)}
                                     portal

@@ -1,4 +1,5 @@
 import BankReceivedDate from '@/Components/BankReceivedDate';
+import BranchBanner from '@/Components/BranchBanner';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -245,15 +246,19 @@ function TransactionRow({ entry, grouped, onOpen, rowClick }) {
     );
 }
 
-export default function Index({ entries, period, dateBasis = 'recorded', side, summary, ledgerTotals, dateRange, dayTotals, today, scopeLabel, filters, filterOptions, statement }) {
+export default function Index({ entries, period, dateBasis = 'recorded', side, summary, ledgerTotals, dateRange, dayTotals, today, scopeLabel, branchScope, filters, filterOptions, statement }) {
     const { can, errors = {} } = usePage().props;
     const extraParams = { period, date_basis: dateBasis, ...(period === 'custom' ? dateRange : {}) };
-    const { search, setSearch, sort, setPerPage, filterValues, setFilter, clearFilters } = useDataTable('/ledger', filters, extraParams);
+    const { search, setSearch, sort, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/ledger', filters, extraParams);
     const [filtersOpen, setFiltersOpen] = useState(false);
     const rowClick = useRowClick();
     const statementWindow = useStatementWindow(statement);
     const grouped = filters.sort !== 'amount';
-    const activeFilters = Object.values(filterValues).filter((value) => value !== '' && value !== null && value !== undefined).length;
+    // An auditor of several branches picks the branch in the banner above the log, not among the filters; clearing those keeps it.
+    const branchGroup = branchScope ? filterOptions.find((group) => group.key === 'branch_id') : null;
+    const panelGroups = branchGroup ? filterOptions.filter((group) => group !== branchGroup) : filterOptions;
+    const activeFilters = Object.entries(filterValues).filter(([key, value]) => !(branchGroup && key === 'branch_id') && value !== '' && value !== null && value !== undefined).length;
+    const clearPanelFilters = () => (branchGroup ? setFilters(Object.fromEntries(Object.keys(filterValues).filter((key) => key !== 'branch_id').map((key) => [key, '']))) : clearFilters());
 
     function changePeriod(next, dates = {}) {
         router.get('/ledger', { search, sort: filters.sort, direction: filters.direction, per_page: filters.per_page, filter: filterValues, date_basis: dateBasis, period: next, ...dates }, { preserveState: true, preserveScroll: true, replace: true });
@@ -281,9 +286,10 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
 
     return (
         <AuthenticatedLayout
+            scope={branchScope?.name ?? null}
             header={
                 <PageHeader
-                    eyebrow={scopeLabel}
+                    eyebrow={branchScope ? null : scopeLabel}
                     title="السجل المالي"
                     actions={
                         <>
@@ -295,6 +301,29 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
             }
         >
             <Head title="السجل المالي" />
+            {branchScope && (
+                <BranchBanner
+                    scope={branchScope}
+                    eyebrow="يعرض السجل المالي لـ"
+                    controls={
+                        branchGroup && (
+                            <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/70 sm:w-64">
+                                الفرع
+                                <SearchableSelect
+                                    value={filterValues.branch_id ?? ''}
+                                    onChange={(value) => setFilter('branch_id', value)}
+                                    options={branchGroup.options}
+                                    placeholder={branchScope.allName}
+                                    searchPlaceholder="ابحث عن فرع..."
+                                    active={Boolean(filterValues.branch_id)}
+                                    portal
+                                    onDark
+                                />
+                            </label>
+                        )
+                    }
+                />
+            )}
             <div className="ledger-page">
                 <div className="mb-4 flex flex-wrap items-end gap-3">
                     <div className="w-56"><div className="mb-1.5 flex items-center gap-1"><label htmlFor="ledger-date-basis" className="block text-sm font-semibold text-gray-700">تصفية الفترة حسب</label><InfoTip label="عن تصفية الفترة">{dateBasis === 'paid' ? 'عرض حسب تاريخ الدفع الفعلي للدفعات المتأخرة، وتاريخ التسجيل لبقية الحركات. الأرصدة وترتيب الحركات يبقيان حسب التسجيل.' : 'الأرصدة والفترات تُحتسب حسب تاريخ التسجيل. تاريخ الدفع السابق محفوظ للتدقيق.'}</InfoTip></div><SearchableSelect id="ledger-date-basis" clearable={false} searchable={false} value={dateBasis} options={[{value: 'recorded', label: 'تاريخ التسجيل بالنظام'}, {value: 'paid', label: 'تاريخ الدفع الفعلي'}]} onChange={(value) => changePeriod(period, { ...(period === 'custom' ? dateRange : {}), date_basis: value })} /></div>
@@ -313,7 +342,7 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
                         <button type="button" className="btn fbtn" onClick={() => setFiltersOpen(!filtersOpen)} aria-expanded={filtersOpen} aria-controls="ledger-filters"><Icon name="filter" />الفلاتر{activeFilters > 0 && <span className="num">{activeFilters}</span>}</button>
                     </div>
                     <div className={`fb ${filtersOpen ? 'open' : ''}`} id="ledger-filters">
-                        {filterOptions.map((group) => (
+                        {panelGroups.map((group) => (
                             <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-44" key={group.key}>
                                 <label htmlFor={`ledger-filter-${group.key}`} className={`flex items-center gap-1.5 text-xs font-semibold ${filterValues[group.key] ? 'text-gray-900' : 'text-gray-500'}`}>
                                     {group.label}
@@ -332,7 +361,7 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
                             </div>
                         ))}
                         <label className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-control border border-gray-200 bg-surface px-3 text-sm font-semibold text-gray-700"><input type="checkbox" className="rounded border-gray-300 text-brand-600 focus:ring-brand-500" checked={filterValues.show_cancelled !== '0'} onChange={(event) => setFilter('show_cancelled', event.target.checked ? '' : '0')} />إظهار الملغاة</label>
-                        {activeFilters > 0 && <button type="button" className="clr" onClick={clearFilters}>مسح الفلاتر</button>}
+                        {activeFilters > 0 && <button type="button" className="clr" onClick={clearPanelFilters}>مسح الفلاتر</button>}
                     </div>
                     <table className="ledger-table" aria-label="السجل المالي">
                         <thead><tr>{sortHeading('created_at', 'الوقت')}<th scope="col">المشترك</th><th scope="col">النوع</th><th scope="col">السند</th><th scope="col">الطريقة والبنك</th><th scope="col">المرجع</th><th scope="col">سجّله</th>{sortHeading('amount', 'المبلغ')}<th scope="col">الرصيد بعده</th></tr></thead>

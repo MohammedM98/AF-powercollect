@@ -12,6 +12,8 @@ use App\Support\DailySeries;
 use App\Support\FinancialReportAccess;
 use App\Support\ReportPeriod;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
@@ -88,12 +90,7 @@ class ReportController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
-        abort_unless(FinancialReportAccess::export($request->user()), 403);
-        ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, FinancialReportAccess::branches($request->user()));
-        $lines = (new BranchReport($chosen, $from, $to))->lines($kind)
-            ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
-            ->orderBy('subscription_transactions.created_at')
-            ->orderBy('subscription_transactions.id');
+        ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'lines' => $lines] = $this->exportedLines($request);
         $scope = BranchScope::describe($chosen)['name'];
         $columns = ['التاريخ', 'الوقت', 'الفرع', 'رقم السند', 'المشترك', 'رقم الحساب', 'الطبلون', 'النوع', 'البيان', 'طريقة الدفع', 'الحساب', 'العملة', 'المبلغ بالعملة', 'عليه', 'له', 'سجّله', 'ملغى'];
 
@@ -116,6 +113,36 @@ class ReportController extends Controller
 
             fclose($file);
         }, 'التقارير_'.str_replace(' ', '-', $scope)."_{$from->toDateString()}_{$to->toDateString()}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Every line of the report, oldest first, with the same filters as on
+     * the page, for the Excel editor to lay out as the user chooses.
+     */
+    public function lines(Request $request): JsonResponse
+    {
+        ['lines' => $lines] = $this->exportedLines($request);
+
+        return response()->json([
+            'lines' => $lines->lazy(500)->map(fn (SubscriptionTransaction $line): array => $this->row($line))->values()->all(),
+        ]);
+    }
+
+    /**
+     * The lines a download holds, for whoever may export the report.
+     *
+     * @return array{chosen: Collection<int, Branch>, from: CarbonImmutable, to: CarbonImmutable, lines: Builder<SubscriptionTransaction>}
+     */
+    private function exportedLines(Request $request): array
+    {
+        abort_unless(FinancialReportAccess::export($request->user()), 403);
+        ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'kind' => $kind] = $this->filters($request, FinancialReportAccess::branches($request->user()));
+        $lines = (new BranchReport($chosen, $from, $to))->lines($kind)
+            ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
+            ->orderBy('subscription_transactions.created_at')
+            ->orderBy('subscription_transactions.id');
+
+        return ['chosen' => $chosen, 'from' => $from, 'to' => $to, 'lines' => $lines];
     }
 
     /**

@@ -19,6 +19,10 @@ export function numberFormat(type, currency) {
         return currency ? '#,##0.00 "₪";[Red]-#,##0.00 "₪"' : '#,##0.00;[Red]-#,##0.00';
     }
 
+    if (type === 'decimal') {
+        return '#,##0.00;[Red]-#,##0.00';
+    }
+
     if (type === 'int') {
         return '#,##0';
     }
@@ -45,6 +49,8 @@ export async function workbookBlob(sheets, settings) {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'AF PowerCollect';
     workbook.created = new Date();
+    // Excel works the totals out afresh on opening, rather than showing the values written beside them.
+    workbook.calcProperties.fullCalcOnLoad = true;
 
     for (const sheet of sheets) {
         const columns = Math.max(sheet.widths.length, 1);

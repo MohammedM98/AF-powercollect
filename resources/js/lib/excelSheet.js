@@ -7,7 +7,8 @@
  * both drawn from the model built here (lib/excelWorkbook.js writes it),
  * so what is previewed is what downloads.
  *
- * Column types: text, money (shekels), int, date (YYYY-MM-DD), time.
+ * Column types: text, money (shekels), decimal (an amount in another
+ * currency: two places, no symbol), int, date (YYYY-MM-DD), time.
  */
 
 /** "A", "B", … "Z", "AA": a column's letter in a sheet. */
@@ -84,7 +85,7 @@ function cellValue(value, type) {
         return '';
     }
 
-    if (type === 'money' || type === 'int') {
+    if (type === 'money' || type === 'decimal' || type === 'int') {
         const number = Number(value);
 
         return Number.isFinite(number) ? number : '';
@@ -213,6 +214,10 @@ export function formatExcelCell(value, type, currency = true) {
 
     if (type === 'money') {
         return `${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${currency ? ' ₪' : ''}`;
+    }
+
+    if (type === 'decimal') {
+        return Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     if (type === 'int') {

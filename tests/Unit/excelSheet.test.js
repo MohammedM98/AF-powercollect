@@ -118,6 +118,7 @@ test('cells read in the preview as they will in Excel', () => {
     assert.equal(formatExcelCell(1234.5, 'money'), '1,234.50 ₪');
     assert.equal(formatExcelCell(1234.5, 'money', false), '1,234.50');
     assert.equal(formatExcelCell('2026-10-26', 'date'), '26/10/2026');
+    assert.equal(formatExcelCell(10, 'decimal'), '10.00');
     assert.equal(formatExcelCell('', 'money'), '');
 });
 

@@ -1,3 +1,4 @@
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Icon from '@/Components/Icon';
@@ -10,6 +11,9 @@ import PageHeader from '@/Components/PageHeader';
 import { secondaryButtonClass } from '@/Components/SecondaryButton';
 import DateInput from '@/Components/DateInput';
 import BranchBanner, { BranchChips } from '@/Components/BranchBanner';
+import { reportExcelParts } from '@/lib/reportExcelParts';
+
+const ExcelStudio = lazy(() => import('@/Components/ExcelStudio'));
 
 
 /** Cents of a money string, so totals add up exactly. */
@@ -30,7 +34,8 @@ function periodLabel(mode, details) {
  * payments came in, the readings, and every line.
  */
 export default function Index({ branches, filters, scopeLabel, branchScope, presets, today, kinds, flow, collections, readings, days, transactions, period, branchSummary, canExport }) {
-    const { errors } = usePage().props;
+    const { errors, auth } = usePage().props;
+    const [excelOpen, setExcelOpen] = useState(false);
     const oneDay = filters.from === filters.to;
     const query = new URLSearchParams(
         Object.entries({ branch: filters.branch ?? '', from: filters.from, to: filters.to, kind: filters.kind }).filter(([, value]) => value !== ''),
@@ -43,6 +48,27 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
     const periodText = oneDay ? `${weekDayName(filters.from)} ${shortDate(filters.from, true)}` : `${shortDate(filters.from, true)} – ${shortDate(filters.to, true)}`;
     // The branch banner is for whoever reports on more than one branch; someone with one branch sees it named in the controls, as before.
     const seesManyBranches = branches.length > 1;
+    const kindLabel = kinds.find((kind) => kind.value === filters.kind)?.label ?? 'كل الحركات';
+    const excelMeta = useMemo(() => ({
+        lines: [`الفرع: ${branchScope.name}`, `الفترة: ${periodLabel(period?.mode, period)} · ${periodText}`],
+        criteria: [
+            ['الفرع', branchScope.name],
+            ['الفترة', `${shortDate(filters.from, true)} – ${shortDate(filters.to, true)}`],
+            ['نوع التقرير', periodLabel(period?.mode, period)],
+            ['الحركات المضمّنة', kindLabel],
+            ['أعدّه', auth?.user?.name ?? ''],
+            ['تاريخ الإعداد', new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })],
+        ],
+    }), [branchScope.name, period, periodText, filters.from, filters.to, kindLabel, auth?.user?.name, excelOpen]);
+
+    /** The parts on the page now, and every line of the period fetched with the same filters. */
+    async function loadExcelParts() {
+        const response = await fetch(`/reports/lines.json?${query}`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('lines');
+        const { lines } = await response.json();
+
+        return reportExcelParts({ flow, collections, readings, days, branchSummary: branchSummary ?? [], lines, showBranch: filters.branch === 'all' });
+    }
 
     return (
         <AuthenticatedLayout
@@ -54,10 +80,10 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
                     actions={
                         <>
                             {canExport && (
-                                <a className={`${secondaryButtonClass} tone-excel`} href={`/reports/lines.csv?${query}`}>
+                                <button type="button" className={`${secondaryButtonClass} tone-excel`} onClick={() => setExcelOpen(true)}>
                                     <Icon name="excel" className="h-4 w-4" />
-                                    تنزيل Excel (CSV)
-                                </a>
+                                    تصدير Excel
+                                </button>
                             )}
                             <button type="button" className={`${secondaryButtonClass} tone-print`} onClick={() => window.print()}>
                                 <Icon name="printer" className="h-4 w-4" />
@@ -69,6 +95,19 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
             }
         >
             <Head title={seesManyBranches ? `التقارير — ${branchScope.name}` : 'التقارير'} />
+            {canExport && excelOpen && (
+                <Suspense fallback={null}>
+                    <ExcelStudio
+                        show={excelOpen}
+                        onClose={() => setExcelOpen(false)}
+                        title="تصدير التقرير إلى Excel"
+                        storageKey="reports"
+                        loadParts={loadExcelParts}
+                        defaults={{ title: `التقارير المالية — ${branchScope.name}`, fileName: `التقارير_${branchScope.name}_${filters.from}_${filters.to}` }}
+                        meta={excelMeta}
+                    />
+                </Suspense>
+            )}
             <div className="financial-report report-page" dir="rtl">
                 {seesManyBranches && (
                     <BranchBanner

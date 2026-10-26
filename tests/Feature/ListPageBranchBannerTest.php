@@ -38,33 +38,17 @@ class ListPageBranchBannerTest extends TestCase
             ->where('branchScope.level', 'all'));
     }
 
-    public function test_an_auditor_of_one_branch_reads_only_it_and_cannot_name_another(): void
-    {
-        [$audited, $other] = Branch::factory()->count(2)->create();
-        $auditor = $this->auditorOf([$audited], ['view_accounts']);
-
-        $this->actingAs($auditor)->get(route('subscriptions.index'))->assertInertia(fn ($page) => $page
-            ->where('branchScope.level', 'branch')
-            ->where('branchScope.name', $audited->name)
-            ->where('branchScope.allName', $audited->name));
-        $this->get(route('subscriptions.index', ['filter' => ['branch_id' => $other->id]]))->assertInertia(fn ($page) => $page
-            ->where('branchScope.name', $audited->name));
-    }
-
-    public function test_an_auditor_of_some_branches_is_not_told_every_branch(): void
+    public function test_an_auditor_of_several_branches_keeps_the_pages_as_they_were(): void
     {
         [$first, $second] = Branch::factory()->count(2)->create();
         Branch::factory()->create();
         $auditor = $this->auditorOf([$first, $second], ['view_accounts', 'view_ledger']);
 
-        $this->actingAs($auditor)->get(route('ledger.index'))->assertInertia(fn ($page) => $page
-            ->where('branchScope.level', 'all')
-            ->where('branchScope.name', 'الفروع المحددة للتدقيق')
-            ->where('branchScope.allName', 'الفروع المحددة للتدقيق')
-            ->where('branchScope.branches', 2));
-        $this->get(route('ledger.index', ['filter' => ['branch_id' => $second->id]]))->assertInertia(fn ($page) => $page
-            ->where('branchScope.level', 'branch')
-            ->where('branchScope.name', $second->name));
+        $this->actingAs($auditor);
+        foreach (['subscriptions.index', 'ledger.index'] as $route) {
+            $this->get(route($route, ['filter' => ['branch_id' => $second->id]]))->assertOk()->assertInertia(fn ($page) => $page
+                ->where('branchScope', null));
+        }
     }
 
     public function test_the_super_admin_reads_which_branch_the_ledger_holds(): void
@@ -113,7 +97,7 @@ class ListPageBranchBannerTest extends TestCase
         $manager = User::factory()->branchAdmin()->create();
 
         $this->actingAs($manager);
-        foreach (['subscriptions.index', 'ledger.index', 'receivables.index', 'meter-boxes.index', 'disconnection-lists.index'] as $route) {
+        foreach (['subscriptions.index', 'ledger.index', 'receivables.index', 'meter-boxes.index', 'disconnection-lists.index', 'reports.index'] as $route) {
             $this->get(route($route))->assertInertia(fn ($page) => $page
                 ->where('branchScope', null));
         }

@@ -11,6 +11,56 @@
  * currency: two places, no symbol), int, date (YYYY-MM-DD), time.
  */
 
+/** The colour sets a file can take: its heading row, its title and the heading of each group (hex, without #). */
+export const EXCEL_THEMES = {
+    graphite: { label: 'داكن', head: '1B2026', headText: 'FFFFFF', title: 'A51D26', group: 'F6E7E8', groupText: '7D121B' },
+    brand: { label: 'أحمر الشركة', head: 'A51D26', headText: 'FFFFFF', title: 'A51D26', group: 'F6E7E8', groupText: '7D121B' },
+    blue: { label: 'أزرق', head: '1E3A8A', headText: 'FFFFFF', title: '1E3A8A', group: 'DBEAFE', groupText: '1E3A8A' },
+    green: { label: 'أخضر', head: '1D6F42', headText: 'FFFFFF', title: '1D6F42', group: 'DCFCE7', groupText: '14532D' },
+    plain: { label: 'رمادي للطباعة', head: 'E5E7EB', headText: '111827', title: '111827', group: 'F3F4F6', groupText: '111827' },
+};
+
+/** Font sizes in points: the cells, the title and the line under it. */
+export const EXCEL_FONT_SIZES = {
+    small: { label: 'صغير', body: 9, title: 14, subtitle: 11 },
+    normal: { label: 'عادي', body: 10, title: 16, subtitle: 12 },
+    large: { label: 'كبير', body: 12, title: 18, subtitle: 14 },
+};
+
+/** The height of a row of figures, in points (Excel's own is 15). */
+export const EXCEL_ROW_HEIGHTS = {
+    compact: { label: 'مضغوط', data: 15 },
+    normal: { label: 'عادي', data: 18 },
+    roomy: { label: 'مريح', data: 24 },
+};
+
+export const EXCEL_ORIENTATIONS = {
+    auto: 'تلقائي',
+    portrait: 'عمودي',
+    landscape: 'أفقي',
+};
+
+/** The colours, font and row height `settings` choose, falling back to the usual ones for a choice that no longer exists. */
+export function excelLook(settings) {
+    return {
+        theme: EXCEL_THEMES[settings.theme] ?? EXCEL_THEMES.graphite,
+        font: EXCEL_FONT_SIZES[settings.fontSize] ?? EXCEL_FONT_SIZES.normal,
+        rows: EXCEL_ROW_HEIGHTS[settings.rowHeight] ?? EXCEL_ROW_HEIGHTS.normal,
+    };
+}
+
+/** How a sheet of `columns` columns is laid on paper: as chosen, or across the page when it is wide. */
+export function excelOrientation(settings, columns) {
+    if (settings.orientation === 'portrait' || settings.orientation === 'landscape') {
+        return settings.orientation;
+    }
+
+    return columns > 6 ? 'landscape' : 'portrait';
+}
+
+/** The narrowest and widest a column may be set, in characters. */
+export const COLUMN_WIDTH_RANGE = [4, 80];
+
 /** "A", "B", … "Z", "AA": a column's letter in a sheet. */
 export function columnLetter(index) {
     let letters = '';
@@ -42,6 +92,10 @@ export function defaultExcelSettings(parts, { title = '', fileName = 'export' } 
         currency: true,
         pageSetup: true,
         criteria: true,
+        theme: 'graphite',
+        fontSize: 'normal',
+        rowHeight: 'normal',
+        orientation: 'auto',
         parts: Object.fromEntries(parts.map((part) => [part.key, defaultPart(part)])),
     };
 }
@@ -70,6 +124,14 @@ export function fitExcelSettings(saved, parts, defaults) {
     }
 
     return fitted;
+}
+
+/** A column's width in the sheet: the user's, within bounds, or the column's own. */
+export function columnWidth(column, partSettings) {
+    const chosen = Number(partSettings?.columns?.find((candidate) => candidate.key === column.key)?.width);
+    const [narrowest, widest] = COLUMN_WIDTH_RANGE;
+
+    return Number.isFinite(chosen) && chosen > 0 ? Math.min(widest, Math.max(narrowest, Math.round(chosen))) : (column.width ?? 14);
 }
 
 /** The part's columns the user kept, in their order. */
@@ -175,7 +237,8 @@ export function buildPartSheet(part, settings, meta = {}) {
         key: part.key,
         name: part.name,
         columns,
-        widths: columns.map((column) => column.width ?? 14),
+        // Widths are set for the usual 10-point font, and grow or shrink with the chosen one so dates never turn into ####.
+        widths: columns.map((column) => Math.round((columnWidth(column, partSettings) * excelLook(settings).font.body) / 10)),
         rows,
         head,
         firstData,

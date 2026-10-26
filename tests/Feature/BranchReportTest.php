@@ -126,9 +126,8 @@ class BranchReportTest extends TestCase
 
         $this->actingAs($this->preparer())->get(route('reports.index', ['branch' => $this->south->id]))->assertInertia(fn ($page) => $page
             ->where('filters.branch', $this->north->id)
-            ->where('branchScope.all', false)
-            ->where('branchScope.name', 'North')
-            ->where('branchScope.subscribers', 1)
+            ->where('branchScope', null)
+            ->where('scopeLabel', 'North')
             ->where('collections.total', '10.00'));
         $this->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page->where('collections.total', '10.00'));
         $this->assertStringNotContainsString('South', $this->get(route('reports.export'))->streamedContent());
@@ -139,11 +138,18 @@ class BranchReportTest extends TestCase
         $this->actingAs($auditor)->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page
             ->where('filters.branch', 'all')
             ->where('scopeLabel', 'كل الفروع')
+            ->where('branchScope', null)
+            ->where('collections.total', '30.00'));
+
+        $this->actingAs(User::factory()->superAdmin()->create())->get(route('reports.index', ['branch' => 'all']))->assertInertia(fn ($page) => $page
             ->where('branchScope.all', true)
             ->where('branchScope.name', 'جميع الفروع')
             ->where('branchScope.branches', Branch::count())
-            ->where('branchScope.subscribers', Subscription::count())
-            ->where('collections.total', '30.00'));
+            ->where('branchScope.subscribers', Subscription::count()));
+        $this->get(route('reports.index', ['branch' => $this->north->id]))->assertInertia(fn ($page) => $page
+            ->where('branchScope.all', false)
+            ->where('branchScope.name', 'North')
+            ->where('branchScope.subscribers', 1));
     }
 
     public function test_a_report_across_branches_counts_each_branchs_payments_by_its_own_cutoff(): void

@@ -21,12 +21,12 @@ function summaryPart(flow, collections) {
         name: 'الملخص',
         columns: [text('label', 'البند', 34), money('value', 'المبلغ', { width: 18 }), count('count', 'العدد'), text('note', 'ملاحظة', 30)],
         rows: [
-            { label: 'صافي رصيد المشتركين أول الفترة', value: flow.opening, note: 'على المشتركين' },
+            { label: 'الرصيد الافتتاحي', value: flow.opening, note: 'على المشتركين' },
             { label: 'التحميلات', value: flow.chargesTotal, note: 'قراءات ورسوم وغرامات' },
             { label: 'إجمالي المحصّل', value: collections.total, count: collections.count },
             { label: 'نقدي', value: collections.cash },
             { label: 'تحويلات وشيكات', value: collections.nonCash },
-            { label: 'صافي رصيد المشتركين آخر الفترة', value: flow.closing, note: change > 0 ? 'زاد' : change < 0 ? 'نقص' : 'لم يتغير' },
+            { label: 'الرصيد الختامي', value: flow.closing, note: change > 0 ? 'زاد' : change < 0 ? 'نقص' : 'لم يتغير' },
             { label: 'التغيّر خلال الفترة', value: flow.change },
         ],
     };
@@ -39,13 +39,13 @@ function flowPart(flow) {
         name: 'حركة الأرصدة',
         columns: [text('label', 'البند', 40), count('count', 'العدد'), money('total', 'المبلغ', { width: 18 })],
         rows: [
-            { label: 'صافي رصيد المشتركين أول الفترة', total: flow.opening },
+            { label: 'الرصيد الافتتاحي', total: flow.opening },
             ...flow.charges.map((line) => ({ label: `+ ${line.label}`, count: line.count, total: line.total })),
             { label: 'مجموع التحميلات (عليه)', total: flow.chargesTotal },
             ...flow.credits.map((line) => ({ label: `− ${line.label}`, count: line.count, total: line.total })),
             { label: 'مجموع الدفعات والخصومات (له)', total: flow.creditsTotal },
             { label: '± الإلغاءات والقيود العكسية', count: flow.corrections.count, total: flow.corrections.total },
-            { label: 'صافي رصيد المشتركين آخر الفترة', total: flow.closing },
+            { label: 'الرصيد الختامي', total: flow.closing },
         ],
     };
 }
@@ -63,7 +63,7 @@ function daysPart(days) {
             money('discounts', 'الخصومات', { sum: true }),
             money('corrections', 'الإلغاءات', { sum: true }),
             count('lines', 'الحركات', { sum: true }),
-            money('balance', 'صافي الرصيد آخر اليوم', { width: 20 }),
+            money('balance', 'الرصيد الختامي لليوم', { width: 20 }),
         ],
         rows: days.map((day) => ({ ...day, weekday: weekDayName(day.day) })),
     };
@@ -129,9 +129,9 @@ function branchesPart(branchSummary) {
         name: 'مقارنة الفروع',
         columns: [
             text('name', 'الفرع', 24),
-            money('opening', 'صافي الرصيد أول الفترة', { sum: true, width: 20, default: false }),
+            money('opening', 'الرصيد الافتتاحي', { sum: true, width: 20, default: false }),
             money('charges', 'التحميلات', { sum: true, default: false }),
-            money('closing', 'صافي الرصيد آخر الفترة', { sum: true, width: 20 }),
+            money('closing', 'الرصيد الختامي', { sum: true, width: 20 }),
             money('total', 'إجمالي المحصّل', { sum: true }),
             money('cash', 'نقدي', { sum: true }),
             money('nonCash', 'تحويلات وشيكات', { sum: true }),

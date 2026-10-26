@@ -17,6 +17,7 @@ use App\Http\Controllers\CurrencyRateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisconnectionItemController;
 use App\Http\Controllers\DisconnectionListController;
+use App\Http\Controllers\ExcelTemplateController;
 use App\Http\Controllers\GovernorateController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MessageController;
@@ -184,6 +185,10 @@ Route::middleware('auth')->group(function () {
     Route::put('/print-templates/{print_template}', [PrintTemplateController::class, 'update'])->name('print-templates.update');
     Route::post('/print-templates/{print_template}/duplicate', [PrintTemplateController::class, 'duplicate'])->name('print-templates.duplicate');
     Route::delete('/print-templates/{print_template}', [PrintTemplateController::class, 'destroy'])->name('print-templates.destroy');
+    Route::get('/excel-templates/{kind}', [ExcelTemplateController::class, 'index'])->name('excel-templates.index');
+    Route::post('/excel-templates', [ExcelTemplateController::class, 'store'])->name('excel-templates.store');
+    Route::put('/excel-templates/{excel_template}', [ExcelTemplateController::class, 'update'])->name('excel-templates.update');
+    Route::delete('/excel-templates/{excel_template}', [ExcelTemplateController::class, 'destroy'])->name('excel-templates.destroy');
     Route::get('/settings/payments', [PaymentSettingController::class, 'index'])->name('settings.payments.index');
     Route::put('/settings/payments', [PaymentSettingController::class, 'update'])->name('settings.payments.update');
     Route::redirect('/settings/currencies', '/settings/payments')->name('settings.currencies.index');

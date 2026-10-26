@@ -61,3 +61,17 @@ test('the user can turn the look off: left to right, nothing frozen, no symbol',
     assert.notEqual(sheet.views[0].state, 'frozen');
     assert.equal(sheet.getCell('C6').numFmt, '#,##0.00;[Red]-#,##0.00');
 });
+
+test('the chosen colours, font size, row height, widths and orientation reach the file', async () => {
+    const settings = { ...defaultExcelSettings([lines]), theme: 'blue', fontSize: 'large', rowHeight: 'roomy', orientation: 'landscape' };
+    settings.parts.lines.columns[1].width = 40;
+    const sheet = (await readBack(settings)).getWorksheet('الحركات');
+
+    assert.equal(sheet.getCell('A5').fill.fgColor.argb, 'FF1E3A8A');
+    assert.equal(sheet.getCell('A1').font.color.argb, 'FF1E3A8A');
+    assert.equal(sheet.getCell('A1').font.size, 18);
+    assert.equal(sheet.getCell('B6').font.size, 12);
+    assert.equal(sheet.getRow(6).height, 24);
+    assert.equal(sheet.getColumn(2).width, 48);
+    assert.equal(sheet.pageSetup.orientation, 'landscape');
+});

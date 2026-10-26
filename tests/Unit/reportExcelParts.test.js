@@ -42,12 +42,12 @@ test('the summary uses the page words and the period figures', () => {
     const [summary] = reportExcelParts({ flow, collections });
 
     assert.deepEqual(summary.rows.map((row) => [row.label, row.value]), [
-        ['صافي رصيد المشتركين أول الفترة', '1000.00'],
+        ['الرصيد الافتتاحي', '1000.00'],
         ['التحميلات', '300.00'],
         ['إجمالي المحصّل', '250.00'],
         ['نقدي', '200.00'],
         ['تحويلات وشيكات', '50.00'],
-        ['صافي رصيد المشتركين آخر الفترة', '1040.00'],
+        ['الرصيد الختامي', '1040.00'],
         ['التغيّر خلال الفترة', '40.00'],
     ]);
     assert.equal(summary.rows[5].note, 'زاد');

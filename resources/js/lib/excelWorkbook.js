@@ -1,7 +1,11 @@
+import { excelLook, excelOrientation } from './excelSheet.js';
+
 /**
  * Writes the sheets lib/excelSheet.js builds as a real .xlsx workbook with
  * ExcelJS, loaded only when a file is made so no page carries it: the
- * company's look (a dark heading row, a red title, money in shekels),
+ * look the user chose (the colours of the heading row and title, the font
+ * size and row height; by default a dark heading row and a red title),
+ * money in shekels,
  * right to left, the heading row frozen and filtered, the totals as live
  * formulas, and ready to print from Excel (A4, fitted to the width, the
  * heading row on every page, numbered pages).
@@ -10,7 +14,7 @@
 const THIN = { style: 'thin', color: { argb: 'FFD9DDE2' } };
 const BOX = { top: THIN, bottom: THIN, left: THIN, right: THIN };
 const fill = (hex) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${hex}` } });
-const font = (extra = {}) => ({ name: 'Arial', size: 10, ...extra });
+const argb = (hex) => `FF${hex}`;
 const MERGED = new Set(['title', 'subtitle', 'meta', 'group']);
 
 /** The Excel number format of a column type. */
@@ -52,6 +56,9 @@ export async function workbookBlob(sheets, settings) {
     // Excel works the totals out afresh on opening, rather than showing the values written beside them.
     workbook.calcProperties.fullCalcOnLoad = true;
 
+    const { theme, font: sizes, rows: heights } = excelLook(settings);
+    const font = (extra = {}) => ({ name: 'Arial', size: sizes.body, ...extra });
+
     for (const sheet of sheets) {
         const columns = Math.max(sheet.widths.length, 1);
         const frozen = settings.freeze && sheet.key !== 'criteria';
@@ -80,30 +87,31 @@ export async function workbookBlob(sheets, settings) {
             };
 
             if (row.kind === 'title') {
-                excelRow.height = 28;
-                each((cell) => { cell.font = font({ size: 16, bold: true, color: { argb: 'FFA51D26' } }); });
+                excelRow.height = sizes.title * 1.75;
+                each((cell) => { cell.font = font({ size: sizes.title, bold: true, color: { argb: argb(theme.title) } }); });
             } else if (row.kind === 'subtitle') {
-                excelRow.height = 20;
-                each((cell) => { cell.font = font({ size: 12, bold: true }); });
+                excelRow.height = sizes.subtitle * 1.65;
+                each((cell) => { cell.font = font({ size: sizes.subtitle, bold: true }); });
             } else if (row.kind === 'meta') {
-                each((cell) => { cell.font = font({ size: 9, color: { argb: 'FF5B6470' } }); });
+                each((cell) => { cell.font = font({ size: sizes.body - 1, color: { argb: 'FF5B6470' } }); });
             } else if (row.kind === 'head') {
-                excelRow.height = 22;
+                excelRow.height = heights.data + 6;
                 each((cell) => {
-                    cell.fill = fill('1B2026');
-                    cell.font = font({ bold: true, color: { argb: 'FFFFFFFF' } });
+                    cell.fill = fill(theme.head);
+                    cell.font = font({ bold: true, color: { argb: argb(theme.headText) } });
                     cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true, readingOrder: settings.rtl ? 'rtl' : 'ltr' };
                     cell.border = BOX;
                 });
             } else if (row.kind === 'data') {
+                excelRow.height = heights.data;
                 each((cell) => {
                     cell.border = BOX;
                     if (row.zebra) cell.fill = fill('F6F7F9');
                 });
             } else if (row.kind === 'group') {
                 each((cell) => {
-                    cell.fill = fill('F6E7E8');
-                    cell.font = font({ bold: true, color: { argb: 'FF7D121B' } });
+                    cell.fill = fill(theme.group);
+                    cell.font = font({ bold: true, color: { argb: argb(theme.groupText) } });
                 });
             } else if (row.kind === 'subtotal') {
                 each((cell) => {
@@ -127,7 +135,7 @@ export async function workbookBlob(sheets, settings) {
         if (settings.pageSetup) {
             worksheet.pageSetup = {
                 paperSize: 9,
-                orientation: columns > 6 ? 'landscape' : 'portrait',
+                orientation: excelOrientation(settings, columns),
                 fitToPage: true,
                 fitToWidth: 1,
                 fitToHeight: 0,

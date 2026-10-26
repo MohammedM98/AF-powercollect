@@ -9,6 +9,7 @@ import './Report.css';
 import PageHeader from '@/Components/PageHeader';
 import { secondaryButtonClass } from '@/Components/SecondaryButton';
 import DateInput from '@/Components/DateInput';
+import BranchBanner, { BranchChip } from '@/Components/BranchBanner';
 
 
 /** Cents of a money string, so totals add up exactly. */
@@ -28,7 +29,7 @@ function periodLabel(mode, details) {
  * before it is closed — how what the subscriptions owe moved, where the
  * payments came in, the readings, and every line.
  */
-export default function Index({ branches, filters, scopeLabel, presets, today, kinds, flow, collections, readings, days, transactions, period, branchSummary, canExport }) {
+export default function Index({ branches, filters, branchScope, presets, today, kinds, flow, collections, readings, days, transactions, period, branchSummary, canExport }) {
     const { errors } = usePage().props;
     const oneDay = filters.from === filters.to;
     const query = new URLSearchParams(
@@ -43,10 +44,11 @@ export default function Index({ branches, filters, scopeLabel, presets, today, k
 
     return (
         <AuthenticatedLayout
+            scope={branchScope.name}
             header={
                 <PageHeader
                     title="التقارير"
-                    meta={`${scopeLabel} · ${periodLabel(period?.mode, period)} · ${periodText}${oneDay && filters.from === today ? ' · اليوم الجاري' : ''}`}
+                    meta={`${periodLabel(period?.mode, period)} · ${periodText}${oneDay && filters.from === today ? ' · اليوم الجاري' : ''}`}
                     actions={
                         <>
                             {canExport && (
@@ -64,30 +66,29 @@ export default function Index({ branches, filters, scopeLabel, presets, today, k
                 />
             }
         >
-            <Head title="التقارير" />
+            <Head title={branchScope.name ? `التقارير — ${branchScope.name}` : 'التقارير'} />
             <div className="financial-report report-page" dir="rtl">
+                {branches.length > 0 && (
+                    <BranchBanner
+                        scope={branchScope}
+                        options={branches}
+                        value={filters.branch}
+                        onChange={(branch) => visit({ branch, page: undefined })}
+                        meta={`${periodLabel(period?.mode, period)} · ${periodText}`}
+                    >
+                        {branchSummary?.length > 0 &&
+                            branchSummary.map((row) => (
+                                <BranchChip
+                                    key={row.id}
+                                    as={Link}
+                                    href={`/reports?${new URLSearchParams({ ...filters, branch: row.id }).toString()}`}
+                                    name={row.name}
+                                    figure={`${reportMoney(row.collections.total)} ₪`}
+                                />
+                            ))}
+                    </BranchBanner>
+                )}
                 <div className="ctl">
-                    <label className="cb">
-                        <Icon name="pin" />
-                        <small>الفرع</small>
-                        {branches.length > 1 ? (
-                            <select
-                                aria-label="الفرع"
-                                value={filters.branch ?? ''}
-                                onChange={(event) => visit({ branch: event.target.value, page: undefined })}
-                                style={{ border: 0, fontWeight: 700 }}
-                            >
-                                <option value="all">كل الفروع</option>
-                                {branches.map((branch) => (
-                                    <option key={branch.value} value={branch.value}>
-                                        {branch.label}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : (
-                            <b style={{ fontFamily: 'inherit', fontWeight: 700 }}>{scopeLabel}</b>
-                        )}
-                    </label>
                     <div className="segx report-period-tabs" role="group" aria-label="نوع التقرير">
                         {[
                             ['daily', 'يومي'],
@@ -166,14 +167,14 @@ export default function Index({ branches, filters, scopeLabel, presets, today, k
                             <span>قراءات ورسوم وغرامات</span>
                         </div>
                         <div>
-                            <small>التحصيل</small>
+                            <small>إجمالي المحصّل</small>
                             <b>{reportMoney(collections.total)} ₪</b>
                             <span>{collections.count} دفعة</span>
                         </div>
                         <div>
-                            <small>منها نقدًا</small>
+                            <small>نقدي</small>
                             <b>{reportMoney(collections.cash)} ₪</b>
-                            <span>غير نقدي {reportMoney(collections.nonCash)} ₪</span>
+                            <span>تحويلات وشيكات {reportMoney(collections.nonCash)} ₪</span>
                         </div>
                         <div className={cents(flow.change) > 0 ? 'w' : ''}>
                             <small>صافي رصيد المشتركين آخر الفترة</small>
@@ -220,7 +221,7 @@ function BranchComparison({ rows, filters }) {
             </h3>
             <div style={{ overflowX: 'auto' }}>
                 <table className="mx">
-                    <thead><tr><th>الفرع</th><th>صافي الرصيد آخر الفترة</th><th>التحصيل</th><th>نقدًا</th><th>الحركات</th></tr></thead>
+                    <thead><tr><th>الفرع</th><th>صافي رصيد المشتركين آخر الفترة</th><th>إجمالي المحصّل</th><th>نقدي</th><th>الحركات</th></tr></thead>
                     <tbody>
                         {rows.map((row) => (
                             <tr key={row.id}>
@@ -248,10 +249,11 @@ function FlowStatement({ flow }) {
                 حركة الأرصدة
                 <span className="r">ما على المشتركين من أول الفترة إلى آخرها</span>
             </h3>
+            <p className="s">صافي الرصيد أول الفترة + التحميلات − الدفعات والخصومات ± الإلغاءات والقيود العكسية = صافي الرصيد آخر الفترة</p>
             <table className="rp-flow">
                 <tbody>
                     <tr className="sum">
-                        <th>المستحق أول الفترة</th>
+                        <th>صافي رصيد المشتركين أول الفترة</th>
                         <td />
                         <td className="tv">{reportMoney(flow.opening)}</td>
                     </tr>
@@ -285,7 +287,7 @@ function FlowStatement({ flow }) {
                         <td className={`tv ${cents(flow.corrections.total) !== 0 ? 'w' : ''}`}>{reportMoney(flow.corrections.total)}</td>
                     </tr>
                     <tr className="sum">
-                        <th>المستحق آخر الفترة</th>
+                        <th>صافي رصيد المشتركين آخر الفترة</th>
                         <td />
                         <td className="tv">{reportMoney(flow.closing)}</td>
                     </tr>
@@ -320,7 +322,7 @@ function DaysTable({ days, onOpenDay }) {
                             <th>الدفعات</th>
                             <th>الخصومات</th>
                             <th>الإلغاءات</th>
-                            <th>المستحق آخره</th>
+                            <th>صافي الرصيد آخر اليوم</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -424,7 +426,7 @@ function Collections({ collections }) {
                             <tr>
                                 <th>الموظف</th>
                                 <th>دفعات</th>
-                                <th>نقدًا</th>
+                                <th>نقدي</th>
                                 <th>المجموع</th>
                             </tr>
                         </thead>

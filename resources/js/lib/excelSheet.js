@@ -206,7 +206,9 @@ export function buildPartSheet(part, settings, meta = {}) {
             add('group', [{ v: `${value || '—'} (${records.length})` }]);
             const first = rows.length + 1;
             records.forEach((record, index) => add('data', dataCells(record), { zebra: settings.zebra && index % 2 === 1 }));
-            add('subtotal', sumCells(first, rows.length, `مجموع ${value || '—'}`));
+            if (settings.totals && columns.some((column) => column.sum)) {
+                add('subtotal', sumCells(first, rows.length, `مجموع ${value || '—'}`));
+            }
         }
     } else {
         part.rows.forEach((record, index) => add('data', dataCells(record), { zebra: settings.zebra && index % 2 === 1 }));
@@ -219,14 +221,19 @@ export function buildPartSheet(part, settings, meta = {}) {
         add('total', sumCells(firstData, lastData, 'الإجمالي'));
     }
 
-    // The value Excel shows beside each total before it recalculates: the sum of the data rows it covers.
+    // Prefix sums keep grouped exports linear even when every record has its own group.
+    const cumulative = columns.map(() => [0]);
+    for (const row of rows) {
+        columns.forEach((column, index) => {
+            cumulative[index][row.row] = cumulative[index][row.row - 1] + (row.kind === 'data' ? Number(row.cells[index]?.v) || 0 : 0);
+        });
+    }
+
     for (const row of rows) {
         if (row.kind !== 'subtotal' && row.kind !== 'total') continue;
         row.cells.forEach((cell, index) => {
             if (cell.from === undefined) return;
-            cell.v = rows
-                .filter((candidate) => candidate.kind === 'data' && candidate.row >= cell.from && candidate.row <= cell.to)
-                .reduce((total, candidate) => total + (Number(candidate.cells[index].v) || 0), 0);
+            cell.v = cumulative[index][cell.to] - cumulative[index][cell.from - 1];
             cell.v = Math.round(cell.v * 100) / 100;
             delete cell.from;
             delete cell.to;

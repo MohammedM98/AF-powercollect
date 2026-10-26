@@ -96,3 +96,11 @@ test('foreign currency amounts carry no shekel sign', () => {
     assert.equal(currencies.default, true);
     assert.equal(currencies.columns.find((column) => column.key === 'amount').type, 'decimal');
 });
+
+test('the Excel summary carries the same comparison figures and period as the screen', () => {
+    const comparison = { from: '2026-09-01', to: '2026-09-02', total: '200.00', difference: '50.00', percentage: 25 };
+
+    const [summary] = reportExcelParts({ flow, collections, comparison });
+
+    assert.deepEqual(summary.rows.slice(-2).map((row) => [row.value, row.note]), [['200.00', '2026-09-01 – 2026-09-02'], ['50.00', '25%']]);
+});

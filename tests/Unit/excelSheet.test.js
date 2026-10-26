@@ -87,6 +87,30 @@ test('hidden and moved columns follow the user, and without formulas the totals 
     assert.deepEqual(sheet.rows.at(-1).cells.map((cell) => [cell.v, cell.f ?? null]), [[35.75, null], ['', null], ['', null]]);
 });
 
+test('turning totals off removes both group subtotals and the grand total', () => {
+    const settings = defaultExcelSettings([lines]);
+    settings.totals = false;
+    settings.parts.lines.groupBy = 'collector';
+
+    const sheet = buildPartSheet(lines, settings);
+
+    assert.equal(sheet.rows.some((row) => ['subtotal', 'total'].includes(row.kind)), false);
+    assert.equal(sheet.rows.filter((row) => row.kind === 'data').length, 3);
+    assert.equal(sheet.rows.filter((row) => row.kind === 'group').length, 2);
+});
+
+test('large grouped exports keep all rows and exact subtotals without counting groups twice', () => {
+    const large = { ...lines, rows: Array.from({ length: 10000 }, (_, index) => ({ collector: `Collector ${index}`, amount: '1.25' })) };
+    const settings = defaultExcelSettings([large]);
+    settings.parts.lines.groupBy = 'collector';
+
+    const sheet = buildPartSheet(large, settings);
+
+    assert.equal(sheet.count, 10000);
+    assert.equal(sheet.rows.filter((row) => row.kind === 'subtotal').length, 10000);
+    assert.equal(sheet.rows.at(-1).cells[2].v, 12500);
+});
+
 test('the workbook holds the parts turned on, then the criteria sheet', () => {
     const settings = defaultExcelSettings([summary, lines]);
     settings.parts.summary.on = false;

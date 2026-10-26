@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { useState } from 'react';
 import Icon from '@/Components/Icon';
+import SearchableSelect from '@/Components/SearchableSelect';
 import { formatNumber } from '@/lib/format';
 
 /**
@@ -92,6 +93,57 @@ export default function BranchBanner({ scope, eyebrow = 'تعرض الآن ال�
             </div>
             {children && <div className="mt-4 flex flex-wrap gap-2 border-t border-white/15 pt-4 print:hidden">{children}</div>}
         </section>
+    );
+}
+
+/**
+ * A list page's table filters, split for the banner: the `branch_id`
+ * group (when the page has a banner) goes to the banner's picker, the
+ * rest stay in the table's filter menu, which neither counts the branch
+ * nor clears it.
+ */
+export function splitBranchFilter(scope, groups, values) {
+    const branch = scope ? (groups ?? []).find((group) => group.key === 'branch_id') ?? null : null;
+
+    return {
+        branch,
+        groups: branch ? groups.filter((group) => group !== branch) : groups,
+        values: branch ? Object.fromEntries(Object.entries(values).filter(([key]) => key !== 'branch_id')) : values,
+        kept: branch ? ['branch_id'] : [],
+        /** Clears the menu's filters, keeping the banner's branch. */
+        clear: (setFilters, clearFilters) => (branch ? setFilters(Object.fromEntries(Object.keys(values).filter((key) => key !== 'branch_id').map((key) => [key, '']))) : clearFilters()),
+    };
+}
+
+/**
+ * The banner of a list page whose table narrows to one branch: the branch's
+ * name, with the branch picked in it. `allowAll={false}` leaves out the
+ * choice of every branch, for a page that always shows one.
+ */
+export function BranchFilterBanner({ scope, eyebrow, group, value, onChange, allowAll = true }) {
+    return (
+        <BranchBanner
+            scope={scope}
+            eyebrow={eyebrow}
+            controls={
+                group && (
+                    <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/70 sm:w-64">
+                        الفرع
+                        <SearchableSelect
+                            value={value ?? ''}
+                            onChange={onChange}
+                            options={group.options}
+                            placeholder={allowAll ? scope.allName : scope.name}
+                            searchPlaceholder="ابحث عن فرع..."
+                            active={allowAll && Boolean(value)}
+                            clearable={allowAll}
+                            portal
+                            onDark
+                        />
+                    </label>
+                )
+            }
+        />
     );
 }
 

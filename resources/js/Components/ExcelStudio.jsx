@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
+import { useHttp } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
 import { DialogHeader } from '@/Components/DialogFrame';
 import Icon from '@/Components/Icon';
@@ -49,7 +50,10 @@ const store = {
  * its rows are grouped, the title and the file's name and look — beside a
  * preview of the sheets as Excel will show them — then a formatted .xlsx.
  * `loadParts` resolves the parts (a page may fetch rows for them); the
- * settings are kept per `storageKey`, with templates saved under names.
+ * settings are kept per `storageKey`, with templates saved under names in
+ * this browser, and the company's own templates (ExcelTemplateController)
+ * under the same key — the default of which is where someone with no
+ * settings of their own starts.
  */
 export default function ExcelStudio({ show, onClose, title, storageKey, loadParts, defaults, meta = {} }) {
     const id = useId();
@@ -64,6 +68,11 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
     const [templateName, setTemplateName] = useState('');
     const [templates, setTemplates] = useState([]);
     const [tab, setTab] = useState('settings');
+    const [company, setCompany] = useState({ templates: [], canManage: false });
+    const [companyName, setCompanyName] = useState('');
+    const [companyDefault, setCompanyDefault] = useState(false);
+    const listHttp = useHttp({});
+    const saveHttp = useHttp({});
 
     useEffect(() => {
         if (!show) {
@@ -75,12 +84,15 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
         setFailed(false);
         setError('');
         setTemplates(store.read(`excel-templates:${storageKey}`, []));
-        Promise.resolve(loadParts())
-            .then((loaded) => {
+        const companyTemplates = listHttp.get(`/excel-templates/${storageKey}`).catch(() => ({ templates: [], canManage: false }));
+        Promise.all([loadParts(), companyTemplates])
+            .then(([loaded, shared]) => {
                 if (cancelled) return;
                 const base = defaultExcelSettings(loaded, defaults);
+                const own = store.read(`excel-settings:${storageKey}`, null);
+                setCompany(shared);
                 setParts(loaded);
-                setSettings(fitExcelSettings(store.read(`excel-settings:${storageKey}`, null), loaded, base));
+                setSettings(fitExcelSettings(own ?? shared.templates.find((template) => template.isDefault)?.settings ?? null, loaded, base));
                 setEditing(loaded.find((part) => part.columns.length > 2)?.key ?? loaded[0]?.key ?? null);
                 setSheetIndex(0);
                 setActiveCell(null);
@@ -121,11 +133,48 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
         changePart(part.key, { columns: partSettings.columns.map((candidate) => (candidate.key === key ? { ...candidate, width } : candidate)) });
     }
 
+    /** The layout of a template laid over this export, keeping its own title and file name. */
+    function applyTemplate(saved) {
+        setSettings((current) => fitExcelSettings({ ...saved, title: current.title, fileName: current.fileName }, parts, { ...defaultExcelSettings(parts, defaults), title: current.title, fileName: current.fileName }));
+    }
+
+    /** The settings as a template keeps them: everything but this file's title and name. */
+    function layout() {
+        const { title: _title, fileName: _fileName, ...look } = settings;
+
+        return look;
+    }
+
+    async function reloadCompany() {
+        setCompany(await listHttp.get(`/excel-templates/${storageKey}`));
+    }
+
+    async function sendCompany(method, url, data) {
+        saveHttp.clearErrors();
+        saveHttp.transform(() => data);
+        try {
+            await saveHttp[method](url);
+            await reloadCompany();
+
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    async function saveCompanyTemplate() {
+        const name = companyName.trim();
+        if (!name) return;
+        if (await sendCompany('post', '/excel-templates', { kind: storageKey, name, is_default: companyDefault, settings: layout() })) {
+            setCompanyName('');
+            setCompanyDefault(false);
+        }
+    }
+
     function saveTemplate() {
         const name = templateName.trim();
         if (!name) return;
-        const { title: _title, fileName: _fileName, ...look } = settings;
-        const next = [...templates.filter((template) => template.name !== name), { name, settings: look }];
+        const next = [...templates.filter((template) => template.name !== name), { name, settings: layout() }];
         setTemplates(next);
         store.write(`excel-templates:${storageKey}`, next);
         setTemplateName('');
@@ -143,8 +192,7 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
         try {
             const { workbookBlob, saveBlob } = await import('@/lib/excelWorkbook');
             saveBlob(await workbookBlob(sheets, settings), fileName);
-            const { title: _title, fileName: _fileName, ...look } = settings;
-            store.write(`excel-settings:${storageKey}`, look);
+            store.write(`excel-settings:${storageKey}`, layout());
             onClose();
         } catch {
             setError('تعذّر إنشاء الملف. تحقّق من الاتصال وأعد المحاولة.');
@@ -297,12 +345,58 @@ export default function ExcelStudio({ show, onClose, title, storageKey, loadPart
                                     </div>
                                 </Section>
 
-                                <Section title="القوالب" hint="تُحفظ في هذا المتصفح">
+                                <Section title="قوالب الشركة" hint="مشتركة بين جميع المستخدمين">
+                                    {company.templates.length === 0 ? (
+                                        <p className="mb-3 text-xs leading-5 text-gray-500">
+                                            لا قوالب للشركة بعد.{!company.canManage && ' يضيفها من يملك صلاحية إدارة قوالب الطباعة.'}
+                                        </p>
+                                    ) : (
+                                        <ul className="mb-3 overflow-hidden rounded-control border border-gray-100">
+                                            {company.templates.map((template) => (
+                                                <li key={template.id} className="flex items-center gap-1.5 border-b border-gray-100 px-3 py-2 last:border-b-0">
+                                                    <button type="button" className="min-w-0 flex-1 text-start text-sm" onClick={() => applyTemplate(template.settings)} title="تطبيق القالب">
+                                                        <b className="block truncate font-semibold text-gray-900">{template.name}</b>
+                                                        {template.updatedBy && <small className="block truncate text-xs text-gray-500">آخر تعديل: {template.updatedBy}</small>}
+                                                    </button>
+                                                    {template.isDefault && <span className="shrink-0 rounded-full bg-excel-500/10 px-2 py-0.5 text-[11px] font-bold text-excel-700">الافتراضي</span>}
+                                                    {company.canManage && (
+                                                        <>
+                                                            <button type="button" disabled={saveHttp.processing} onClick={() => sendCompany('put', `/excel-templates/${template.id}`, { settings: layout() })} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-40" aria-label={`حفظ الإعداد الحالي في ${template.name}`} title="حفظ الإعداد الحالي فيه">
+                                                                <Icon name="check" className="h-4 w-4" />
+                                                            </button>
+                                                            <button type="button" disabled={saveHttp.processing} onClick={() => sendCompany('put', `/excel-templates/${template.id}`, { is_default: !template.isDefault })} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-40" aria-label={template.isDefault ? `إلغاء ${template.name} كقالب افتراضي` : `جعل ${template.name} القالب الافتراضي`} title={template.isDefault ? 'إلغاء الافتراضي' : 'جعله الافتراضي'}>
+                                                                <Icon name="pin" className="h-4 w-4" />
+                                                            </button>
+                                                            <button type="button" disabled={saveHttp.processing} onClick={() => window.confirm(`حذف القالب «${template.name}» لجميع المستخدمين؟`) && sendCompany('delete', `/excel-templates/${template.id}`, {})} className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40" aria-label={`حذف القالب ${template.name}`} title="حذف">
+                                                                <Icon name="trash" className="h-4 w-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    {company.canManage && (
+                                        <>
+                                            <div className="flex gap-2">
+                                                <TextInput className="min-w-0 flex-1 text-sm" placeholder="اسم قالب الشركة، مثلاً: تقرير الإدارة" value={companyName} onChange={(event) => setCompanyName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && saveCompanyTemplate()} aria-label="اسم قالب الشركة" maxLength={60} />
+                                                <SecondaryButton onClick={saveCompanyTemplate} disabled={!companyName.trim() || saveHttp.processing}>حفظ للشركة</SecondaryButton>
+                                            </div>
+                                            <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-gray-600">
+                                                <input type="checkbox" className="rounded border-gray-300 text-excel-600 focus:ring-excel-500" checked={companyDefault} onChange={(event) => setCompanyDefault(event.target.checked)} />
+                                                القالب الافتراضي لكل من يصدّر هذا التقرير
+                                            </label>
+                                            {Object.values(saveHttp.errors ?? {})[0] && <p role="alert" className="mt-2 text-xs font-semibold text-red-700">{Object.values(saveHttp.errors)[0]}</p>}
+                                        </>
+                                    )}
+                                </Section>
+
+                                <Section title="قوالبي" hint="تُحفظ في هذا المتصفح">
                                     {templates.length > 0 && (
                                         <div className="mb-3 flex flex-wrap gap-2">
                                             {templates.map((template) => (
                                                 <span key={template.name} className="inline-flex items-center gap-1 rounded-control border border-gray-200 bg-surface ps-3 text-sm font-semibold">
-                                                    <button type="button" className="py-1.5" onClick={() => setSettings((current) => fitExcelSettings({ ...template.settings, title: current.title, fileName: current.fileName }, parts, { ...defaultExcelSettings(parts, defaults), title: current.title, fileName: current.fileName }))}>{template.name}</button>
+                                                    <button type="button" className="py-1.5" onClick={() => applyTemplate(template.settings)}>{template.name}</button>
                                                     <button type="button" className="rounded p-1.5 text-gray-400 hover:text-red-600" onClick={() => removeTemplate(template.name)} aria-label={`حذف القالب ${template.name}`}><Icon name="close" className="h-3.5 w-3.5" /></button>
                                                 </span>
                                             ))}

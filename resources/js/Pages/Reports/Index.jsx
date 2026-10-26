@@ -324,9 +324,9 @@ function Figures({ flow, collections }) {
                     <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-brand-500" />تحويلات وشيكات <b className="font-display text-white">{reportMoney(collections.nonCash)} ₪</b></span>
                 </div>
             </KpiTile>
-            <KpiTile icon="ledger" label="صافي رصيد المشتركين أول الفترة" value={reportMoney(flow.opening)} unit="شيكل" hint="على المشتركين" />
+            <KpiTile icon="ledger" label="الرصيد الافتتاحي" value={reportMoney(flow.opening)} unit="شيكل" hint="على المشتركين" />
             <KpiTile icon="document-plus" label="التحميلات" value={reportMoney(flow.chargesTotal)} unit="شيكل" hint="قراءات ورسوم وغرامات" />
-            <KpiTile icon="layers" label="صافي رصيد المشتركين آخر الفترة" value={reportMoney(flow.closing)} unit="شيكل" className="md:col-span-2">
+            <KpiTile icon="layers" label="الرصيد الختامي" value={reportMoney(flow.closing)} unit="شيكل" className="md:col-span-2">
                 <p className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${change > 0 ? 'bg-amber-500/10 text-amber-700' : change < 0 ? 'bg-emerald-500/10 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                     {change > 0 ? 'زاد' : change < 0 ? 'نقص' : 'لم يتغير'}
                     {change !== 0 && <b className="font-display">{reportMoney(Math.abs(Number(flow.change)))} ₪</b>}
@@ -374,9 +374,9 @@ function FlowStatement({ flow }) {
     const sum = 'border-t border-gray-200 bg-gray-50 font-bold';
 
     return (
-        <Panel icon="ledger" title="حركة الأرصدة" hint="من أول الفترة إلى آخرها">
+        <Panel icon="ledger" title="حركة الأرصدة" hint="من الرصيد الافتتاحي إلى الختامي">
             <p className="mb-3 rounded-control bg-gray-50 px-3 py-2 text-xs leading-6 text-gray-600">
-                صافي الرصيد أول الفترة + التحميلات − الدفعات والخصومات ± الإلغاءات والقيود العكسية = صافي الرصيد آخر الفترة
+                الرصيد الافتتاحي + التحميلات − الدفعات والخصومات ± الإلغاءات والقيود العكسية = الرصيد الختامي
             </p>
             <table className="w-full text-sm">
                 <thead>
@@ -388,7 +388,7 @@ function FlowStatement({ flow }) {
                 </thead>
                 <tbody>
                     <tr className={sum}>
-                        <td className={TD}>صافي رصيد المشتركين أول الفترة</td>
+                        <td className={TD}>الرصيد الافتتاحي</td>
                         <td />
                         <td className={NUM}>{reportMoney(flow.opening)}</td>
                     </tr>
@@ -422,7 +422,7 @@ function FlowStatement({ flow }) {
                         <td className={`${NUM} ${cents(flow.corrections.total) !== 0 ? 'text-amber-700' : ''}`}>{reportMoney(flow.corrections.total)}</td>
                     </tr>
                     <tr className={`${sum} border-t-2`}>
-                        <td className={TD}>صافي رصيد المشتركين آخر الفترة</td>
+                        <td className={TD}>الرصيد الختامي</td>
                         <td />
                         <td className={NUM}>{reportMoney(flow.closing)}</td>
                     </tr>
@@ -586,7 +586,7 @@ function DaysTable({ days, onOpenDay }) {
                             <th className={`${TH} text-end`}>الدفعات</th>
                             <th className={`${TH} text-end`}>الخصومات</th>
                             <th className={`${TH} text-end`}>الإلغاءات</th>
-                            <th className={`${TH} text-end`}>صافي الرصيد آخر اليوم</th>
+                            <th className={`${TH} text-end`}>الرصيد الختامي لليوم</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -635,7 +635,7 @@ function BranchComparison({ rows, filters }) {
                             <th className={`${TH} w-32`}><span className="sr-only">الحصة</span></th>
                             <th className={`${TH} text-end`}>نقدي</th>
                             <th className={`${TH} text-end`}>الدفعات</th>
-                            <th className={`${TH} text-end`}>صافي الرصيد آخر الفترة</th>
+                            <th className={`${TH} text-end`}>الرصيد الختامي</th>
                         </tr>
                     </thead>
                     <tbody>

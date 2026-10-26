@@ -33,10 +33,10 @@ export default function ReportPrintSheet({ scopeName, periodName, from, to, flow
 
             <section className="mb-4 grid grid-cols-5 gap-2">
                 {[
-                    ['صافي رصيد المشتركين أول الفترة', flow.opening],
+                    ['الرصيد الافتتاحي', flow.opening],
                     ['التحميلات', flow.chargesTotal],
                     ['إجمالي المحصّل', collections.total, `نقدي ${reportMoney(collections.cash)} · تحويلات وشيكات ${reportMoney(collections.nonCash)}`],
-                    ['صافي رصيد المشتركين آخر الفترة', flow.closing, change > 0 ? `زاد ${reportMoney(change)}` : change < 0 ? `نقص ${reportMoney(-change)}` : 'لم يتغير'],
+                    ['الرصيد الختامي', flow.closing, change > 0 ? `زاد ${reportMoney(change)}` : change < 0 ? `نقص ${reportMoney(-change)}` : 'لم يتغير'],
                     ['عدد الدفعات', null, null, collections.count],
                 ].map(([label, amount, note, count]) => (
                     <div key={label} className="rounded border border-gray-300 px-2 py-1.5">
@@ -54,7 +54,7 @@ export default function ReportPrintSheet({ scopeName, periodName, from, to, flow
                         <tr><th className={HEAD}>البند</th><th className={`${HEAD} w-20 text-end`}>العدد</th><th className={`${HEAD} w-32 text-end`}>المبلغ ₪</th></tr>
                     </thead>
                     <tbody>
-                        <tr className="font-bold"><td className={CELL}>صافي رصيد المشتركين أول الفترة</td><td className={CELL} /><td className={MONEY}>{reportMoney(flow.opening)}</td></tr>
+                        <tr className="font-bold"><td className={CELL}>الرصيد الافتتاحي</td><td className={CELL} /><td className={MONEY}>{reportMoney(flow.opening)}</td></tr>
                         {flow.charges.map((line) => (
                             <tr key={line.type}><td className={CELL}>+ {line.label}</td><td className={MONEY}>{line.count}</td><td className={MONEY}>{reportMoney(line.total)}</td></tr>
                         ))}
@@ -64,7 +64,7 @@ export default function ReportPrintSheet({ scopeName, periodName, from, to, flow
                         ))}
                         <tr className="font-semibold"><td className={CELL}>مجموع الدفعات والخصومات (له)</td><td className={CELL} /><td className={MONEY}>{reportMoney(flow.creditsTotal)}</td></tr>
                         <tr><td className={CELL}>± الإلغاءات والقيود العكسية</td><td className={MONEY}>{flow.corrections.count}</td><td className={MONEY}>{reportMoney(flow.corrections.total)}</td></tr>
-                        <tr className="bg-gray-100 font-bold"><td className={CELL}>صافي رصيد المشتركين آخر الفترة</td><td className={CELL} /><td className={MONEY}>{reportMoney(flow.closing)}</td></tr>
+                        <tr className="bg-gray-100 font-bold"><td className={CELL}>الرصيد الختامي</td><td className={CELL} /><td className={MONEY}>{reportMoney(flow.closing)}</td></tr>
                     </tbody>
                 </table>
             </section>
@@ -106,7 +106,7 @@ export default function ReportPrintSheet({ scopeName, periodName, from, to, flow
                     <h2 className="mb-1.5 text-[13px] font-bold">مقارنة الفروع</h2>
                     <table className="w-full border-collapse">
                         <thead>
-                            <tr><th className={HEAD}>الفرع</th><th className={`${HEAD} text-end`}>إجمالي المحصّل</th><th className={`${HEAD} text-end`}>نقدي</th><th className={`${HEAD} text-end`}>الدفعات</th><th className={`${HEAD} text-end`}>صافي الرصيد آخر الفترة</th></tr>
+                            <tr><th className={HEAD}>الفرع</th><th className={`${HEAD} text-end`}>إجمالي المحصّل</th><th className={`${HEAD} text-end`}>نقدي</th><th className={`${HEAD} text-end`}>الدفعات</th><th className={`${HEAD} text-end`}>الرصيد الختامي</th></tr>
                         </thead>
                         <tbody>
                             {[...branchSummary].sort((first, second) => Number(second.collections.total) - Number(first.collections.total)).map((row) => (

@@ -9,7 +9,7 @@ import './Report.css';
 import PageHeader from '@/Components/PageHeader';
 import { secondaryButtonClass } from '@/Components/SecondaryButton';
 import DateInput from '@/Components/DateInput';
-import BranchBanner, { BranchChip } from '@/Components/BranchBanner';
+import BranchBanner, { BranchChips } from '@/Components/BranchBanner';
 
 
 /** Cents of a money string, so totals add up exactly. */
@@ -76,16 +76,17 @@ export default function Index({ branches, filters, branchScope, presets, today, 
                         onChange={(branch) => visit({ branch, page: undefined })}
                         meta={`${periodLabel(period?.mode, period)} · ${periodText}`}
                     >
-                        {branchSummary?.length > 0 &&
-                            branchSummary.map((row) => (
-                                <BranchChip
-                                    key={row.id}
-                                    as={Link}
-                                    href={`/reports?${new URLSearchParams({ ...filters, branch: row.id }).toString()}`}
-                                    name={row.name}
-                                    figure={`${reportMoney(row.collections.total)} ₪`}
-                                />
-                            ))}
+                        {branchSummary?.length > 0 && (
+                            <BranchChips
+                                items={branchSummary.map((row) => ({
+                                    key: row.id,
+                                    href: `/reports?${new URLSearchParams({ ...filters, branch: row.id }).toString()}`,
+                                    name: row.name,
+                                    figure: `${reportMoney(row.collections.total)} ₪`,
+                                    amount: cents(row.collections.total),
+                                }))}
+                            />
+                        )}
                     </BranchBanner>
                 )}
                 <div className="ctl">

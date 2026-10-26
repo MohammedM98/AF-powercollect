@@ -1,3 +1,5 @@
+import { Link } from '@inertiajs/react';
+import { useState } from 'react';
 import Icon from '@/Components/Icon';
 import { formatNumber } from '@/lib/format';
 
@@ -74,6 +76,29 @@ export default function BranchBanner({ scope, eyebrow = 'تعرض الآن ال�
             </div>
             {children && <div className="mt-4 flex flex-wrap gap-2 border-t border-white/15 pt-4 print:hidden">{children}</div>}
         </section>
+    );
+}
+
+/**
+ * The banner's row when every branch is shown: the branches with the
+ * largest figure first, a few of them, then a button for the rest, so a
+ * company of many branches keeps a short banner. Each item is
+ * { key, href, name, figure, amount }, `amount` ordering them.
+ */
+export function BranchChips({ items, limit = 6 }) {
+    const [showingAll, setShowingAll] = useState(false);
+    const ordered = [...items].sort((first, second) => second.amount - first.amount);
+    const shown = showingAll ? ordered : ordered.slice(0, limit);
+
+    return (
+        <>
+            {shown.map((item) => (
+                <BranchChip key={item.key} as={Link} href={item.href} name={item.name} figure={item.figure} />
+            ))}
+            {ordered.length > limit && (
+                <BranchChip onClick={() => setShowingAll(!showingAll)} aria-expanded={showingAll} name={showingAll ? 'عرض أقل' : `+ ${formatNumber(ordered.length - limit)} فروع أخرى`} />
+            )}
+        </>
     );
 }
 

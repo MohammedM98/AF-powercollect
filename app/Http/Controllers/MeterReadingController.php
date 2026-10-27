@@ -24,6 +24,8 @@ use App\Models\Tariff;
 use App\Models\User;
 use App\Notifications\ActionCompleted;
 use App\Notifications\ReadingNeedsReapproval;
+use App\Support\BranchDomainContext;
+use App\Support\BranchScope;
 use App\Support\PrintSelection;
 use App\Support\ReadingPrintData;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,6 +60,28 @@ class MeterReadingController extends Controller
         $request->validate(['filter.subscription_status' => ['nullable', 'in:all,active,suspended,disconnected']]);
 
         $actor = auth()->user();
+        if ($actor->isSuperAdmin() && BranchDomainContext::id() === null && ! $request->filled('filter.branch_id')) {
+            $branches = Branch::query()->orderBy('name')->get(['id', 'name']);
+            $schedules = $branches->map(fn (Branch $branch): string => json_encode([
+                ReadingEntrySetting::forBranch($branch->id)->reading_day,
+                ReadingEntrySetting::forBranch($branch->id)->reading_day_history,
+            ]))->unique();
+            if ($schedules->count() > 1) {
+                return Inertia::render('MeterReadings/Branches', [
+                    'branchScope' => BranchScope::describe($branches),
+                    'branches' => $branches->map(function (Branch $branch): array {
+                        $week = MeterReading::latestEndedWeekStart($branch->id);
+
+                        return [
+                            'id' => $branch->id, 'name' => $branch->name,
+                            'weekStart' => $week->toDateString(),
+                            'weekEnd' => MeterReading::weekEndFor($week, $branch->id)->toDateString(),
+                            'url' => route('meter-readings.index', ['filter' => ['branch_id' => $branch->id]]),
+                        ];
+                    })->values(),
+                ]);
+            }
+        }
         $weekBranchId = $this->sheetBranchId($request, $actor);
         $canBrowseWeeks = $actor->can('browseWeeks', MeterReading::class);
         $weekStart = $this->selectedWeek($request, $weekBranchId, $canBrowseWeeks);

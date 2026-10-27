@@ -113,19 +113,22 @@ class CashBoxController extends Controller
      * @param  EloquentCollection<int, Branch>  $branches
      * @return list<array{key: string, label: string, count: int, url: string}>
      */
-    private function boxTabs(EloquentCollection $branches, Branch $branch, User $actor): array
+    private function boxTabs(EloquentCollection $branches, ?Branch $branch, User $actor): array
     {
-        $query = $branches->count() > 1 ? ['branch_id' => $branch->id] : [];
-        $counts = $this->branchBoxes->counts($branch->id);
+        $query = $branches->count() > 1 && $branch ? ['branch_id' => $branch->id] : [];
+        $branchIds = $branch ? [$branch->id] : $branches->modelKeys();
+        $counts = $this->branchBoxes->counts($branchIds);
+        $openBranchIds = $branches->whereIn('id', $branchIds)->reject(fn (Branch $item): bool => BranchClosingAccess::closedOnly($actor, $item->id))->modelKeys();
 
         $closedTab = ['key' => 'closed', 'label' => 'الصناديق المغلقة', 'count' => $counts['closed'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'closed'])];
-        if (BranchClosingAccess::closedOnly($actor, $branch->id)) {
+        if ($openBranchIds === []) {
             return [$closedTab];
         }
+        $openCount = $openBranchIds === $branchIds ? $counts['open'] : $this->branchBoxes->counts($openBranchIds)['open'];
 
         return [
-            ['key' => 'entries', 'label' => 'الحركات', 'count' => CashBoxPayment::query()->visibleInBox()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->whereIn('status', ['open', 'pending']))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
-            ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => $counts['open'], 'url' => route('payments.cash-boxes', [...$query, 'place' => 'open'])],
+            ['key' => 'entries', 'label' => 'الحركات', 'count' => CashBoxPayment::query()->visibleInBox()->whereHas('box', fn (Builder $box) => $box->whereIn('branch_id', $openBranchIds)->whereIn('status', ['open', 'pending']))->count(), 'url' => route('payments.cash-boxes.entries', $query)],
+            ['key' => 'open', 'label' => 'الصناديق المفتوحة', 'count' => $openCount, 'url' => route('payments.cash-boxes', [...$query, 'place' => 'open'])],
             $closedTab,
         ];
     }
@@ -142,22 +145,27 @@ class CashBoxController extends Controller
     {
         $actor = $request->user();
         [$branches, $branch] = $this->branchBoxes->branch($request, $actor);
-        abort_if(BranchClosingAccess::closedOnly($actor, $branch->id), 403);
-        $people = $this->branchBoxes->people($branch->id);
+        $all = $branches->count() > 1 && (! $request->filled('branch_id') || $request->input('branch_id') === 'all');
+        $chosen = $all ? $branches : new EloquentCollection([$branch]);
+        $visible = $chosen->reject(fn (Branch $item): bool => BranchClosingAccess::closedOnly($actor, $item->id));
+        abort_if($visible->isEmpty(), 403);
+        $branchIds = $visible->modelKeys();
+        $branch = $all ? null : $branch;
+        $people = $this->branchBoxes->people($branchIds);
         $person = $people->firstWhere('id', $request->integer('filter.user'));
-        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->where('branch_id', $branch->id)->whereIn('status', ['open', 'pending'])->when($person, fn (Builder $box) => $box->where('user_id', $person->id)));
-        $list = $this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes', ['branch_id' => $branch->id, 'box' => $box->id]));
+        $query = CashBoxPayment::query()->whereHas('box', fn (Builder $box) => $box->whereIn('branch_id', $branchIds)->whereIn('status', ['open', 'pending'])->when($person, fn (Builder $box) => $box->where('user_id', $person->id)));
+        $list = $this->entryList($request, $query, fn (CashBox $box): string => route('payments.cash-boxes', ['branch_id' => $box->branch_id, 'box' => $box->id]));
         $list['filters']['filter']['user'] = $person ? (string) $person->id : '';
-        $started = ClosingSetting::forBranch($branch->id)->workflow_started_at !== null;
+        $started = $visible->contains(fn (Branch $item): bool => ClosingSetting::forBranch($item->id)->workflow_started_at !== null);
 
         return Inertia::render('Payments/Entries', [
             'started' => $started,
             'branch' => $branch, 'branches' => $branches, 'people' => $people,
             // The general management reads, large above the boxes, which branch they are.
-            'branchScope' => $branches->count() > 1 && BranchScope::shownTo($actor) ? BranchScope::describe(collect([$branch])) : null,
+            'branchScope' => $branches->count() > 1 ? BranchScope::describe($visible) : null,
             'tabs' => $this->boxTabs($branches, $branch, $actor),
             ...$list,
-            'closableBoxes' => $started && BranchClosingAccess::receive($actor, $branch->id) ? $this->closableBoxes($branch->id, $actor, $person?->id) : null,
+            'closableBoxes' => $branch && $started && BranchClosingAccess::receive($actor, $branch->id) ? $this->closableBoxes($branch->id, $actor, $person?->id) : null,
             ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
             'collectionUrls' => $this->collectionUrls(),
             'urls' => ['index' => route('payments.cash-boxes.entries'), 'actions' => url('/payments/cash-boxes/actions')],
@@ -193,6 +201,47 @@ class CashBoxController extends Controller
     }
 
     /**
+     * The latest closing period of each visible branch, or their open boxes.
+     *
+     * @param  EloquentCollection<int, Branch>  $branches
+     */
+    private function allBranchCashBoxes(Request $request, User $actor, EloquentCollection $branches): InertiaResponse
+    {
+        $request->validate(['week' => ['nullable', 'date_format:Y-m-d']]);
+        $place = $request->query('place') === 'open' ? 'open' : 'closed';
+        $visible = $place === 'open' ? $branches->reject(fn (Branch $item): bool => BranchClosingAccess::closedOnly($actor, $item->id)) : $branches;
+        abort_if($visible->isEmpty(), 403);
+        $boxes = collect();
+        $started = false;
+        foreach ($visible as $branch) {
+            $branchStarted = ClosingSetting::forBranch($branch->id)->workflow_started_at !== null;
+            if ($branchStarted) {
+                $this->workflow->refresh($branch->id);
+            }
+            $started = $started || $branchStarted;
+            $week = $request->filled('week')
+                ? $this->branchBoxes->weekOf(ClosingPeriods::date($request->query('week')), $branch->id)
+                : ($this->branchBoxes->periods($branch->id)->first()['start'] ?? $this->branchBoxes->weekOf(now(), $branch->id));
+            $boxes->push(...$this->branchBoxes->rows($branch->id, $actor, $place, week: $week)
+                ->map(fn (array $box): array => [...$box, 'branchName' => $branch->name]));
+        }
+
+        return Inertia::render('Payments/BranchCashBoxes', [
+            'branch' => null, 'branches' => $branches,
+            'branchScope' => BranchScope::describe($visible),
+            'started' => $started || $boxes->isNotEmpty(), 'place' => $place,
+            'tabs' => $this->boxTabs($branches, null, $actor),
+            'boxes' => $boxes, 'periods' => [], 'week' => null, 'weekStartsOn' => null,
+            'periodAudit' => null, 'canApprovePeriod' => false,
+            'canSearchTransfers' => false, 'searchingTransfers' => false, 'transferSearch' => null,
+            'access' => [],
+            ...($actor->can('viewOwnCashBoxes', Subscription::class) ? $this->collectionCounts($actor) : ['pendingCount' => 0]),
+            'collectionUrls' => $this->collectionUrls(),
+            'urls' => ['index' => route('payments.cash-boxes'), 'actions' => url('/payments/cash-boxes/actions'), 'auditPeriod' => route('payments.period-audits.store')],
+        ]);
+    }
+
+    /**
      * Open boxes for branch staff, or closed boxes in a chosen business week.
      * Links to a closed box select its closing week automatically.
      */
@@ -200,6 +249,9 @@ class CashBoxController extends Controller
     {
         $actor = $request->user();
         [$branches, $branch] = $this->branchBoxes->branch($request, $actor);
+        if ($branches->count() > 1 && (! $request->filled('branch_id') || $request->input('branch_id') === 'all')) {
+            return $this->allBranchCashBoxes($request, $actor, $branches);
+        }
         $started = ClosingSetting::forBranch($branch->id)->workflow_started_at !== null;
         if ($started) {
             $this->workflow->refresh($branch->id);

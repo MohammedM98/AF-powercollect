@@ -47,7 +47,7 @@ trait PresentsCashBoxes
             ->orWhereHas('box', fn (Builder $box) => $box->where('number', $search))));
         $entries = (clone $searched)
             ->when($filter !== '', fn (Builder $entries) => $ofType($entries, $filter))
-            ->with(['box:id,number,type,user_id', 'box.user:id,name', 'transaction', 'transaction.recordedBy:id,name', 'transaction.subscription:id,full_name,subscription_name,account_number'])
+            ->with(['box:id,number,type,user_id,branch_id', 'box.user:id,name', 'transaction', 'transaction.recordedBy:id,name', 'transaction.subscription:id,full_name,subscription_name,account_number'])
             ->orderByDesc('occurred_at')->orderByDesc('id')
             ->paginate($perPage)->withQueryString()
             ->through(fn (CashBoxPayment $entry): array => [

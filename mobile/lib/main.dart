@@ -639,6 +639,13 @@ class _FieldShellState extends State<FieldShell> with WidgetsBindingObserver {
               setState(() => requiresLogin = error.statusCode == 401);
             break;
           }
+          if (error.statusCode == 426) {
+            // The server turned this old app away before reading anything,
+            // so the readings stay on the phone until the app is updated.
+            await widget.store.markReadingUncertain(id, uncertain: false);
+            interruption = error.message;
+            break;
+          }
           final details = error.errors.values
               .expand((value) => value is List ? value : [value])
               .map((value) => '$value')

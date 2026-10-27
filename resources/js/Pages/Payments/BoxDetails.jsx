@@ -12,7 +12,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import SearchableSelect from '@/Components/SearchableSelect';
-import { BankMark } from '@/Pages/Subscriptions/PaymentModal';
+import { BankMark } from '@/Components/Banks';
 import { formatMoney } from '@/lib/format';
 import { printUrl } from '@/lib/print';
 import { boxTypes, currencies, dateTime, BoxTypeIcon } from './CollectorCashBox';

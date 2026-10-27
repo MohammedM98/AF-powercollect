@@ -1,5 +1,5 @@
-import { Fragment, useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Fragment, useEffect, useState } from 'react';
+import { Head, router } from '@inertiajs/react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import AddButton from '@/Components/AddButton';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
@@ -21,20 +21,22 @@ import MeterBoxSubscriptions from './MeterBoxSubscriptions';
 import './meter-boxes.css';
 import PageHeader from '@/Components/PageHeader';
 import SecondaryButton from '@/Components/SecondaryButton';
+import SearchableSelect from '@/Components/SearchableSelect';
 
-const SUBSCRIPTION_ORDER_KEY = 'meter-box-subscription-order';
+const SUBSCRIPTION_DIRECTION_KEY = 'meter-box-subscription-direction';
+let handledReload = false;
 
-function readSubscriptionOrder() {
+function readSubscriptionDirection() {
     try {
-        const saved = JSON.parse(localStorage.getItem(SUBSCRIPTION_ORDER_KEY));
-        if (saved && ['name', 'account_number'].includes(saved.sort) && ['asc', 'desc'].includes(saved.direction)) {
-            return { sort: saved.sort, direction: saved.direction };
+        const saved = localStorage.getItem(SUBSCRIPTION_DIRECTION_KEY);
+        if (saved === 'asc' || saved === 'desc') {
+            return saved;
         }
     } catch {
         // Use the default order when browser storage is unavailable.
     }
 
-    return { sort: 'name', direction: 'asc' };
+    return 'asc';
 }
 
 function MeterBoxSummary({ summary }) {
@@ -88,17 +90,27 @@ export default function Index({
     const [collapsedIds, setCollapsedIds] = useState(new Set());
     const [expandingAll, setExpandingAll] = useState(false);
     const [groupByRegion, setGroupByRegion] = useState(false);
-    const [subscriptionOrder, setSubscriptionOrder] = useState(readSubscriptionOrder);
+    const [subscriptionDirection, setSubscriptionDirection] = useState(readSubscriptionDirection);
 
-    function sortSubscriptions(sort, direction) {
-        const next = { sort, direction };
-        setSubscriptionOrder(next);
+    function sortSubscriptions(direction) {
+        setSubscriptionDirection(direction);
         try {
-            localStorage.setItem(SUBSCRIPTION_ORDER_KEY, JSON.stringify(next));
+            localStorage.setItem(SUBSCRIPTION_DIRECTION_KEY, direction);
         } catch {
             // The order still applies to every box during this visit.
         }
     }
+
+    useEffect(() => {
+        if (handledReload) return;
+        handledReload = true;
+        const navigation = performance.getEntriesByType('navigation')[0];
+        const current = new URL(window.location.href);
+        const tableParams = [...current.searchParams.keys()].some((key) => ['search', 'sort', 'direction', 'per_page', 'page'].includes(key) || key.startsWith('filter['));
+        if (navigation?.type === 'reload' && navigation.name === current.href && tableParams && !current.searchParams.has('print') && !current.searchParams.has('excel')) {
+            router.get(current.pathname, {}, { replace: true, preserveState: false });
+        }
+    }, []);
     const rowClick = useRowClick();
     const { requestDelete, deleteDialog } = useDeleteRecord('الطبلون');
     const { search, setSearch, sort, sortBy, setPerPage, filterValues, setFilter, setFilters, clearFilters } = useDataTable('/meter-boxes', filters);
@@ -177,19 +189,21 @@ export default function Index({
                                 { value: 'created_at', label: 'تاريخ الإضافة' },
                             ]}
                         />
-                        {canViewSubscriptions && <DataTableSortControls
-                            id="all-meter-box-subscriptions"
-                            label="ترتيب مشتركي جميع الطبلونات"
-                            sortLabel="ترتيب المشتركين حسب"
-                            directionLabel="اتجاه ترتيب المشتركين"
-                            sort={subscriptionOrder.sort}
-                            direction={subscriptionOrder.direction}
-                            onChange={sortSubscriptions}
-                            options={[
-                                { value: 'name', label: 'اسم المشترك', type: 'name' },
-                                { value: 'account_number', label: 'رقم الاشتراك' },
-                            ]}
-                        />}
+                        {canViewSubscriptions && <div role="group" aria-label="ترتيب مشتركي جميع الطبلونات" className="flex w-full min-w-0 flex-col gap-1.5 sm:w-44">
+                            <label htmlFor="all-meter-box-subscriptions-direction" className="text-xs font-semibold text-gray-500">اتجاه ترتيب المشتركين</label>
+                            <SearchableSelect
+                                id="all-meter-box-subscriptions-direction"
+                                value={subscriptionDirection}
+                                onChange={sortSubscriptions}
+                                options={[
+                                    { value: 'asc', label: 'من أ إلى ي' },
+                                    { value: 'desc', label: 'من ي إلى أ' },
+                                ]}
+                                clearable={false}
+                                searchable={false}
+                                portal
+                            />
+                        </div>}
                     </DataTableFilterMenu>
                 }
             />
@@ -264,7 +278,7 @@ export default function Index({
                                     </td>
                                 </tr>
                                 {canViewSubscriptions && isExpanded(meterBox.id) && <tr className="meter-box-detail"><td colSpan={5}>
-                                    <MeterBoxSubscriptions key={`${meterBox.id}-${meterBox.subscriptionsCount}-${filters.search}-${filters.sort}`} meterBox={meterBox} sort={subscriptionOrder.sort} direction={subscriptionOrder.direction} canRecordReadings={canRecordReadings} canSendMessages={canSendMessages} />
+                                    <MeterBoxSubscriptions key={`${meterBox.id}-${meterBox.subscriptionsCount}-${filters.search}-${filters.sort}`} meterBox={meterBox} sort="name" direction={subscriptionDirection} canRecordReadings={canRecordReadings} canSendMessages={canSendMessages} />
                                 </td></tr>}
                                 </Fragment>
                             ))}</Fragment>)

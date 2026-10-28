@@ -49,17 +49,19 @@ class BranchClosingWorkflow
         }, 3);
     }
 
-    public function start(int $branchId, User $actor): void
+    /** Automatic startup includes the collection that triggered it, even when processing crosses a second. */
+    public function start(int $branchId, User $actor, ?CarbonImmutable $startedAt = null): void
     {
-        $this->locked($branchId, function () use ($branchId, $actor): void {
+        $this->locked($branchId, function () use ($branchId, $actor, $startedAt): void {
+            $startedAt ??= CarbonImmutable::now()->utc();
             $setting = ClosingSetting::ownFor($branchId);
             $this->require(! $setting?->workflow_started_at, 'تم بدء إغلاق الفرع بالفعل.');
             $defaults = ClosingSetting::forBranch($branchId);
             $setting ??= new ClosingSetting(['branch_id' => $branchId]);
-            $setting->fill(['week_starts_on' => $defaults->week_starts_on, 'cutoff_time' => $defaults->cutoff_time, 'auto_open' => true, 'frequency' => 'weekly', 'arrangement' => 'combined', 'workflow_started_at' => now(), 'updated_by' => $actor->id]);
+            $setting->fill(['week_starts_on' => $defaults->week_starts_on, 'cutoff_time' => $defaults->cutoff_time, 'auto_open' => true, 'frequency' => 'weekly', 'arrangement' => 'combined', 'workflow_started_at' => $startedAt, 'updated_by' => $actor->id]);
             $setting->save();
             $settings = $this->settings($setting);
-            $end = $this->nextEnd(CarbonImmutable::now()->utc(), $settings);
+            $end = $this->nextEnd($startedAt, $settings);
             $start = $end->setTimezone(config('app.business_timezone'))->subWeek()->utc();
             $this->createPeriod($branchId, $start, $end, $settings);
             $this->refresh($branchId);
@@ -159,7 +161,7 @@ class BranchClosingWorkflow
         $this->locked($payment->branch_id, function () use ($payment): void {
             app(BranchSettings::class)->forget(ClosingSetting::class);
             if (! ClosingSetting::ownFor($payment->branch_id)?->workflow_started_at) {
-                $this->start($payment->branch_id, $payment->recordedBy()->firstOrFail());
+                $this->start($payment->branch_id, $payment->recordedBy()->firstOrFail(), $payment->created_at->toImmutable());
 
                 return;
             }

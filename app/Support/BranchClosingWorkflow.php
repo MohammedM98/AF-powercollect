@@ -264,6 +264,30 @@ class BranchClosingWorkflow
         $this->recountClosed($box);
     }
 
+    /** Keep a corrected share in its transfer's box while attributing the correction to its actual recorder. */
+    public function syncCorrectedSplitPayment(SubscriptionTransaction $original, SubscriptionTransaction $replacement): void
+    {
+        if (! $original->isPayment() || ! $replacement->isPayment() || $original->split_payment_id === null
+            || $original->split_payment_id !== $replacement->split_payment_id) {
+            return;
+        }
+        $originalEntry = $original->boxEntry()->with('box')->first();
+        $replacementEntry = $replacement->boxEntry()->with('box')->first();
+        if ($originalEntry === null || $replacementEntry === null || $originalEntry->cash_box_id === $replacementEntry->cash_box_id) {
+            return;
+        }
+        $this->require($originalEntry->box->isEditable() && $replacementEntry->box->isEditable()
+            && $originalEntry->box->branch_id === $replacementEntry->box->branch_id
+            && $originalEntry->box->type === $replacementEntry->box->type, 'لا يمكن نقل حصة الحوالة المصححة خارج صندوق الحوالة الأصلي.');
+        $replacementEntry->update([
+            'cash_box_id' => $originalEntry->cash_box_id,
+            'occurred_at' => $originalEntry->occurred_at,
+            'is_late' => $originalEntry->is_late,
+        ]);
+        $this->recountClosed($originalEntry->box);
+        $this->recountClosed($replacementEntry->box);
+    }
+
     public function releaseEditablePayment(SubscriptionTransaction $payment): void
     {
         $entry = CashBoxPayment::query()->where('subscription_transaction_id', $payment->id)->first();

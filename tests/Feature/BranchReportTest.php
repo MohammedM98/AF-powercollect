@@ -316,6 +316,158 @@ class BranchReportTest extends TestCase
         return $user;
     }
 
+    public function test_historical_debts_keep_later_cancellations_out_and_separate_credit_balances(): void
+    {
+        $charge = $this->at('2026-06-01 09:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', null));
+        $this->at('2026-09-29 09:00', fn () => $this->pay('20'));
+        $this->at('2026-09-30 09:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '50', null));
+        $credited = Subscription::factory()->create(['branch_id' => $this->north->id]);
+        $this->at('2026-09-30 09:30', fn () => $this->pay('30', [], $credited));
+        $this->at('2026-10-01 09:00', fn () => $charge->cancel($this->collector, CorrectionReason::Duplicate, null));
+        $this->at('2026-09-30 10:00', fn () => SubscriptionTransaction::recordCharge(Subscription::factory()->create(['branch_id' => $this->south->id]), $this->collector, ChargeType::Penalty, '999', null));
+
+        $this->actingAs($this->preparer())->get(route('reports.index', ['section' => 'debts', 'from' => '2026-09-30', 'to' => '2026-09-30', 'print' => 1]))->assertInertia(fn ($page) => $page
+            ->where('debts.total', '130.00')
+            ->where('debts.credit', '-30.00')
+            ->where('debts.count', 1)
+            ->where('debts.rows.0.id', $this->subscription->id)
+            ->where('debts.rows.0.buckets.current', '50.00')
+            ->where('debts.rows.0.buckets.older', '80.00')
+            ->where('printData.rows.1.cells.الرصيد عليه', '130.00'));
+    }
+
+    public function test_report_statement_prints_signed_balances_and_positive_debit_credit_amounts(): void
+    {
+        $this->at('2026-09-30 09:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', null));
+        $this->at('2026-10-01 09:00', fn () => $this->pay('150'));
+        $owner = User::factory()->superAdmin()->create();
+
+        $this->actingAs($owner)->get(route('reports.index', ['section' => 'statement', 'subscription' => $this->subscription->id, 'print' => 1]))->assertInertia(fn ($page) => $page
+            ->where('reportStatement.opening', '100.00')
+            ->where('reportStatement.credit', '150.00')
+            ->where('reportStatement.debit', '0.00')
+            ->where('reportStatement.closing', '-50.00')
+            ->where('reportStatement.lines.0.balance', '-50.00')
+            ->where('reportStatement.lines.0.credit', '150.00')
+            ->where('printData.rows.1.cells.الرصيد', '-50.00')
+            ->where('printData.rows.1.cells.له (دائن)', '150.00')
+            ->where('printData.rows.2.cells.الرصيد', '-50.00')
+            ->where('printData.rows.2.cells.له (دائن)', '150.00'));
+    }
+
+    public function test_report_accounts_require_subscription_access_and_respect_selected_branches(): void
+    {
+        $preparer = $this->preparer();
+        $this->actingAs($preparer)->getJson(route('reports.subscriptions'))->assertForbidden();
+        $this->get(route('reports.index', ['section' => 'statement', 'subscription' => $this->subscription->id]))->assertForbidden();
+        $foreign = Subscription::factory()->create(['branch_id' => $this->south->id]);
+        $this->actingAs(User::factory()->superAdmin()->create());
+        $this->get(route('reports.index', ['section' => 'statement', 'branch' => $this->north->id, 'subscription' => $foreign->id]))->assertNotFound();
+        $this->getJson(route('reports.subscriptions', ['branch' => $this->north->id, 'search' => $foreign->account_number]))->assertJsonPath('options', []);
+    }
+
+    public function test_box_report_uses_recorded_shekel_amounts_and_excludes_later_entries(): void
+    {
+        $payment = $this->at('2026-09-30 09:00', fn () => $this->pay('12.50', ['currency' => 'USD', 'exchange_rate' => '4.00']));
+        $box = $payment->boxEntry->box;
+        $this->at('2026-10-01 09:00', fn () => $this->pay('99', ['currency' => 'USD', 'exchange_rate' => '4.00']));
+
+        $this->actingAs($this->preparer())->get(route('reports.index', ['section' => 'boxes', 'from' => '2026-09-30', 'to' => '2026-09-30']))->assertOk()->assertInertia(fn ($page) => $page
+            ->has('boxData.rows', 1)
+            ->where('boxData.rows.0.currency', 'ILS')
+            ->where('boxData.rows.0.amount', '50.00')
+            ->where('boxData.rows.0.count', 1)
+            ->where('boxData.rows.0.number', $box->number)
+            ->where('collections.currencies.0.currency', 'USD')
+            ->where('collections.currencies.0.amount', '12.50')
+            ->where('collections.currencies.0.total', '50.00'));
+    }
+
+    public function test_statement_filters_preserve_historical_balances_and_print_only_matching_lines(): void
+    {
+        $this->at('2026-10-01 08:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', null));
+        $this->at('2026-10-01 09:00', fn () => $this->pay('150'));
+        $this->actingAs(User::factory()->superAdmin()->create());
+
+        $this->get(route('reports.index', ['section' => 'statement', 'subscription' => $this->subscription->id, 'filter' => ['side' => 'credit'], 'print' => 1]))->assertInertia(fn ($page) => $page
+            ->where('reportStatement.closing', '-50.00')
+            ->where('detailTable.unfilteredTotal', 2)
+            ->where('detailTable.total', 1)
+            ->where('detailTable.rows.0.credit', '150.00')
+            ->where('detailTable.rows.0.balance', '-50.00')
+            ->where('detailTable.totals.credit', '150.00')
+            ->where('detailTable.totals.debit', '0.00')
+            ->has('printData.rows', 2)
+            ->where('printData.rows.0.cells.الرصيد', '-50.00')
+            ->where('printData.rows.1.cells.له (دائن)', '150.00'));
+    }
+
+    public function test_statement_without_period_movements_keeps_its_opening_balance_and_has_no_fake_table_rows(): void
+    {
+        $this->at('2026-09-30 09:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '7178', null));
+        $this->actingAs(User::factory()->superAdmin()->create());
+
+        $this->get(route('reports.index', ['section' => 'statement', 'subscription' => $this->subscription->id]))->assertInertia(fn ($page) => $page
+            ->where('reportStatement.opening', '7178.00')
+            ->where('reportStatement.closing', '7178.00')
+            ->where('detailTable.total', 0)
+            ->where('detailTable.active', false)
+            ->where('detailTable.rows', []));
+    }
+
+    public function test_detail_tables_search_and_sort_debts_with_matching_print_totals(): void
+    {
+        $a = Subscription::factory()->create(['branch_id' => $this->north->id, 'full_name' => 'أحمد علي']);
+        $b = Subscription::factory()->create(['branch_id' => $this->north->id, 'full_name' => 'احمد محمود']);
+        $this->at('2026-10-01 08:00', fn () => SubscriptionTransaction::recordCharge($a, $this->collector, ChargeType::Penalty, '20', null));
+        $this->at('2026-10-01 08:30', fn () => SubscriptionTransaction::recordCharge($b, $this->collector, ChargeType::Penalty, '100', null));
+        $this->actingAs($this->preparer());
+
+        $this->get(route('reports.index', ['section' => 'debts', 'search' => 'احمد', 'sort' => 'balance', 'direction' => 'asc', 'print' => 1]))->assertInertia(fn ($page) => $page
+            ->where('detailTable.total', 2)
+            ->where('detailTable.rows.0.balance', '20.00')
+            ->where('detailTable.rows.1.balance', '100.00')
+            ->where('detailTable.totals.balance', '120.00')
+            ->where('printData.rows.2.cells.الرصيد عليه', '120.00'));
+        $this->get(route('reports.index', ['section' => 'debts', 'search' => ['invalid']]))->assertSessionHasErrors('search');
+    }
+
+    public function test_account_directory_lists_and_searches_all_readable_subscribers_beyond_the_first_page(): void
+    {
+        $accounts = Subscription::factory()->count(31)->create(['branch_id' => $this->north->id, 'circuit_breaker_id' => $this->subscription->circuit_breaker_id, 'meter_box_id' => $this->subscription->meter_box_id, 'registered_by' => $this->collector->id]);
+        $last = $accounts->last();
+        $foreign = Subscription::factory()->create(['branch_id' => $this->south->id]);
+        $this->actingAs(User::factory()->superAdmin()->create());
+        $scope = ['section' => 'statement', 'branch' => $this->north->id];
+
+        $this->get(route('reports.index', $scope))->assertInertia(fn ($page) => $page
+            ->where('reportStatement', null)
+            ->where('reportAccounts.total', 32)
+            ->has('reportAccounts.data', 15));
+        $this->get(route('reports.index', [...$scope, 'page' => 3]))->assertInertia(fn ($page) => $page
+            ->where('reportAccounts.current_page', 3)
+            ->has('reportAccounts.data', 2)
+            ->where('reportAccounts.data.1.id', $last->id));
+        $this->get(route('reports.index', [...$scope, 'search' => $last->account_number]))->assertInertia(fn ($page) => $page
+            ->where('reportAccounts.total', 1)
+            ->where('reportAccounts.data.0.id', $last->id));
+        $this->get(route('reports.index', [...$scope, 'search' => $foreign->account_number]))->assertInertia(fn ($page) => $page->where('reportAccounts.total', 0));
+    }
+
+    public function test_account_directory_requires_subscriber_permission_and_hides_unreadable_archived_accounts(): void
+    {
+        $actor = $this->preparer();
+        $this->actingAs($actor)->get(route('reports.index', ['section' => 'statement']))->assertInertia(fn ($page) => $page->where('reportAccounts', null));
+        $actor->permissions()->sync(Permission::idsFor([PermissionKey::ViewFinancialReports, PermissionKey::ViewSubscriptions]));
+        $actor->unsetRelation('permissions');
+        $archived = Subscription::factory()->create(['branch_id' => $this->north->id, 'archived_at' => now()]);
+
+        $this->get(route('reports.index', ['section' => 'statement']))->assertInertia(fn ($page) => $page
+            ->where('reportAccounts.total', 1)
+            ->where('reportAccounts.data.0.id', $this->subscription->id));
+        $this->getJson(route('reports.subscriptions', ['search' => $archived->account_number]))->assertJsonPath('options', []);
+    }
+
     /**
      * @param  array<string, string>  $details
      */

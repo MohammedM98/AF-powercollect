@@ -24,6 +24,7 @@ export default function DataTableToolbar({
     showSearch = true,
     filterMenu,
     printable = true,
+    actions,
 }) {
     const searchRef = useRef(null);
     const canPrint = usePage().props.can?.printAuditReports !== false;
@@ -82,6 +83,7 @@ export default function DataTableToolbar({
                         نتيجة
                     </span>
                 )}
+                {actions !== undefined ? actions : <>
                 {printable && canPrint && <ExcelButton />}
                 {printable && canPrint && (
                     <button
@@ -95,6 +97,7 @@ export default function DataTableToolbar({
                         طباعة
                     </button>
                 )}
+                </>}
                 <DensityToggle />
                 <div
                     role="group"

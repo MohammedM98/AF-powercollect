@@ -5,17 +5,22 @@ namespace App\Http\Controllers;
 use App\Http\Concerns\FiltersDataTable;
 use App\Models\Branch;
 use App\Models\Closing;
+use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
+use App\Support\ArabicSearch;
 use App\Support\BranchReport;
 use App\Support\BranchScope;
 use App\Support\ClosingPeriods;
 use App\Support\DailySeries;
+use App\Support\DebtAging;
 use App\Support\FinancialReportAccess;
+use App\Support\ReportDetails;
 use App\Support\ReportPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -43,9 +48,23 @@ class ReportController extends Controller
     public function index(Request $request): InertiaResponse
     {
         abort_unless(FinancialReportAccess::view($request->user()), 403);
+        $section = $request->validate(['section' => ['nullable', Rule::in(['overview', 'collections', 'boxes', 'debts', 'statement', 'movements'])]])['section'] ?? 'overview';
         $branches = FinancialReportAccess::branches($request->user());
         ['chosen' => $chosen, 'branch' => $branch, 'from' => $from, 'to' => $to, 'today' => $today, 'kind' => $kind] = $this->filters($request, $branches);
         $report = new BranchReport($chosen, $from, $to);
+        $details = new ReportDetails($chosen, $to);
+        $detailFilters = $request->validate(['debt_search' => ['nullable', 'string', 'max:100'], 'debt_age' => ['nullable', Rule::in(array_keys(DebtAging::BUCKETS))]]);
+        $debtData = $section === 'debts' ? $details->debts($detailFilters['debt_search'] ?? '', $detailFilters['debt_age'] ?? '') : null;
+        $boxData = $section === 'boxes' ? $details->boxes() : null;
+        $statementData = $section === 'statement' ? $this->statement($request, $chosen, $from, $to) : null;
+        $accountDirectory = $section === 'statement' && $statementData === null && $request->user()->can('viewAny', Subscription::class)
+            ? $this->accountDirectory($request, $chosen) : null;
+        $detailTable = match ($section) {
+            'debts' => $this->detailTable($request, collect($debtData['rows'])->map(fn (array $row): array => [...$row, ...$row['buckets']]), $section),
+            'boxes' => $this->detailTable($request, collect($boxData['rows']), $section),
+            'statement' => $statementData ? $this->detailTable($request, collect($statementData['lines']), $section) : null,
+            default => null,
+        };
         $period = ReportPeriod::describe($from, $to, $request->query('view'), $today);
         $collections = $chosen->isEmpty() ? null : $report->collections();
         $comparison = null;
@@ -100,8 +119,43 @@ class ReportController extends Controller
                 'context' => ['branchName' => $scopeLabel, 'templatePage' => '/reports'],
             ];
         }
+        if ($request->boolean('print') && in_array($section, ['debts', 'boxes', 'statement'], true)) {
+            [$columns, $rows] = match ($section) {
+                'debts' => [['المشترك', 'رقم الحساب', 'الفرع', 'حتى 30 يومًا', '31–60 يومًا', '61–90 يومًا', 'أكثر من 90 يومًا', 'الرصيد عليه', 'آخر دفعة'], collect($detailTable['rows'])->map(fn (array $row): array => [$row['name'], $row['accountNumber'], $row['branchName'], ...array_values($row['buckets']), $row['balance'], $row['lastPaymentDate'] ?? ''])->all()],
+                'boxes' => [['الصندوق', 'المحصّل', 'الفرع', 'النوع', 'الحالة', 'العملة', 'المبلغ المسجل', 'عدد الحركات'], collect($detailTable['rows'])->map(fn (array $row): array => [$row['number'], $row['collector'], $row['branchName'], $row['type'], $row['status'], $row['currency'], $row['amount'], $row['count']])->all()],
+                default => [['التاريخ', 'السند', 'البيان', 'عليه (مدين)', 'له (دائن)', 'الرصيد'], $statementData ? [
+                    [$from->toDateString(), '', 'الرصيد الافتتاحي', '', '', $statementData['opening']],
+                    ...collect($detailTable['rows'])->map(fn (array $line): array => [$line['day'], $line['voucherNumber'], $line['description'], $line['debit'] === '0.00' ? '' : $line['debit'], $line['credit'] === '0.00' ? '' : $line['credit'], $line['balance']])->all(),
+                    [$to->toDateString(), '', 'الرصيد الختامي / إجمالي الفترة', $statementData['debit'], $statementData['credit'], $statementData['closing']],
+                ] : []],
+            };
+            if ($section === 'debts') {
+                $rows[] = ['الإجمالي', '', '', ...array_map(fn (string $key): string => $detailTable['totals'][$key], array_keys(DebtAging::BUCKETS)), $detailTable['totals']['balance'], ''];
+            }
+            if ($section === 'statement' && $statementData && $detailTable['active']) {
+                array_shift($rows);
+                array_pop($rows);
+                $rows[] = ['', '', 'إجمالي الحركات المطابقة', $detailTable['totals']['debit'], $detailTable['totals']['credit'], ''];
+            }
+            $identity = $statementData ? $statementData['subscription']['name'].' · '.$statementData['subscription']['accountNumber'].' · ' : '';
+            $printData = [
+                'columns' => array_map(fn (string $label): array => ['key' => $label, 'label' => $label], $columns),
+                'rows' => array_map(fn (array $row): array => ['type' => 'row', 'cells' => array_combine($columns, array_map(fn (mixed $value): string => (string) $value, $row))], $rows),
+                'total' => count($rows), 'summary' => $identity.$scopeLabel.' · '.$from->format('d/m/Y').' – '.$to->format('d/m/Y'),
+                'context' => ['branchName' => $scopeLabel, 'templatePage' => '/reports'],
+            ];
+        }
 
         return Inertia::render('Reports/Index', [
+            'reportSection' => $section,
+            'reportAccounts' => $accountDirectory,
+            'accountFilters' => $accountDirectory !== null ? $this->dataTableState($request, 'account_number') : null,
+            'detailTable' => $detailTable,
+            'detailFilters' => $detailFilters,
+            'debts' => $debtData,
+            'boxData' => $boxData,
+            'reportStatement' => $statementData,
+            'canViewStatements' => $request->user()->can('viewAny', Subscription::class),
             'branches' => $branches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name])->values(),
             'filters' => ['branch' => $branch, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'kind' => $kind],
             'scopeLabel' => $scopeLabel,
@@ -121,6 +175,133 @@ class ReportController extends Controller
             'days' => $chosen->isEmpty() ? [] : $report->days(),
             'transactions' => $transactions,
         ]);
+    }
+
+    /** Filter presentation rows after historical running balances have been calculated. @param Collection<int, array<string, mixed>> $rows @return array<string, mixed> */
+    private function detailTable(Request $request, Collection $rows, string $section): array
+    {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'filter' => ['nullable', 'array'],
+            'filter.*' => ['nullable', 'string', 'max:200'],
+            'sort' => ['nullable', 'string', 'max:40'],
+        ]);
+        $columns = match ($section) {
+            'statement' => ['day', 'voucherNumber', 'description', 'debit', 'credit', 'balance'],
+            'debts' => ['name', 'accountNumber', 'branchName', ...array_keys(DebtAging::BUCKETS), 'balance', 'lastPaymentDate'],
+            default => ['number', 'collector', 'branchName', 'type', 'status', 'currency', 'amount', 'count'],
+        };
+        $allowedFilters = match ($section) {
+            'statement' => ['side', 'type'],
+            'debts' => ['age', 'branchName'],
+            default => ['status', 'type', 'collector', 'currency'],
+        };
+        $defaultSort = $section === 'statement' ? 'day' : ($section === 'debts' ? 'balance' : 'number');
+        $state = $this->dataTableState($request, $defaultSort, $section === 'debts' ? 'desc' : 'asc');
+        $state['sort'] = in_array($validated['sort'] ?? '', $columns, true) ? $validated['sort'] : $defaultSort;
+        $state['filter'] = array_intersect_key($validated['filter'] ?? [], array_flip($allowedFilters));
+        $state['search'] = $validated['search'] ?? '';
+        $options = collect($allowedFilters)->map(function (string $key) use ($rows): array {
+            $values = match ($key) {
+                'side' => [['value' => 'debit', 'label' => 'عليه (مدين)'], ['value' => 'credit', 'label' => 'له (دائن)']],
+                'age' => collect(DebtAging::BUCKET_LABELS)->map(fn (string $label, string $value): array => compact('value', 'label'))->values()->all(),
+                default => $rows->unique($key)->filter(fn (array $row): bool => filled($row[$key] ?? null))->map(fn (array $row): array => ['value' => (string) $row[$key], 'label' => $key === 'type' ? ($row['typeLabel'] ?? $row[$key]) : $row[$key]])->values()->all(),
+            };
+            $labels = ['side' => 'جهة الحركة', 'type' => 'نوع الحركة', 'age' => 'عمر الدين', 'branchName' => 'الفرع', 'status' => 'الحالة', 'collector' => 'المحصّل', 'currency' => 'العملة'];
+
+            return $this->filterGroup($key, $labels[$key], $values);
+        })->all();
+        $terms = ArabicSearch::terms($state['search']);
+        $matching = $rows->filter(function (array $row) use ($terms, $state, $columns): bool {
+            $text = ArabicSearch::normalize(implode(' ', array_map(fn (string $key): string => (string) ($row[$key] ?? ''), $columns)));
+            foreach ($terms as $term) {
+                if (! str_contains($text, $term)) {
+                    return false;
+                }
+            }
+            foreach ($state['filter'] as $key => $value) {
+                if ($value === null || $value === '') {
+                    continue;
+                }
+                $matches = match ($key) {
+                    'side' => in_array($value, ['debit', 'credit'], true) && Closing::cents($row[$value]) > 0,
+                    'age' => in_array($value, array_keys(DebtAging::BUCKETS), true) && Closing::cents($row[$value]) > 0,
+                    default => (string) ($row[$key] ?? '') === $value,
+                };
+                if (! $matches) {
+                    return false;
+                }
+            }
+
+            return true;
+        })->sortBy($state['sort'], SORT_REGULAR, $state['direction'] === 'desc')->values();
+        $sumKeys = $section === 'statement' ? ['debit', 'credit'] : ($section === 'debts' ? [...array_keys(DebtAging::BUCKETS), 'balance'] : []);
+        $totals = [];
+        foreach ($sumKeys as $key) {
+            $totals[$key] = Closing::money($matching->sum(fn (array $row): int => Closing::cents($row[$key])));
+        }
+
+        return ['rows' => $matching, 'state' => $state, 'options' => $options, 'total' => $matching->count(), 'unfilteredTotal' => $rows->count(), 'totals' => $totals, 'active' => $terms !== [] || collect($state['filter'])->contains(fn (?string $value): bool => filled($value))];
+    }
+
+    /** @param Collection<int, Branch> $branches */
+    private function accountDirectory(Request $request, Collection $branches): LengthAwarePaginator
+    {
+        $validated = $request->validate(['search' => ['nullable', 'string', 'max:100'], 'sort' => ['nullable', 'string', 'max:40']]);
+        $sort = in_array($validated['sort'] ?? '', ['account_number', 'display_name'], true) ? $validated['sort'] : 'account_number';
+
+        return Subscription::query()->readableTo($request->user())
+            ->whereIn('subscriptions.branch_id', $branches->pluck('id')->all())
+            ->when(! $request->user()->can('viewArchived', Subscription::class), fn (Builder $query) => $query->whereNull('archived_at'))
+            ->select('subscriptions.*')->selectRaw("COALESCE(NULLIF(subscription_name, ''), full_name) as display_name")
+            ->with('branch:id,name')
+            ->when(($validated['search'] ?? '') !== '', fn (Builder $query) => $query->matchingSearch($validated['search']))
+            ->orderBy($sort, $this->sortDirection($request))->orderBy('subscriptions.id')
+            ->paginate($this->dataTablePerPage($request))->withQueryString()
+            ->through(fn (Subscription $subscription): array => ['id' => $subscription->id, 'name' => $subscription->displayName(), 'accountNumber' => $subscription->account_number, 'branchName' => $subscription->branch?->name]);
+    }
+
+    /** Search only readable accounts inside the report's authorized branch scope. */
+    public function subscriptions(Request $request): JsonResponse
+    {
+        abort_unless(FinancialReportAccess::view($request->user()), 403);
+        $this->authorize('viewAny', Subscription::class);
+        $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
+        ['chosen' => $branches] = $this->filters($request, FinancialReportAccess::branches($request->user()));
+        $subscriptions = Subscription::query()->readableTo($request->user())->whereIn('branch_id', $branches->pluck('id')->all())
+            ->when(! $request->user()->can('viewArchived', Subscription::class), fn (Builder $query) => $query->whereNull('archived_at'))
+            ->when(($validated['search'] ?? '') !== '', fn (Builder $query) => $query->matchingSearch($validated['search']))
+            ->orderBy('id')->limit(31)->get();
+
+        return response()->json(['options' => $subscriptions->take(30)->map(fn (Subscription $subscription): array => ['value' => $subscription->id, 'label' => $subscription->displayName().' · '.$subscription->account_number])->values(), 'hasMore' => $subscriptions->count() > 30]);
+    }
+
+    /** All signed ledger lines in the period, including reversals, share one running balance. @param Collection<int, Branch> $branches @return array<string, mixed>|null */
+    private function statement(Request $request, Collection $branches, CarbonImmutable $from, CarbonImmutable $to): ?array
+    {
+        $validated = $request->validate(['subscription' => ['nullable', 'integer', 'min:1']]);
+        if (! isset($validated['subscription'])) {
+            return null;
+        }
+        $subscription = Subscription::query()->readableTo($request->user())->whereIn('branch_id', $branches->pluck('id')->all())->findOrFail($validated['subscription']);
+        $this->authorize('view', $subscription);
+        [$start, $end] = ClosingPeriods::for($subscription->branch_id)->utcRange($from, $to);
+        $opening = Closing::cents((string) $subscription->transactions()->where('created_at', '<', $start)->sum('amount'));
+        $balance = $opening;
+        $debit = 0;
+        $credit = 0;
+        $lines = $subscription->transactions()->where('created_at', '>=', $start)->where('created_at', '<', $end)
+            ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
+            ->orderBy('created_at')->orderBy('id')->get()->map(function (SubscriptionTransaction $line) use (&$balance, &$debit, &$credit): array {
+                $amount = Closing::cents($line->amount);
+                $balance += $amount;
+                $debit += max(0, $amount);
+                $credit += max(0, -$amount);
+
+                return [...$this->row($line), 'balance' => Closing::money($balance), 'debit' => Closing::money(max(0, $amount)), 'credit' => Closing::money(max(0, -$amount))];
+            });
+
+        return ['subscription' => ['id' => $subscription->id, 'name' => $subscription->displayName(), 'accountNumber' => $subscription->account_number, 'branchName' => $branches->firstWhere('id', $subscription->branch_id)?->name, 'url' => route('subscriptions.statement', $subscription)], 'opening' => Closing::money($opening), 'debit' => Closing::money($debit), 'credit' => Closing::money($credit), 'closing' => Closing::money($balance), 'lines' => $lines];
     }
 
     /**
@@ -279,8 +460,10 @@ class ReportController extends Controller
             ['key' => 'today', 'label' => 'اليوم', 'from' => $today, 'to' => $today],
             ['key' => 'yesterday', 'label' => 'أمس', 'from' => $today->subDay(), 'to' => $today->subDay()],
             ['key' => 'week', 'label' => 'هذا الأسبوع', 'from' => $weekStart, 'to' => $today],
+            ['key' => 'last-week', 'label' => 'الأسبوع الماضي', 'from' => $weekStart->subWeek(), 'to' => $weekStart->subDay()],
             ['key' => 'month', 'label' => 'هذا الشهر', 'from' => $today->startOfMonth(), 'to' => $today],
             ['key' => 'last-month', 'label' => 'الشهر الماضي', 'from' => $lastMonthStart, 'to' => $lastMonthEnd],
+            ['key' => 'quarter', 'label' => 'آخر 90 يومًا', 'from' => $today->subDays(89), 'to' => $today],
         ]);
     }
 
@@ -293,6 +476,7 @@ class ReportController extends Controller
 
         return [
             'id' => $line->id,
+            'subscriptionId' => $line->subscription_id,
             'day' => ClosingPeriods::for($line->subscription->branch_id)->dayOf($line->created_at),
             'time' => DailySeries::localTime($line->created_at),
             'branchName' => $line->subscription->branch?->name,

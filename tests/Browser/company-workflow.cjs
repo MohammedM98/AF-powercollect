@@ -404,6 +404,50 @@ step('a collector on a phone-sized screen takes a payment without the page spill
     await snap(page, 'phone-payments');
 });
 
+step('report sections retain the branch banner, statement alignment and mobile boundaries', async () => {
+    const page = people.owner;
+    await page.goto('/reports?branch=all');
+    const nav = page.getByRole('navigation', { name: 'أقسام التقارير' });
+    assert.equal(await nav.getByRole('button').count(), 6);
+    await page.getByRole('region', { name: 'الفرع المعروض' }).getByRole('heading', { name: 'فرع النصيرات', exact: true }).waitFor();
+    await snap(page, 'reports-overview');
+    await nav.getByRole('button', { name: 'التحصيل', exact: true }).click();
+    await page.getByRole('heading', { name: 'تقرير التحصيل', exact: true }).waitFor();
+    await snap(page, 'reports-collections');
+    await nav.getByRole('button', { name: 'الصناديق والأموال', exact: true }).click();
+    await page.locator('.reports-detail-table tbody tr').first().waitFor();
+    await snap(page, 'reports-boxes');
+    await nav.getByRole('button', { name: 'الديون', exact: true }).click();
+    await page.locator('.reports-detail-table').getByRole('button', { name: 'سالم عبد الله', exact: true }).click();
+    await page.waitForURL(/section=statement/);
+    const table = page.locator('.reports-detail-table');
+    await table.getByRole('columnheader', { name: 'الرصيد', exact: true }).waitFor();
+    const alignment = await table.evaluate((element) => [3, 4, 5].map((index) => ({
+        header: getComputedStyle(element.tHead.rows[0].cells[index]).textAlign,
+        cell: getComputedStyle(element.tBodies[0].rows[0].cells[index]).textAlign,
+    })));
+    assert.ok(alignment.every(({ header, cell }) => header === 'right' && ['right', 'end'].includes(cell)), JSON.stringify(alignment));
+    await snap(page, 'reports-statement-desktop');
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1));
+    await snap(page, 'reports-statement-mobile');
+    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await snap(page, 'reports-statement-dark');
+    await page.evaluate(() => document.documentElement.classList.remove('dark'));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const opened = page.context().waitForEvent('page');
+    await page.getByRole('link', { name: 'طباعة', exact: true }).click();
+    const print = await opened;
+    const paper = print.getByRole('article', { name: 'معاينة الورقة المطبوعة' });
+    await paper.getByText('الرصيد الافتتاحي', { exact: true }).waitFor();
+    assert.ok(await paper.getByText('عليه (مدين)', { exact: true }).count());
+    await snap(print, 'reports-statement-print');
+    await print.close();
+    await nav.getByRole('button', { name: 'سجل الحركات', exact: true }).click();
+    await page.getByRole('heading', { name: 'سجل الحركات', exact: true }).waitFor();
+    await snap(page, 'reports-movements');
+});
+
 step('subscribers and their account statements export formatted Excel, with readable balances and user names', async () => {
     const page = people.manager;
     await page.goto('/subscriptions');

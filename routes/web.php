@@ -115,6 +115,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/transaction-audit', [TransactionAuditController::class, 'index'])->name('transaction-audit.index');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/subscriptions', [ReportController::class, 'subscriptions'])->name('reports.subscriptions');
     Route::get('/company-forms', [CompanyFormTemplateController::class, 'index'])->name('company-forms.index');
     Route::get('/company-forms/create', [CompanyFormTemplateController::class, 'create'])->name('company-forms.create');
     Route::get('/company-forms/subscriptions', [CompanyDocumentController::class, 'subscriptions'])->name('company-forms.subscriptions');

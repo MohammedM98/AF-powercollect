@@ -377,10 +377,32 @@ class BranchReportTest extends TestCase
             ->where('boxData.rows.0.currency', 'ILS')
             ->where('boxData.rows.0.amount', '50.00')
             ->where('boxData.rows.0.count', 1)
-            ->where('boxData.rows.0.number', $box->number)
+            ->where('boxData.rows.0.number', $box->number));
+        $this->get(route('reports.index', ['section' => 'collections', 'from' => '2026-09-30', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
             ->where('collections.currencies.0.currency', 'USD')
             ->where('collections.currencies.0.amount', '12.50')
             ->where('collections.currencies.0.total', '50.00'));
+    }
+
+    public function test_detail_sections_skip_the_period_summary_that_only_summary_sections_show(): void
+    {
+        $this->at('2026-10-01 08:00', fn () => $this->pay('40'));
+        $this->actingAs(User::factory()->superAdmin()->create());
+
+        foreach (['boxes', 'debts', 'statement'] as $section) {
+            $this->get(route('reports.index', ['section' => $section]))->assertOk()->assertInertia(fn ($page) => $page
+                ->where('flow', null)
+                ->where('collections', null)
+                ->where('comparison', null)
+                ->where('transactions', null)
+                ->where('readings', null)
+                ->where('days', [])
+                ->where('branchSummary', []));
+        }
+        $this->get(route('reports.index', ['section' => 'movements']))->assertInertia(fn ($page) => $page
+            ->where('collections.total', '40.00')
+            ->has('transactions.data', 1)
+            ->has('branchSummary', Branch::count()));
     }
 
     public function test_statement_filters_preserve_historical_balances_and_print_only_matching_lines(): void

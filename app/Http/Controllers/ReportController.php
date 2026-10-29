@@ -45,6 +45,11 @@ class ReportController extends Controller
 
     private const PER_PAGE = 50;
 
+    /**
+     * The summary sections (overview, collections, movements) carry the
+     * period's figures and lines for the screen, print and Excel; the
+     * detail sections (boxes, debts, statement) build only their own table.
+     */
     public function index(Request $request): InertiaResponse
     {
         abort_unless(FinancialReportAccess::view($request->user()), 403);
@@ -66,7 +71,8 @@ class ReportController extends Controller
             default => null,
         };
         $period = ReportPeriod::describe($from, $to, $request->query('view'), $today);
-        $collections = $chosen->isEmpty() ? null : $report->collections();
+        $summary = $chosen->isNotEmpty() && in_array($section, ['overview', 'collections', 'movements'], true);
+        $collections = $summary ? $report->collections() : null;
         $comparison = null;
         if ($collections !== null) {
             $previous = (new BranchReport($chosen, ClosingPeriods::date($period['comparison']['from']), ClosingPeriods::date($period['comparison']['to'])))->collections();
@@ -79,7 +85,7 @@ class ReportController extends Controller
                 'percentage' => $previousCents === 0 ? null : round($difference / $previousCents * 100, 1),
             ];
         }
-        $branchSummary = $chosen->count() > 1
+        $branchSummary = $summary && $chosen->count() > 1
             ? $chosen->map(function (Branch $item) use ($from, $to): array {
                 $branchReport = new BranchReport(collect([$item]), $from, $to);
 
@@ -91,15 +97,17 @@ class ReportController extends Controller
                 ];
             })->values()
             : collect();
-        $flow = $chosen->isEmpty() ? null : $report->flow();
+        $flow = $summary ? $report->flow() : null;
         $scopeLabel = $chosen->count() === 1 ? $chosen->first()->name : 'كل الفروع';
-        $transactions = $report->lines($kind)
-            ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
-            ->orderByDesc('subscription_transactions.created_at')
-            ->orderByDesc('subscription_transactions.id')
-            ->paginate($request->boolean('print') ? $this->dataTablePerPage($request, self::PER_PAGE) : self::PER_PAGE)
-            ->withQueryString()
-            ->through(fn (SubscriptionTransaction $line): array => $this->row($line));
+        $transactions = $summary
+            ? $report->lines($kind)
+                ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
+                ->orderByDesc('subscription_transactions.created_at')
+                ->orderByDesc('subscription_transactions.id')
+                ->paginate($request->boolean('print') ? $this->dataTablePerPage($request, self::PER_PAGE) : self::PER_PAGE)
+                ->withQueryString()
+                ->through(fn (SubscriptionTransaction $line): array => $this->row($line))
+            : null;
         $printData = null;
         if ($request->boolean('print') && $flow !== null) {
             $detail = $request->query('print_view') === 'lines';
@@ -171,8 +179,8 @@ class ReportController extends Controller
             'kinds' => BranchReport::kinds(),
             'flow' => $flow,
             'collections' => $collections,
-            'readings' => $chosen->isEmpty() ? null : $report->readings(),
-            'days' => $chosen->isEmpty() ? [] : $report->days(),
+            'readings' => $summary ? $report->readings() : null,
+            'days' => $summary ? $report->days() : [],
             'transactions' => $transactions,
         ]);
     }

@@ -6,6 +6,7 @@ use App\Enums\ChargeType;
 use App\Enums\CorrectionReason;
 use App\Enums\DiscountMethod;
 use App\Enums\PermissionKey;
+use App\Enums\TransactionAction;
 use App\Models\Branch;
 use App\Models\Closing;
 use App\Models\ClosingSetting;
@@ -191,6 +192,40 @@ class BranchReportTest extends TestCase
     {
         $this->actingAs($this->collector)->get(route('reports.index'))->assertForbidden();
         $this->get(route('reports.export'))->assertForbidden();
+    }
+
+    public function test_cancellations_and_refunds_count_with_the_corrections_and_never_as_charges(): void
+    {
+        $penalty = $this->at('2026-10-01 08:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', 'late'));
+        $payment = $this->at('2026-10-01 08:10', fn () => $this->pay('40'));
+        $head = User::factory()->branchAdmin()->create(['branch_id' => $this->north->id]);
+        $this->at('2026-10-01 08:20', fn () => $penalty->applyAction($head, TransactionAction::Cancel, ['correction_reason' => 'other', 'correction_notes' => 'إعفاء']));
+        $this->at('2026-10-01 08:30', fn () => $payment->applyAction($head, TransactionAction::Refund, []));
+        $this->actingAs($this->preparer());
+
+        $this->get(route('reports.index'))->assertInertia(fn ($page) => $page
+            ->where('flow.corrections', ['count' => 2, 'total' => '0.00'])
+            ->where('flow.closing', '0.00'));
+        $this->get(route('reports.index', ['kind' => 'charges']))->assertInertia(fn ($page) => $page
+            ->where('transactions.data', fn ($lines): bool => collect($lines)->pluck('type')->all() === ['penalty']));
+        $this->get(route('reports.index', ['kind' => 'corrections']))->assertInertia(fn ($page) => $page
+            ->where('transactions.total', 4));
+    }
+
+    public function test_an_opening_credit_balance_counts_off_what_is_owed_on_its_day(): void
+    {
+        $this->at('2026-10-01 08:00', fn () => $this->subscription->transactions()->create([
+            'recorded_by' => $this->collector->id, 'type' => SubscriptionTransaction::TYPE_CREDIT, 'source_key' => 'import:LEGACY-1', 'amount' => '-25.00', 'notes' => 'رصيد افتتاحي من النظام القديم',
+        ]));
+        $this->at('2026-10-01 08:10', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', 'late'));
+        $this->actingAs($this->preparer());
+
+        $this->get(route('reports.index'))->assertInertia(fn ($page) => $page
+            ->where('flow.chargesTotal', '100.00')
+            ->where('flow.creditsTotal', '25.00')
+            ->where('days', fn ($days): bool => collect($days)->map(fn ($day) => [$day['charges'], $day['payments'], $day['discounts'], $day['balance']])->all() === [
+                ['100.00', '0.00', '25.00', '75.00'],
+            ]));
     }
 
     public function test_the_lines_download_as_csv_narrowed_to_one_kind(): void

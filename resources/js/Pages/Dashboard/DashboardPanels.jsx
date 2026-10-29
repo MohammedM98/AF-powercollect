@@ -403,7 +403,7 @@ export function LatestPayments({ payments, latestPayments, period, search, onSea
                                     </td>
                                     <td
                                         className="whitespace-nowrap text-gray-500"
-                                        title={new Date(payment.recordedAt).toLocaleString('ar-SY-u-nu-latn')}
+                                        title={new Date(payment.recordedAt).toLocaleString('ar-EG-u-nu-latn')}
                                     >
                                         {timeAgo(payment.recordedAt)}
                                     </td>

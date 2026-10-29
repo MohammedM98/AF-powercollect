@@ -32,6 +32,7 @@ import Balance from '@/Components/Balance';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import PageHeader from '@/Components/PageHeader';
 import InfoTip from '@/Components/InfoTip';
+import { formatDate } from '@/lib/format';
 
 const MeterReadingModal = lazy(() => import('@/Pages/MeterReadings/MeterReadingModal'));
 const SubscriptionMessageHistoryModal = lazy(() => import('@/Pages/Messages/SubscriptionMessageHistoryModal'));
@@ -499,7 +500,7 @@ export default function Index({
                                     </td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
-                                        {subscription.archivedAt && <span className="mt-1 block text-xs text-gray-500">إنهاء الخدمة {subscription.serviceEndedOn}</span>}
+                                        {subscription.archivedAt && <span className="mt-1 block text-xs text-gray-500">إنهاء الخدمة {formatDate(subscription.serviceEndedOn)}</span>}
                                     </td>
                                     <td className="text-end">
                                         <RowActionsMenu

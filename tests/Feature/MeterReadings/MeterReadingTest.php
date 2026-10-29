@@ -222,7 +222,7 @@ class MeterReadingTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('week', '2026-09-18')
                 ->where('weekOptions.0.value', '2026-09-18')
-                ->where('weekOptions.0.label', 'الأسبوع المنتهي في الخميس 24-09-2026')
+                ->where('weekOptions.0.label', 'الأسبوع المنتهي في الخميس 24/09/2026')
                 ->where('weekOptions.0.end', '2026-09-24')
                 ->has('weekOptions', 60));
 
@@ -295,10 +295,10 @@ class MeterReadingTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('week', '2026-09-27')
                 ->where('weekOptions', fn ($options): bool => $options->take(4)->pluck('label', 'value')->all() === [
-                    '2026-09-27' => 'الأسبوع المنتهي في السبت 03-10-2026',
-                    '2026-09-25' => 'الأسبوع المنتهي في السبت 26-09-2026',
-                    '2026-09-18' => 'الأسبوع المنتهي في الخميس 24-09-2026',
-                    '2026-09-11' => 'الأسبوع المنتهي في الخميس 17-09-2026',
+                    '2026-09-27' => 'الأسبوع المنتهي في السبت 03/10/2026',
+                    '2026-09-25' => 'الأسبوع المنتهي في السبت 26/09/2026',
+                    '2026-09-18' => 'الأسبوع المنتهي في الخميس 24/09/2026',
+                    '2026-09-11' => 'الأسبوع المنتهي في الخميس 17/09/2026',
                 ]));
     }
 

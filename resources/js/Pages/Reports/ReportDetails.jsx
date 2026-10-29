@@ -17,6 +17,7 @@ import { reportMoney, shortDate } from '@/lib/reportFormatting';
 import { printUrl } from '@/lib/print';
 
 import { boxColumns, debtColumns, detailExcelPart, statementColumns } from '@/lib/reportDetailParts';
+import { formatDate } from '@/lib/format';
 
 const isAmount = (column) => ['money', 'decimal'].includes(column.type);
 const reportHelp = {
@@ -56,6 +57,7 @@ function ReportTable({ columns, title, section, nameCell, empty, exportRows }) {
         if (column.balance) return <Balance value={row[column.key]} colored={false} unit="" />;
         if (isAmount(column)) return Number(row[column.key]) === 0 ? <span className="text-gray-400">—</span> : <bdi dir="ltr">{reportMoney(Math.abs(Number(row[column.key])))}</bdi>;
         if (column.type === 'int') return <bdi dir="ltr">{row[column.key]}</bdi>;
+        if (column.type === 'date') return row[column.key] ? <bdi dir="ltr">{formatDate(row[column.key])}</bdi> : '—';
         return row[column.key] || '—';
     }
     return <section data-excel-source="custom" aria-label={title}>

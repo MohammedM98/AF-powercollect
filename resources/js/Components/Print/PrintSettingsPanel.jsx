@@ -442,7 +442,7 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                             rows={2}
                             value={layout.header.subtitle}
                             onChange={(e) => setIn('header', 'subtitle', e.target.value)}
-                            placeholder="مثلًا: عن شهر تشرين الأول"
+                            placeholder="مثلًا: عن شهر أكتوبر"
                             className="block w-full text-sm"
                         />
                     )}

@@ -2,7 +2,7 @@ import { arrangeRows, rowColumnTotal, DENSITY_PADDING, paperSize, printFont } fr
 import PrintHeader from './PrintHeader';
 
 // The time printed under the heading, in the app's Arabic with Western digits.
-const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
+const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
 
 const ALIGN_CLASSES = { auto: 'text-start', start: 'text-start', center: 'text-center', end: 'text-end' };
 

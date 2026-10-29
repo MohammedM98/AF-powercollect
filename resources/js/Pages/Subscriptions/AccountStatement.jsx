@@ -27,6 +27,7 @@ import { statementPrintUrl, statementRowTotals } from '@/lib/statementPrint';
 import './AccountStatement.css';
 import DateInput from '@/Components/DateInput';
 import { useRowActionsMenu } from '@/hooks/useRowActionsMenu';
+import { formatDate } from '@/lib/format';
 
 export const STATEMENT_COLUMNS = [
     '#',
@@ -50,7 +51,7 @@ const COLUMN_WIDTHS = [52, 72, 88, 180, 116, 150, 220, 130, 76, 104, 116, 88, 14
 const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: '', sort: '' };
 
 // The time printed on the statement, in the app's Arabic with Western digits.
-const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
+const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
 
 /** Keeps dates like 2026-09-18 reading left to right inside Arabic text. */
 function withLtrDates(text) {
@@ -75,7 +76,7 @@ function StatementDate({ value }) {
 
     return (
         <span className="statement-date">
-            <bdi dir="ltr">{date}</bdi>
+            <bdi dir="ltr">{formatDate(date)}</bdi>
             {time.length > 0 && <bdi dir="ltr" className="statement-time">{time.join(' ')}</bdi>}
         </span>
     );
@@ -320,7 +321,7 @@ function lineActionsMenu(entry, onAction) {
         ? {
               title: entry.typeLabel,
               description: [entry.description, entry.details].filter(Boolean).join('\n'),
-              subtitle: entry.date,
+              subtitle: formatDate(entry.date),
               width: 410,
               colorful: true,
               groups,

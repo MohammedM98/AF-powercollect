@@ -6,7 +6,7 @@ import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
 import TableExportActions from '@/Components/DataTable/TableExportActions';
 import { readingHistoryExcelParts } from '@/lib/detailExcelParts';
-import { formatMoney, formatNumber } from '@/lib/format';
+import { formatMoney, formatNumber, formatDate } from '@/lib/format';
 import { groupReadingsByMonth, readingTotals, readingsInPeriod } from '@/lib/readingHistory';
 import { consumptionBetween, steppedReading, weeklyCharges } from '@/lib/readings';
 import { useLastReadingEdit } from '@/hooks/useLastReadingEdit';
@@ -16,7 +16,7 @@ import './ReadingHistoryModal.css';
 
 const PERIODS = [['12', 'آخر 12 أسبوعًا'], ['26', '6 أشهر'], ['52', 'سنة'], ['all', 'الكل']];
 const STATUSES = [['all', 'الكل'], ['approved', 'معتمدة'], ['pending', 'قيد المراجعة']];
-const MONTH = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const MONTH = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const money = (value) => Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const CHART_OPEN_KEY = 'reading-history-chart-open';
 const shortDate = (date) => date ? `${date.slice(8, 10)}/${date.slice(5, 7)}` : '—';
@@ -132,7 +132,7 @@ function HistoryChart({ readings, average }) {
                         const x = width - (index + 1) * barWidth - index * gap;
                         const height = Math.max(2, 146 - y(reading.consumption));
                         const latest = index === points.length - 1;
-                        const description = `${reading.weekStart} – ${reading.weekEnd}: ${formatMoney(reading.consumption)} كيلو · ${money(reading.amountDue)} ₪ · ${reading.statusLabel}`;
+                        const description = `${formatDate(reading.weekStart)} – ${formatDate(reading.weekEnd)}: ${formatMoney(reading.consumption)} كيلو · ${money(reading.amountDue)} ₪ · ${reading.statusLabel}`;
 
                         return <g key={reading.id} tabIndex={0} role="img" aria-label={description} onFocus={() => setActiveId(reading.id)} onBlur={() => setActiveId(null)} onPointerEnter={() => setActiveId(reading.id)} className="rh-chart-point">
                             <title>{description}</title>
@@ -367,7 +367,7 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
 
                                     const difference = average > 0 ? Math.round((Number(reading.consumption) - average) / average * 100) : 0;
                                     return <tr key={reading.id}>
-                                        <td className="rh-week"><b dir="ltr" title={`${reading.weekStart} – ${reading.weekEnd}`}>{shortDate(reading.weekStart)} ← {shortDate(reading.weekEnd)}</b>{reading.notes && <span className="rh-note">{reading.notes}</span>}<ReadingAdjustmentHistory reading={reading} /></td>
+                                        <td className="rh-week"><b dir="ltr" title={`${formatDate(reading.weekStart)} – ${formatDate(reading.weekEnd)}`}>{shortDate(reading.weekStart)} ← {shortDate(reading.weekEnd)}</b>{reading.notes && <span className="rh-note">{reading.notes}</span>}<ReadingAdjustmentHistory reading={reading} /></td>
                                         <td className={`rh-previous rh-number ${reading.id === entryReading?.id && initialReading ? 'rh-last-cell' : ''}`}>{reading.id === entryReading?.id && initialReading ? <LastReadingField subscription={subscription} lastReading={initialReading} /> : formatMoney(reading.previous_reading)}</td><td className={`rh-current rh-number ${!liveRowShown && reading.id === editableLastReading?.id ? 'rh-last-cell' : ''}`}>{!liveRowShown && reading.id === editableLastReading?.id ? <LastReadingField subscription={subscription} lastReading={reading} nextReading={readingAfterLast} /> : reading.requiresReentry ? '—' : formatMoney(reading.current_reading)}</td>
                                         <td className="rh-consumption"><div><b>{formatMoney(reading.consumption)}</b><span className="rh-meter"><i style={{ width: `${Number(reading.consumption) / maximum * 100}%` }} /></span><span className={`rh-delta ${Math.abs(difference) < 10 ? '' : difference > 0 ? 'rh-up' : 'rh-down'}`} dir="ltr" title="الفرق عن متوسط الفترة">{Math.abs(difference) < 10 ? '≈' : `${difference > 0 ? '+' : ''}${difference}٪`}</span></div></td>
                                         <td className="rh-price rh-number"><ReadingPricingField reading={reading} field="unit_price" /></td>

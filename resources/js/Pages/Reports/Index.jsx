@@ -260,7 +260,7 @@ function PeriodCard({ branches, branchScope, scopeLabel, filters, presets, today
             <div className="flex flex-wrap items-center gap-3">
                 <div className="flex min-w-0 flex-1 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><Icon name="calendar" className="h-5 w-5" /></span><div className="min-w-0"><h3 className="text-sm font-bold text-white">الفترة</h3><p className="mt-1 text-xs text-white/70"><bdi dir="ltr">{periodText}</bdi></p></div></div>
                 {!branchScope && branches.length > 1 && (
-                    <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/65 sm:w-60">
+                    <label className="order-3 flex w-full flex-col gap-1.5 text-xs font-semibold text-white/65 sm:order-none sm:w-60">
                         الفرع
                         <SearchableSelect
                             value={filters.branch ?? ''}
@@ -273,7 +273,7 @@ function PeriodCard({ branches, branchScope, scopeLabel, filters, presets, today
                     </label>
                 )}
                 {!branchScope && branches.length === 1 && (
-                    <div className="flex flex-col gap-1.5 text-xs font-semibold text-white/65">
+                    <div className="order-3 flex w-full flex-col gap-1.5 text-xs font-semibold text-white/65 sm:order-none sm:w-auto">
                         الفرع
                         <span className="flex h-10 items-center gap-2 rounded-control border border-white/15 bg-white/10 px-3 text-sm font-bold text-white">
                             <Icon name="pin" className="h-4 w-4 text-white/60" />

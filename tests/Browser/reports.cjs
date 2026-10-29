@@ -175,6 +175,8 @@ const { readFileSync } = require('node:fs');
         await page.locator('.reports-detail-table tbody tr').nth(14).waitFor();
         assert.equal(await page.locator('.reports-detail-table tbody tr').count(), 15);
         await page.getByRole('navigation', { name: 'صفحات الجدول', exact: true }).getByRole('button', { name: '2', exact: true }).click();
+        await page.waitForURL(/[?&]page=2(&|$)/);
+        await page.locator('.reports-detail-table tbody tr').nth(5).waitFor({ state: 'detached' });
         assert.equal(await page.locator('.reports-detail-table tbody tr').count(), 5);
         const search = page.getByRole('textbox', { name: 'بحث في البيان أو رقم السند أو المبلغ...' });
         await search.fill('سند غير موجود');

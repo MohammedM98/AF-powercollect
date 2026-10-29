@@ -23,6 +23,20 @@ test('statement exports preserve signed balances and total only the positive deb
     assert.notEqual(total.cells[5].v, -100);
 });
 
+test('statement exports keep a pair cancelled within the period out of the debit and credit totals', () => {
+    const model = sheet('statement', statementColumns, [
+        { description: 'charge', debit: '100.00', credit: '0.00', balance: '100.00' },
+        { description: 'payment', debit: '0.00', credit: '15.00', balance: '85.00', netted: true },
+        { description: 'reversal', debit: '15.00', credit: '0.00', balance: '100.00', netted: true },
+        { description: 'payment', debit: '0.00', credit: '40.00', balance: '60.00' },
+    ]);
+    const cancelled = model.rows.find((row) => row.kind === 'data' && String(row.cells[2].v).startsWith('reversal'));
+    assert.match(cancelled.cells[2].v, /ملغاة مع قيدها العكسي \(15.00\)/);
+    assert.deepEqual(cancelled.cells.slice(3).map((cell) => cell.v), [0, 0, 100]);
+    const total = model.rows.at(-1);
+    assert.deepEqual([total.cells[3].v, total.cells[4].v], [100, 40]);
+});
+
 test('box exports keep currencies separate without summing their amounts or adding a shekel format', () => {
     const model = sheet('boxes', boxColumns, [
         { number: 'BOX-1', currency: 'USD', amount: '12.50', count: 1 },

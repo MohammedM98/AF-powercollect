@@ -49,7 +49,7 @@ const NUM = 'px-3 py-2.5 text-right [direction:ltr] font-display tabular-nums te
  * branches side by side and every line. It prints as a clean sheet of the
  * period and its summaries, and exports to Excel through the editor.
  */
-export default function Index({ branches, filters, scopeLabel, branchScope, presets, today, kinds, flow, collections, readings, days, transactions, period, comparison, branchSummary, canExport, canViewStatements, reportSection = 'overview', debts, boxData, reportStatement, detailFilters }) {
+export default function Index({ branches, filters, scopeLabel, branchScope, presets, today, kinds, flow, collections, readings, days, transactions, period, comparison, branchSummary, canExport, canViewStatements, reportSection = 'overview', debts, boxData, reportStatement }) {
     const { errors, auth } = usePage().props;
     const [excelOpen, setExcelOpen] = useState(false);
     const section = reportSection;
@@ -67,7 +67,7 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
 
     function visit(changes) {
         const subscription = changes.branch !== undefined && String(changes.branch) !== String(filters.branch) ? undefined : reportStatement?.subscription.id;
-        router.get('/reports', { ...filters, ...detailFilters, section, subscription, ...changes }, { preserveScroll: true, preserveState: true });
+        router.get('/reports', { ...filters, section, subscription, ...changes }, { preserveScroll: true, preserveState: true });
     }
 
     const excelMeta = useMemo(() => ({
@@ -93,7 +93,7 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
     const sections = [
         { key: 'overview', icon: 'ledger', title: 'نظرة عامة', heading: 'الوضع المالي للشركة', hint: 'التحميلات والتحصيل وحركة ذمم المشتركين' },
         { key: 'collections', icon: 'wallet', title: 'التحصيل', heading: 'تقرير التحصيل', hint: 'حسب الحساب والعملة والمحصّل' },
-        { key: 'boxes', icon: 'layers', title: 'الصناديق والأموال', heading: 'الصناديق والأموال', hint: 'الدفعات المسجلة في صناديق المحصّلين حسب العملة' },
+        { key: 'boxes', icon: 'layers', title: 'الصناديق والأموال', heading: 'الصناديق والأموال', hint: 'الصناديق المفتوحة خلال الفترة والدفعات المسجلة فيها حسب العملة' },
         { key: 'debts', icon: 'calendar', title: 'الديون', heading: 'ديون المشتركين', hint: 'الأرصدة وأعمار التحميلات كما في نهاية الفترة' },
         { key: 'statement', icon: 'users', title: 'كشوفات حسابات المشتركين', heading: 'كشوفات حسابات المشتركين', hint: 'رصيد افتتاحي وحركات ورصيد متتابع' },
         { key: 'movements', icon: 'list', title: 'سجل الحركات', heading: 'سجل الحركات', hint: 'كل الحركات المالية للفترة المختارة' },
@@ -201,7 +201,7 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
                     {days.length > 1 && <><DailyCollections days={days} onOpenDay={openDay} /><DaysTable days={days} onOpenDay={openDay} /></>}
                 </>}
                 {section === 'boxes' && <BoxesReport data={boxData} />}
-                {section === 'debts' && <DebtReport key={`${filters.branch}:${detailFilters?.debt_search ?? ''}`} data={debts} visit={visit} />}
+                {section === 'debts' && <DebtReport key={filters.branch} data={debts} visit={visit} />}
                 {section === 'statement' && <StatementReport key={filters.branch} data={reportStatement} visit={visit} />}
                 {section === 'movements' && <Transactions transactions={transactions} kinds={kinds} filters={{ ...filters, section }} showDay={!oneDay} showBranch={filters.branch === 'all'} onKind={(kind) => visit({ kind, page: undefined })} onStatement={canViewStatements ? (subscription) => visit({ section: 'statement', subscription, page: undefined }) : null} />}
 

@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -45,6 +46,11 @@ class ReportController extends Controller
 
     private const PER_PAGE = 50;
 
+    /**
+     * The summary sections (overview, collections, movements) carry the
+     * period's figures and lines for the screen, print and Excel; the
+     * detail sections (boxes, debts, statement) build only their own table.
+     */
     public function index(Request $request): InertiaResponse
     {
         abort_unless(FinancialReportAccess::view($request->user()), 403);
@@ -52,9 +58,8 @@ class ReportController extends Controller
         $branches = FinancialReportAccess::branches($request->user());
         ['chosen' => $chosen, 'branch' => $branch, 'from' => $from, 'to' => $to, 'today' => $today, 'kind' => $kind] = $this->filters($request, $branches);
         $report = new BranchReport($chosen, $from, $to);
-        $details = new ReportDetails($chosen, $to);
-        $detailFilters = $request->validate(['debt_search' => ['nullable', 'string', 'max:100'], 'debt_age' => ['nullable', Rule::in(array_keys(DebtAging::BUCKETS))]]);
-        $debtData = $section === 'debts' ? $details->debts($detailFilters['debt_search'] ?? '', $detailFilters['debt_age'] ?? '') : null;
+        $details = new ReportDetails($chosen, $from, $to);
+        $debtData = $section === 'debts' ? $details->debts() : null;
         $boxData = $section === 'boxes' ? $details->boxes() : null;
         $statementData = $section === 'statement' ? $this->statement($request, $chosen, $from, $to) : null;
         $accountDirectory = $section === 'statement' && $statementData === null && $request->user()->can('viewAny', Subscription::class)
@@ -66,7 +71,8 @@ class ReportController extends Controller
             default => null,
         };
         $period = ReportPeriod::describe($from, $to, $request->query('view'), $today);
-        $collections = $chosen->isEmpty() ? null : $report->collections();
+        $summary = $chosen->isNotEmpty() && in_array($section, ['overview', 'collections', 'movements'], true);
+        $collections = $summary ? $report->collections() : null;
         $comparison = null;
         if ($collections !== null) {
             $previous = (new BranchReport($chosen, ClosingPeriods::date($period['comparison']['from']), ClosingPeriods::date($period['comparison']['to'])))->collections();
@@ -79,7 +85,7 @@ class ReportController extends Controller
                 'percentage' => $previousCents === 0 ? null : round($difference / $previousCents * 100, 1),
             ];
         }
-        $branchSummary = $chosen->count() > 1
+        $branchSummary = $summary && $chosen->count() > 1
             ? $chosen->map(function (Branch $item) use ($from, $to): array {
                 $branchReport = new BranchReport(collect([$item]), $from, $to);
 
@@ -91,15 +97,17 @@ class ReportController extends Controller
                 ];
             })->values()
             : collect();
-        $flow = $chosen->isEmpty() ? null : $report->flow();
+        $flow = $summary ? $report->flow() : null;
         $scopeLabel = $chosen->count() === 1 ? $chosen->first()->name : 'كل الفروع';
-        $transactions = $report->lines($kind)
-            ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
-            ->orderByDesc('subscription_transactions.created_at')
-            ->orderByDesc('subscription_transactions.id')
-            ->paginate($request->boolean('print') ? $this->dataTablePerPage($request, self::PER_PAGE) : self::PER_PAGE)
-            ->withQueryString()
-            ->through(fn (SubscriptionTransaction $line): array => $this->row($line));
+        $transactions = $summary
+            ? $report->lines($kind)
+                ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
+                ->orderByDesc('subscription_transactions.created_at')
+                ->orderByDesc('subscription_transactions.id')
+                ->paginate($request->boolean('print') ? $this->dataTablePerPage($request, self::PER_PAGE) : self::PER_PAGE)
+                ->withQueryString()
+                ->through(fn (SubscriptionTransaction $line): array => $this->row($line))
+            : null;
         $printData = null;
         if ($request->boolean('print') && $flow !== null) {
             $detail = $request->query('print_view') === 'lines';
@@ -150,11 +158,11 @@ class ReportController extends Controller
             'reportSection' => $section,
             'reportAccounts' => $accountDirectory,
             'accountFilters' => $accountDirectory !== null ? $this->dataTableState($request, 'account_number') : null,
-            'detailTable' => $detailTable,
-            'detailFilters' => $detailFilters,
-            'debts' => $debtData,
-            'boxData' => $boxData,
-            'reportStatement' => $statementData,
+            'detailTable' => $detailTable === null ? null : $this->detailTablePage($request, $detailTable),
+            'detailExport' => Inertia::optional(fn (): ?Collection => $detailTable['rows'] ?? null),
+            'debts' => $debtData === null ? null : Arr::except($debtData, 'rows'),
+            'boxData' => $boxData === null ? null : Arr::except($boxData, 'rows'),
+            'reportStatement' => $statementData === null ? null : Arr::except($statementData, 'lines'),
             'canViewStatements' => $request->user()->can('viewAny', Subscription::class),
             'branches' => $branches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name])->values(),
             'filters' => ['branch' => $branch, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'kind' => $kind],
@@ -171,8 +179,8 @@ class ReportController extends Controller
             'kinds' => BranchReport::kinds(),
             'flow' => $flow,
             'collections' => $collections,
-            'readings' => $chosen->isEmpty() ? null : $report->readings(),
-            'days' => $chosen->isEmpty() ? [] : $report->days(),
+            'readings' => $summary ? $report->readings() : null,
+            'days' => $summary ? $report->days() : [],
             'transactions' => $transactions,
         ]);
     }
@@ -238,10 +246,30 @@ class ReportController extends Controller
         $sumKeys = $section === 'statement' ? ['debit', 'credit'] : ($section === 'debts' ? [...array_keys(DebtAging::BUCKETS), 'balance'] : []);
         $totals = [];
         foreach ($sumKeys as $key) {
-            $totals[$key] = Closing::money($matching->sum(fn (array $row): int => Closing::cents($row[$key])));
+            $totals[$key] = Closing::money($matching->reject(fn (array $row): bool => $row['netted'] ?? false)->sum(fn (array $row): int => Closing::cents($row[$key])));
         }
 
         return ['rows' => $matching, 'state' => $state, 'options' => $options, 'total' => $matching->count(), 'unfilteredTotal' => $rows->count(), 'totals' => $totals, 'active' => $terms !== [] || collect($state['filter'])->contains(fn (?string $value): bool => filled($value))];
+    }
+
+    /**
+     * The page of a detail table the screen shows. Printing uses every
+     * matching row, and the Excel export asks for them as `detailExport`.
+     *
+     * @param  array<string, mixed>  $table
+     * @return array<string, mixed>
+     */
+    private function detailTablePage(Request $request, array $table): array
+    {
+        $size = $table['state']['per_page'];
+        $last = max(1, (int) ceil($table['total'] / $size));
+        $page = min(max(1, $request->integer('page', 1)), $last);
+
+        return [
+            ...$table,
+            'rows' => $table['rows']->forPage($page, $size)->values(),
+            'meta' => ['current_page' => $page, 'last_page' => $last, 'from' => $table['total'] === 0 ? 0 : ($page - 1) * $size + 1, 'to' => min($page * $size, $table['total']), 'total' => $table['total']],
+        ];
     }
 
     /** @param Collection<int, Branch> $branches */
@@ -261,21 +289,6 @@ class ReportController extends Controller
             ->through(fn (Subscription $subscription): array => ['id' => $subscription->id, 'name' => $subscription->displayName(), 'accountNumber' => $subscription->account_number, 'branchName' => $subscription->branch?->name]);
     }
 
-    /** Search only readable accounts inside the report's authorized branch scope. */
-    public function subscriptions(Request $request): JsonResponse
-    {
-        abort_unless(FinancialReportAccess::view($request->user()), 403);
-        $this->authorize('viewAny', Subscription::class);
-        $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
-        ['chosen' => $branches] = $this->filters($request, FinancialReportAccess::branches($request->user()));
-        $subscriptions = Subscription::query()->readableTo($request->user())->whereIn('branch_id', $branches->pluck('id')->all())
-            ->when(! $request->user()->can('viewArchived', Subscription::class), fn (Builder $query) => $query->whereNull('archived_at'))
-            ->when(($validated['search'] ?? '') !== '', fn (Builder $query) => $query->matchingSearch($validated['search']))
-            ->orderBy('id')->limit(31)->get();
-
-        return response()->json(['options' => $subscriptions->take(30)->map(fn (Subscription $subscription): array => ['value' => $subscription->id, 'label' => $subscription->displayName().' · '.$subscription->account_number])->values(), 'hasMore' => $subscriptions->count() > 30]);
-    }
-
     /** All signed ledger lines in the period, including reversals, share one running balance. @param Collection<int, Branch> $branches @return array<string, mixed>|null */
     private function statement(Request $request, Collection $branches, CarbonImmutable $from, CarbonImmutable $to): ?array
     {
@@ -290,18 +303,42 @@ class ReportController extends Controller
         $balance = $opening;
         $debit = 0;
         $credit = 0;
-        $lines = $subscription->transactions()->where('created_at', '>=', $start)->where('created_at', '<', $end)
+        $transactions = $subscription->transactions()->where('created_at', '>=', $start)->where('created_at', '<', $end)
             ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
-            ->orderBy('created_at')->orderBy('id')->get()->map(function (SubscriptionTransaction $line) use (&$balance, &$debit, &$credit): array {
-                $amount = Closing::cents($line->amount);
-                $balance += $amount;
+            ->orderBy('created_at')->orderBy('id')->get();
+        $netted = $this->nettedWithinPeriod($transactions);
+        $lines = $transactions->map(function (SubscriptionTransaction $line) use (&$balance, &$debit, &$credit, $netted): array {
+            $amount = Closing::cents($line->amount);
+            $balance += $amount;
+            if (! isset($netted[$line->id])) {
                 $debit += max(0, $amount);
                 $credit += max(0, -$amount);
+            }
 
-                return [...$this->row($line), 'balance' => Closing::money($balance), 'debit' => Closing::money(max(0, $amount)), 'credit' => Closing::money(max(0, -$amount))];
-            });
+            return [...$this->row($line), 'balance' => Closing::money($balance), 'debit' => Closing::money(max(0, $amount)), 'credit' => Closing::money(max(0, -$amount)), 'netted' => isset($netted[$line->id])];
+        });
 
         return ['subscription' => ['id' => $subscription->id, 'name' => $subscription->displayName(), 'accountNumber' => $subscription->account_number, 'branchName' => $branches->firstWhere('id', $subscription->branch_id)?->name, 'url' => route('subscriptions.statement', $subscription)], 'opening' => Closing::money($opening), 'debit' => Closing::money($debit), 'credit' => Closing::money($credit), 'closing' => Closing::money($balance), 'lines' => $lines];
+    }
+
+    /**
+     * The lines that cancel each other out inside the period: a cancelled
+     * line and the reversal that takes it back, both recorded in it. They
+     * stay on the statement but count in neither its debit nor its credit
+     * total, as on the subscription's own statement page. A line cancelled
+     * after the period still stood at its end, so it keeps counting.
+     *
+     * @param  Collection<int, SubscriptionTransaction>  $transactions
+     * @return array<int, true>
+     */
+    private function nettedWithinPeriod(Collection $transactions): array
+    {
+        $ids = $transactions->pluck('id')->flip();
+
+        return $transactions->filter(fn (SubscriptionTransaction $line): bool => $line->reverses_id !== null && $ids->has($line->reverses_id))
+            ->flatMap(fn (SubscriptionTransaction $line): array => [$line->id, $line->reverses_id])
+            ->mapWithKeys(fn (int $id): array => [$id => true])
+            ->all();
     }
 
     /**

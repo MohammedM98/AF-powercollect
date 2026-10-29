@@ -9,16 +9,23 @@ use App\Models\Closing;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 
 class ReportDetails
 {
     /** @param Collection<int, Branch> $branches */
-    public function __construct(private Collection $branches, private CarbonImmutable $to) {}
+    public function __construct(private Collection $branches, private CarbonImmutable $from, private CarbonImmutable $to) {}
 
-    /** Historical balances use every signed line; payments settle the oldest charges first. @return array<string, mixed> */
-    public function debts(string $search = '', string $age = ''): array
+    /**
+     * Historical balances use every signed line; payments settle the oldest
+     * charges first. Balances are summed in the database, and lines are
+     * loaded only for the subscriptions that owe, the only ones aged.
+     *
+     * @return array<string, mixed>
+     */
+    public function debts(): array
     {
         $rows = collect();
         $credit = 0;
@@ -27,37 +34,32 @@ class ReportDetails
             $periods = ClosingPeriods::for($branch);
             $end = $periods->dayEnd($this->to)->utc();
             Subscription::query()->where('branch_id', $branch->id)->orderBy('id')->chunkById(300, function (Collection $subscriptions) use (&$rows, &$credit, &$creditCount, $branch, $periods, $end): void {
-                $lines = SubscriptionTransaction::query()->whereIn('subscription_id', $subscriptions->pluck('id')->all())
+                $balances = SubscriptionTransaction::query()->whereIn('subscription_id', $subscriptions->pluck('id')->all())
+                    ->where('created_at', '<', $end)->groupBy('subscription_id')
+                    ->selectRaw('subscription_id, SUM(amount) as balance')->pluck('balance', 'subscription_id')
+                    ->map(fn (mixed $sum): int => Closing::cents((string) $sum));
+                $lines = SubscriptionTransaction::query()->whereIn('subscription_id', $balances->filter(fn (int $balance): bool => $balance > 0)->keys()->all())
                     ->where('created_at', '<', $end)->orderByDesc('created_at')->orderByDesc('id')
                     ->get(['id', 'subscription_id', 'type', 'amount', 'created_at', 'cancelled_at', 'reverses_id'])->groupBy('subscription_id');
                 foreach ($subscriptions as $subscription) {
-                    $history = $lines->get($subscription->id, collect());
-                    $balance = $history->sum(fn (SubscriptionTransaction $line): int => Closing::cents($line->amount));
+                    $balance = $balances->get($subscription->id, 0);
                     if ($balance <= 0) {
                         $credit += $balance;
                         $creditCount += $balance < 0 ? 1 : 0;
 
                         continue;
                     }
-                    $remaining = $balance;
-                    $buckets = array_fill_keys(array_keys(DebtAging::BUCKETS), 0);
-                    $oldestDays = 0;
-                    $lastPayment = null;
-                    foreach ($history as $line) {
-                        $standing = $line->cancelled_at === null || $line->cancelled_at->greaterThanOrEqualTo($end);
-                        if ($lastPayment === null && $standing && $line->type === SubscriptionTransaction::TYPE_PAYMENT) {
-                            $lastPayment = $periods->dayOf($line->created_at);
-                        }
-                        if ($remaining <= 0 || ! $standing || $line->reverses_id !== null || in_array($line->type, SubscriptionTransaction::REVERSAL_TYPES, true) || Closing::cents($line->amount) <= 0) {
-                            continue;
-                        }
-                        $day = $periods->dayOf($line->created_at);
-                        $oldestDays = max(0, (int) ClosingPeriods::date($day)->diffInDays($this->to));
-                        $taken = min($remaining, Closing::cents($line->amount));
-                        $buckets[DebtAging::bucketFor($oldestDays)] += $taken;
-                        $remaining -= $taken;
-                    }
-                    $buckets[DebtAging::bucketFor($oldestDays)] += $remaining;
+                    $standing = $lines->get($subscription->id, collect())
+                        ->filter(fn (SubscriptionTransaction $line): bool => $line->cancelled_at === null || $line->cancelled_at->greaterThanOrEqualTo($end));
+                    $lastPayment = $standing->first(fn (SubscriptionTransaction $line): bool => $line->type === SubscriptionTransaction::TYPE_PAYMENT);
+                    $lastPayment = $lastPayment ? $periods->dayOf($lastPayment->created_at) : null;
+                    ['buckets' => $buckets, 'oldestDays' => $oldestDays] = DebtAging::split(
+                        $balance,
+                        $standing->lazy()
+                            ->filter(fn (SubscriptionTransaction $line): bool => $line->reverses_id === null && ! in_array($line->type, SubscriptionTransaction::REVERSAL_TYPES, true) && Closing::cents($line->amount) > 0)
+                            ->map(fn (SubscriptionTransaction $line): array => ['day' => $periods->dayOf($line->created_at), 'cents' => Closing::cents($line->amount)]),
+                        fn (string $day): int => max(0, (int) ClosingPeriods::date($day)->diffInDays($this->to)),
+                    );
                     $rows->push([
                         'id' => $subscription->id, 'name' => $subscription->displayName(), 'accountNumber' => $subscription->account_number,
                         'branchName' => $branch->name, 'balance' => Closing::money($balance),
@@ -67,8 +69,7 @@ class ReportDetails
                 }
             });
         }
-        $rows = $rows->filter(fn (array $row): bool => ($search === '' || mb_stripos($row['name'].' '.$row['accountNumber'], $search) !== false)
-            && ($age === '' || Closing::cents($row['buckets'][$age]) > 0))->sortByDesc(fn (array $row): int => Closing::cents($row['balance']))->values();
+        $rows = $rows->sortByDesc(fn (array $row): int => Closing::cents($row['balance']))->values();
 
         return [
             'rows' => $rows, 'asOf' => $this->to->toDateString(), 'count' => $rows->count(), 'bucketLabels' => DebtAging::BUCKET_LABELS,
@@ -78,13 +79,22 @@ class ReportDetails
         ];
     }
 
-    /** Recorded box entries by currency, without treating a handover as fresh income. @return array<string, mixed> */
+    /**
+     * Recorded box entries by currency, without treating a handover as fresh
+     * income. Only boxes open at some point in the period are listed: one
+     * closed and received before the period began belongs to an earlier one.
+     * `byStatus` totals them by where the box stands at the period's end:
+     * still open, closed without the branch confirming it, or confirmed.
+     *
+     * @return array<string, mixed>
+     */
     public function boxes(): array
     {
         $rows = collect();
         foreach ($this->branches as $branch) {
-            $end = ClosingPeriods::for($branch)->dayEnd($this->to)->utc();
+            [$start, $end] = ClosingPeriods::for($branch)->utcRange($this->from, $this->to);
             $boxes = CashBox::query()->where('branch_id', $branch->id)->where('opened_at', '<', $end)
+                ->where(fn (Builder $query) => $query->whereNull('closed_at')->orWhere('closed_at', '>=', $start)->orWhere('received_at', '>=', $start))
                 ->with(['user:id,name', 'payments' => function (HasMany $query) use ($end): void {
                     $query->where('occurred_at', '<', $end);
                 }, 'payments.transaction:id,cancelled_at'])
@@ -104,6 +114,16 @@ class ReportDetails
             }
         }
 
-        return ['asOf' => $this->to->toDateString(), 'rows' => $rows->values()];
+        return [
+            'asOf' => $this->to->toDateString(),
+            'rows' => $rows->values(),
+            'byStatus' => collect(['مفتوح', 'مغلق', 'مستلم'])->map(fn (string $status): array => [
+                'status' => $status,
+                'boxes' => $rows->where('status', $status)->unique('boxId')->count(),
+                'currencies' => $rows->where('status', $status)->groupBy('currency')
+                    ->map(fn (Collection $entries, string $currency): array => ['currency' => $currency, 'amount' => Closing::money($entries->sum(fn (array $row): int => Closing::cents($row['amount'])))])
+                    ->sortByDesc(fn (array $total): bool => $total['currency'] === 'ILS')->values()->all(),
+            ])->all(),
+        ];
     }
 }

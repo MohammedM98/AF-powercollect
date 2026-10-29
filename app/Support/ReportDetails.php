@@ -49,26 +49,17 @@ class ReportDetails
 
                         continue;
                     }
-                    $history = $lines->get($subscription->id, collect());
-                    $remaining = $balance;
-                    $buckets = array_fill_keys(array_keys(DebtAging::BUCKETS), 0);
-                    $oldestDays = 0;
-                    $lastPayment = null;
-                    foreach ($history as $line) {
-                        $standing = $line->cancelled_at === null || $line->cancelled_at->greaterThanOrEqualTo($end);
-                        if ($lastPayment === null && $standing && $line->type === SubscriptionTransaction::TYPE_PAYMENT) {
-                            $lastPayment = $periods->dayOf($line->created_at);
-                        }
-                        if ($remaining <= 0 || ! $standing || $line->reverses_id !== null || in_array($line->type, SubscriptionTransaction::REVERSAL_TYPES, true) || Closing::cents($line->amount) <= 0) {
-                            continue;
-                        }
-                        $day = $periods->dayOf($line->created_at);
-                        $oldestDays = max(0, (int) ClosingPeriods::date($day)->diffInDays($this->to));
-                        $taken = min($remaining, Closing::cents($line->amount));
-                        $buckets[DebtAging::bucketFor($oldestDays)] += $taken;
-                        $remaining -= $taken;
-                    }
-                    $buckets[DebtAging::bucketFor($oldestDays)] += $remaining;
+                    $standing = $lines->get($subscription->id, collect())
+                        ->filter(fn (SubscriptionTransaction $line): bool => $line->cancelled_at === null || $line->cancelled_at->greaterThanOrEqualTo($end));
+                    $lastPayment = $standing->first(fn (SubscriptionTransaction $line): bool => $line->type === SubscriptionTransaction::TYPE_PAYMENT);
+                    $lastPayment = $lastPayment ? $periods->dayOf($lastPayment->created_at) : null;
+                    ['buckets' => $buckets, 'oldestDays' => $oldestDays] = DebtAging::split(
+                        $balance,
+                        $standing->lazy()
+                            ->filter(fn (SubscriptionTransaction $line): bool => $line->reverses_id === null && ! in_array($line->type, SubscriptionTransaction::REVERSAL_TYPES, true) && Closing::cents($line->amount) > 0)
+                            ->map(fn (SubscriptionTransaction $line): array => ['day' => $periods->dayOf($line->created_at), 'cents' => Closing::cents($line->amount)]),
+                        fn (string $day): int => max(0, (int) ClosingPeriods::date($day)->diffInDays($this->to)),
+                    );
                     $rows->push([
                         'id' => $subscription->id, 'name' => $subscription->displayName(), 'accountNumber' => $subscription->account_number,
                         'branchName' => $branch->name, 'balance' => Closing::money($balance),

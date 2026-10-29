@@ -183,6 +183,39 @@ class PrintTemplateTest extends TestCase
         $this->assertDatabaseCount('print_templates', 2);
     }
 
+    public function test_group_layout_highlights_watermark_and_repeated_page_parts_are_kept_and_checked(): void
+    {
+        $manager = $this->manager();
+        $layout = $this->layout([
+            'group' => [
+                'key' => 'field:subAreaName', 'then' => ['field:meterBoxLabel'], 'newPage' => true, 'newPageAt' => 'every',
+                'headings' => 'stacked', 'align' => 'center', 'labels' => false, 'unit' => 'مشترك', 'repeatHeader' => true,
+                'restartNumbers' => true, 'keepTogether' => true, 'showCount' => false, 'blankRows' => 3,
+                'styles' => [['size' => 1.35, 'background' => '#fde2e1', 'color' => '#111827'], ['size' => null, 'background' => null, 'color' => null]],
+            ],
+            'table' => ['accent' => '#111827', 'highlights' => [['key' => 'الحالة', 'operator' => 'contains', 'value' => 'لم تُدخل', 'color' => '#fde2e1', 'target' => 'row']]],
+            'header' => ['repeatCompany' => true, 'repeatDate' => true],
+            'footer' => ['pageNumberPosition' => 'center'],
+            'watermark' => ['enabled' => true, 'text' => 'نسخة القارئ', 'logo' => true, 'opacity' => 0.1],
+        ]);
+
+        $this->actingAs($manager)->post(route('print-templates.store'), ['page' => '/meter-readings', 'name' => 'كشف القارئ', 'layout' => $layout])->assertSessionHasNoErrors();
+        $this->assertSame($layout, PrintTemplate::sole()->layout);
+
+        foreach ([
+            'layout.group.blankRows' => ['group' => ['blankRows' => 11]],
+            'layout.group.newPageAt' => ['group' => ['newPageAt' => 'sometimes']],
+            'layout.group.styles.0.background' => ['group' => ['styles' => [['background' => 'red;x:y']]]],
+            'layout.table.highlights.0.operator' => ['table' => ['highlights' => [['key' => 'الحالة', 'operator' => 'like', 'color' => '#fde2e1']]]],
+            'layout.table.highlights.0.color' => ['table' => ['highlights' => [['key' => 'الحالة', 'operator' => 'empty', 'color' => 'url(x)']]]],
+            'layout.footer.pageNumberPosition' => ['footer' => ['pageNumberPosition' => 'top']],
+            'layout.watermark.opacity' => ['watermark' => ['enabled' => true, 'opacity' => 0.9]],
+        ] as $field => $bad) {
+            $this->post(route('print-templates.store'), ['page' => '/meter-readings', 'name' => 'خطأ', 'layout' => $this->layout($bad)])->assertSessionHasErrors($field);
+        }
+        $this->assertDatabaseCount('print_templates', 1);
+    }
+
     public function test_a_template_is_refused_for_an_unknown_list_or_an_unsafe_colour(): void
     {
         $manager = $this->manager();

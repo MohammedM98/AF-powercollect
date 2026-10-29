@@ -234,7 +234,7 @@ export default function PrintDesigner({ settings, children, beforePrint }) {
 
     return (
         <div className="pd-root min-h-screen bg-gray-100 text-gray-900" style={{ '--pd-toolbar-height': `${toolbarHeight}px` }}>
-            {layout && <style>{pageCss(layout)}</style>}
+            {layout && <style>{pageCss(layout, { company: layout.header.company || props.appName, date: `طُبع في ${new Date().toLocaleDateString('en-GB')}` })}</style>}
 
             <header
                 ref={toolbarRef}

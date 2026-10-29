@@ -408,6 +408,7 @@ step('report sections retain the branch banner, statement alignment and mobile b
     const page = people.owner;
     await page.goto('/reports?branch=all');
     const nav = page.getByRole('navigation', { name: 'أقسام التقارير' });
+    await nav.getByRole('button').nth(5).waitFor();
     assert.equal(await nav.getByRole('button').count(), 6);
     await page.getByRole('region', { name: 'الفرع المعروض' }).getByRole('heading', { name: 'فرع النصيرات', exact: true }).waitFor();
     await snap(page, 'reports-overview');

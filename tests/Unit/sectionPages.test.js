@@ -8,6 +8,7 @@ import { navigationGroups, pageTrail, topBarItems } from '../../resources/js/lib
 
 let SectionPages;
 let MegaMenu;
+let hiddenEnds;
 
 before(async () => {
     const bundle = await rolldown({
@@ -22,14 +23,14 @@ before(async () => {
                 if (/^react(?:-dom)?(?:\/|$)/.test(id)) return { id: import.meta.resolve(id), external: true };
             },
             load(id) {
-                if (id === '\0navigation-components') return `export { SectionPages } from ${JSON.stringify(path.resolve(import.meta.dirname, '../../resources/js/Components/TopBar/PageTrail.jsx'))}; export { default as MegaMenu } from ${JSON.stringify(path.resolve(import.meta.dirname, '../../resources/js/Components/TopBar/MegaMenu.jsx'))};`;
+                if (id === '\0navigation-components') return `export { SectionPages, hiddenEnds } from ${JSON.stringify(path.resolve(import.meta.dirname, '../../resources/js/Components/TopBar/PageTrail.jsx'))}; export { default as MegaMenu } from ${JSON.stringify(path.resolve(import.meta.dirname, '../../resources/js/Components/TopBar/MegaMenu.jsx'))};`;
                 if (id === '\0inertia-link') return "import { createElement } from 'react'; export function Link({ children, prefetch, ...props }) { return createElement('a', props, children); }";
             },
         }],
     });
     try {
         const { output } = await bundle.generate({ format: 'esm' });
-        ({ SectionPages, MegaMenu } = await import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`));
+        ({ SectionPages, MegaMenu, hiddenEnds } = await import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`));
     } finally { await bundle.close(); }
 });
 
@@ -62,4 +63,11 @@ test('the desktop section menu lists only the pages the user may open, and a sec
     const subscribers = menu(groups.find((group) => group.id === 'daily'));
     assert.deepEqual([...subscribers.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), ['/subscriptions']);
     assert.equal(groups.find((group) => group.id === 'finance'), undefined);
+});
+
+test('the section strip fades only the ends that hide more pages, right to left', () => {
+    assert.equal(hiddenEnds(0, 400, 400), null);
+    assert.equal(hiddenEnds(0, 700, 390), 'end');
+    assert.equal(hiddenEnds(-150, 700, 390), 'both');
+    assert.equal(hiddenEnds(-310, 700, 390), 'start');
 });

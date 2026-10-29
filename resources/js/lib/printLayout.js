@@ -107,7 +107,9 @@ export function defaultLayout({ columns, title = '', company = '' }) {
         columns: columns.map((column) => ({ key: column.key, label: column.label, extra: Boolean(column.extra), visible: !column.extra, align: 'auto', total: false })),
         // Up to three levels, `{ key, direction }`; empty keeps the table's own order.
         sort: [],
-        group: { key: '', newPage: false, subtotals: true },
+        // `headings`: 'inline' writes a group's levels on one line, 'stacked' gives each level its own
+        // line, written only when its value changes (e.g. the area, then each box under it).
+        group: { key: '', newPage: false, subtotals: true, headings: 'inline', align: 'start', labels: true },
         table: {
             borders: 'grid',
             zebra: true,
@@ -255,6 +257,48 @@ export function arrangeRows(rows, layout) {
     }
 
     return sections;
+}
+
+/**
+ * The heading lines above each section from arrangeRows. Inline, one line
+ * holds every level; stacked, each level gets its own line, written only
+ * where its value changes from the section before, so an area is named
+ * once above all of its boxes. Each line counts the rows under it.
+ *
+ * @return {Array<Array<{ level: number, groups: Array<{ key: string, label: string, value: string }>, count: number }>>}
+ */
+export function sectionHeadings(sections, layout) {
+    const labelOf = (key) => layout.columns.find((column) => column.key === key)?.label ?? '';
+    const levelsOf = (section) => (section.groups ?? [{ key: layout.group?.key ?? '', value: section.title }])
+        .map((group) => ({ ...group, label: labelOf(group.key) }));
+    const sameUpTo = (first, second, level) => first.title !== null && second.title !== null
+        && levelsOf(first).slice(0, level + 1).every((group, index) => group.value === levelsOf(second)[index]?.value);
+
+    return sections.map((section, index) => {
+        if (section.title === null) {
+            return [];
+        }
+
+        const levels = levelsOf(section);
+
+        if (layout.group?.headings !== 'stacked') {
+            return [{ level: 0, groups: levels, count: section.rows.length }];
+        }
+
+        const previous = sections[index - 1];
+        const changed = previous ? levels.findIndex((_, level) => !sameUpTo(section, previous, level)) : 0;
+
+        return levels.slice(changed === -1 ? levels.length - 1 : changed).map((group, offset) => {
+            const level = (changed === -1 ? levels.length - 1 : changed) + offset;
+            let count = 0;
+
+            for (let next = index; next < sections.length && sameUpTo(section, sections[next], level); next++) {
+                count += sections[next].rows.length;
+            }
+
+            return { level, groups: [group], count };
+        });
+    });
 }
 
 function pick(object, keys) {

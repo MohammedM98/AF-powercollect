@@ -38,6 +38,16 @@ const ALIGNMENTS = [
     { value: 'end', label: 'يسار' },
 ];
 
+const GROUP_HEADINGS = [
+    { value: 'inline', label: 'سطر واحد' },
+    { value: 'stacked', label: 'سطر لكل مستوى' },
+];
+
+const GROUP_ALIGNMENTS = [
+    { value: 'start', label: 'يمين' },
+    { value: 'center', label: 'وسط' },
+];
+
 const ACCENTS = [
     { value: '#111827', label: 'أسود' },
     { value: '#A51D26', label: 'عنابي' },
@@ -341,7 +351,7 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
 
             <Section icon="list" title="الصفوف" open>
                 <fieldset disabled={scope.loading}>
-                {scope.allRowsOnly ? <p className="text-sm font-semibold text-gray-700">كل الحركات المطابقة للتصفية ({scope.total})</p> : <ChoiceChips
+                {scope.allRowsOnly ? <p className="text-sm font-semibold text-gray-700">كل الصفوف المطابقة للتصفية ({scope.total})</p> : <ChoiceChips
                     options={[
                         { value: 'all', label: `كل النتائج${!scope.selected && typeof scope.total === 'number' ? ` (${scope.total.toLocaleString('en')})` : ''}`, icon: 'list' },
                         { value: 'page', label: 'الصفحة المعروضة فقط', icon: 'table' },
@@ -599,6 +609,13 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                             const next = layout.columns.find((column) => column.key !== layout.group.key && !(layout.group.then ?? []).includes(column.key) && !column.key.startsWith('blank:'));
                             if (next) setIn('group', 'then', [...(layout.group.then ?? []), next.key]);
                         }}>إضافة مستوى تجميع</SecondaryButton>}
+                        <Field label="عناوين المجموعات" hint={(layout.group.then ?? []).length > 0 ? 'سطر لكل مستوى: يُكتب كل مستوى في سطر خاص عند تغيّره، مثل المنطقة ثم الطبلون تحتها.' : undefined}>
+                            {(id) => <ChoiceChips id={id} options={GROUP_HEADINGS} value={layout.group.headings ?? 'inline'} onChange={(value) => setIn('group', 'headings', value)} label="عناوين المجموعات" />}
+                        </Field>
+                        <Field label="محاذاة عناوين المجموعات">
+                            {(id) => <ChoiceChips id={id} options={GROUP_ALIGNMENTS} value={layout.group.align ?? 'start'} onChange={(value) => setIn('group', 'align', value)} label="محاذاة عناوين المجموعات" />}
+                        </Field>
+                        <Switch checked={layout.group.labels !== false} onChange={(value) => setIn('group', 'labels', value)} label="كتابة اسم الحقل قبل القيمة (مثل «الطبلون:»)" />
                         <Switch checked={layout.group.newPage} onChange={(value) => setIn('group', 'newPage', value)} label="كل مجموعة في صفحة جديدة" />
                         <Switch
                             checked={layout.group.subtotals}

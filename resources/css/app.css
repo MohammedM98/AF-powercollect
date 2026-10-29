@@ -2069,9 +2069,28 @@ input[type='radio'] {
     font-weight: 700;
 }
 
+.pd-table tr.pd-group-title {
+    break-after: avoid;
+}
+
 .pd-table tr.pd-group-title td {
     border-bottom: 2px solid var(--pd-accent);
     background: color-mix(in srgb, var(--pd-accent) 8%, #fff);
+}
+
+/* Stacked headings: the outer level (e.g. the area) stands out, the next (the box) sits lighter under it. */
+.pd-table tr.pd-group-level-0 + tr.pd-group-level-1 td {
+    padding-top: var(--pd-pad);
+}
+
+.pd-table tr.pd-group-level-0:has(+ tr.pd-group-level-1) td {
+    font-size: 1.12em;
+    background: color-mix(in srgb, var(--pd-accent) 14%, #fff);
+}
+
+.pd-table tr.pd-group-level-1 td,
+.pd-table tr.pd-group-level-2 td {
+    border-bottom-width: 1px;
 }
 
 .pd-table tr.pd-subtotal td {

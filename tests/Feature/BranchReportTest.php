@@ -384,6 +384,21 @@ class BranchReportTest extends TestCase
             ->where('collections.currencies.0.total', '50.00'));
     }
 
+    public function test_box_report_lists_only_boxes_open_during_the_period(): void
+    {
+        $earlier = $this->at('2026-09-20 09:00', fn () => $this->pay('30'))->boxEntry->box;
+        $earlier->update(['status' => 'received', 'closed_at' => Carbon::parse('2026-09-21 18:00', 'Asia/Gaza'), 'received_at' => Carbon::parse('2026-09-22 09:00', 'Asia/Gaza')]);
+        $other = User::factory()->collector()->create(['branch_id' => $this->north->id]);
+        $current = $this->at('2026-09-29 09:00', fn () => SubscriptionTransaction::recordPayment($this->subscription, $other, ['amount' => '20', 'currency' => 'ILS', 'payment_method' => 'cash']))->boxEntry->box;
+
+        $this->actingAs($this->preparer())->get(route('reports.index', ['section' => 'boxes', 'from' => '2026-09-30', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->has('boxData.rows', 1)
+            ->where('boxData.rows.0.boxId', $current->id)
+            ->where('boxData.rows.0.status', 'مفتوح'));
+        $this->get(route('reports.index', ['section' => 'boxes', 'from' => '2026-09-20', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->has('boxData.rows', 2));
+    }
+
     public function test_detail_sections_skip_the_period_summary_that_only_summary_sections_show(): void
     {
         $this->at('2026-10-01 08:00', fn () => $this->pay('40'));

@@ -93,7 +93,7 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
     const sections = [
         { key: 'overview', icon: 'ledger', title: 'نظرة عامة', heading: 'الوضع المالي للشركة', hint: 'التحميلات والتحصيل وحركة ذمم المشتركين' },
         { key: 'collections', icon: 'wallet', title: 'التحصيل', heading: 'تقرير التحصيل', hint: 'حسب الحساب والعملة والمحصّل' },
-        { key: 'boxes', icon: 'layers', title: 'الصناديق والأموال', heading: 'الصناديق والأموال', hint: 'الدفعات المسجلة في صناديق المحصّلين حسب العملة' },
+        { key: 'boxes', icon: 'layers', title: 'الصناديق والأموال', heading: 'الصناديق والأموال', hint: 'الصناديق المفتوحة خلال الفترة والدفعات المسجلة فيها حسب العملة' },
         { key: 'debts', icon: 'calendar', title: 'الديون', heading: 'ديون المشتركين', hint: 'الأرصدة وأعمار التحميلات كما في نهاية الفترة' },
         { key: 'statement', icon: 'users', title: 'كشوفات حسابات المشتركين', heading: 'كشوفات حسابات المشتركين', hint: 'رصيد افتتاحي وحركات ورصيد متتابع' },
         { key: 'movements', icon: 'list', title: 'سجل الحركات', heading: 'سجل الحركات', hint: 'كل الحركات المالية للفترة المختارة' },

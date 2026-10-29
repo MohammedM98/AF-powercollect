@@ -9,13 +9,14 @@ use App\Models\Closing;
 use App\Models\Subscription;
 use App\Models\SubscriptionTransaction;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 
 class ReportDetails
 {
     /** @param Collection<int, Branch> $branches */
-    public function __construct(private Collection $branches, private CarbonImmutable $to) {}
+    public function __construct(private Collection $branches, private CarbonImmutable $from, private CarbonImmutable $to) {}
 
     /** Historical balances use every signed line; payments settle the oldest charges first. @return array<string, mixed> */
     public function debts(string $search = '', string $age = ''): array
@@ -78,13 +79,20 @@ class ReportDetails
         ];
     }
 
-    /** Recorded box entries by currency, without treating a handover as fresh income. @return array<string, mixed> */
+    /**
+     * Recorded box entries by currency, without treating a handover as fresh
+     * income. Only boxes open at some point in the period are listed: one
+     * closed and received before the period began belongs to an earlier one.
+     *
+     * @return array<string, mixed>
+     */
     public function boxes(): array
     {
         $rows = collect();
         foreach ($this->branches as $branch) {
-            $end = ClosingPeriods::for($branch)->dayEnd($this->to)->utc();
+            [$start, $end] = ClosingPeriods::for($branch)->utcRange($this->from, $this->to);
             $boxes = CashBox::query()->where('branch_id', $branch->id)->where('opened_at', '<', $end)
+                ->where(fn (Builder $query) => $query->whereNull('closed_at')->orWhere('closed_at', '>=', $start)->orWhere('received_at', '>=', $start))
                 ->with(['user:id,name', 'payments' => function (HasMany $query) use ($end): void {
                     $query->where('occurred_at', '<', $end);
                 }, 'payments.transaction:id,cancelled_at'])

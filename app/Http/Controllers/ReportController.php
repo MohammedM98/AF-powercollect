@@ -57,7 +57,7 @@ class ReportController extends Controller
         $branches = FinancialReportAccess::branches($request->user());
         ['chosen' => $chosen, 'branch' => $branch, 'from' => $from, 'to' => $to, 'today' => $today, 'kind' => $kind] = $this->filters($request, $branches);
         $report = new BranchReport($chosen, $from, $to);
-        $details = new ReportDetails($chosen, $to);
+        $details = new ReportDetails($chosen, $from, $to);
         $detailFilters = $request->validate(['debt_search' => ['nullable', 'string', 'max:100'], 'debt_age' => ['nullable', Rule::in(array_keys(DebtAging::BUCKETS))]]);
         $debtData = $section === 'debts' ? $details->debts($detailFilters['debt_search'] ?? '', $detailFilters['debt_age'] ?? '') : null;
         $boxData = $section === 'boxes' ? $details->boxes() : null;

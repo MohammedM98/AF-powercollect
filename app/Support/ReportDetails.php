@@ -18,7 +18,13 @@ class ReportDetails
     /** @param Collection<int, Branch> $branches */
     public function __construct(private Collection $branches, private CarbonImmutable $from, private CarbonImmutable $to) {}
 
-    /** Historical balances use every signed line; payments settle the oldest charges first. @return array<string, mixed> */
+    /**
+     * Historical balances use every signed line; payments settle the oldest
+     * charges first. Balances are summed in the database, and lines are
+     * loaded only for the subscriptions that owe, the only ones aged.
+     *
+     * @return array<string, mixed>
+     */
     public function debts(string $search = '', string $age = ''): array
     {
         $rows = collect();
@@ -28,18 +34,22 @@ class ReportDetails
             $periods = ClosingPeriods::for($branch);
             $end = $periods->dayEnd($this->to)->utc();
             Subscription::query()->where('branch_id', $branch->id)->orderBy('id')->chunkById(300, function (Collection $subscriptions) use (&$rows, &$credit, &$creditCount, $branch, $periods, $end): void {
-                $lines = SubscriptionTransaction::query()->whereIn('subscription_id', $subscriptions->pluck('id')->all())
+                $balances = SubscriptionTransaction::query()->whereIn('subscription_id', $subscriptions->pluck('id')->all())
+                    ->where('created_at', '<', $end)->groupBy('subscription_id')
+                    ->selectRaw('subscription_id, SUM(amount) as balance')->pluck('balance', 'subscription_id')
+                    ->map(fn (mixed $sum): int => Closing::cents((string) $sum));
+                $lines = SubscriptionTransaction::query()->whereIn('subscription_id', $balances->filter(fn (int $balance): bool => $balance > 0)->keys()->all())
                     ->where('created_at', '<', $end)->orderByDesc('created_at')->orderByDesc('id')
                     ->get(['id', 'subscription_id', 'type', 'amount', 'created_at', 'cancelled_at', 'reverses_id'])->groupBy('subscription_id');
                 foreach ($subscriptions as $subscription) {
-                    $history = $lines->get($subscription->id, collect());
-                    $balance = $history->sum(fn (SubscriptionTransaction $line): int => Closing::cents($line->amount));
+                    $balance = $balances->get($subscription->id, 0);
                     if ($balance <= 0) {
                         $credit += $balance;
                         $creditCount += $balance < 0 ? 1 : 0;
 
                         continue;
                     }
+                    $history = $lines->get($subscription->id, collect());
                     $remaining = $balance;
                     $buckets = array_fill_keys(array_keys(DebtAging::BUCKETS), 0);
                     $oldestDays = 0;

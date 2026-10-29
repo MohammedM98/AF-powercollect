@@ -246,7 +246,7 @@ class ReportController extends Controller
         $sumKeys = $section === 'statement' ? ['debit', 'credit'] : ($section === 'debts' ? [...array_keys(DebtAging::BUCKETS), 'balance'] : []);
         $totals = [];
         foreach ($sumKeys as $key) {
-            $totals[$key] = Closing::money($matching->sum(fn (array $row): int => Closing::cents($row[$key])));
+            $totals[$key] = Closing::money($matching->reject(fn (array $row): bool => $row['netted'] ?? false)->sum(fn (array $row): int => Closing::cents($row[$key])));
         }
 
         return ['rows' => $matching, 'state' => $state, 'options' => $options, 'total' => $matching->count(), 'unfilteredTotal' => $rows->count(), 'totals' => $totals, 'active' => $terms !== [] || collect($state['filter'])->contains(fn (?string $value): bool => filled($value))];
@@ -298,18 +298,42 @@ class ReportController extends Controller
         $balance = $opening;
         $debit = 0;
         $credit = 0;
-        $lines = $subscription->transactions()->where('created_at', '>=', $start)->where('created_at', '<', $end)
+        $transactions = $subscription->transactions()->where('created_at', '>=', $start)->where('created_at', '<', $end)
             ->with(['subscription.branch', 'subscription.meterBox', 'recordedBy', 'meterReading', 'reverses.meterReading', 'bankTransferAudit'])
-            ->orderBy('created_at')->orderBy('id')->get()->map(function (SubscriptionTransaction $line) use (&$balance, &$debit, &$credit): array {
-                $amount = Closing::cents($line->amount);
-                $balance += $amount;
+            ->orderBy('created_at')->orderBy('id')->get();
+        $netted = $this->nettedWithinPeriod($transactions);
+        $lines = $transactions->map(function (SubscriptionTransaction $line) use (&$balance, &$debit, &$credit, $netted): array {
+            $amount = Closing::cents($line->amount);
+            $balance += $amount;
+            if (! isset($netted[$line->id])) {
                 $debit += max(0, $amount);
                 $credit += max(0, -$amount);
+            }
 
-                return [...$this->row($line), 'balance' => Closing::money($balance), 'debit' => Closing::money(max(0, $amount)), 'credit' => Closing::money(max(0, -$amount))];
-            });
+            return [...$this->row($line), 'balance' => Closing::money($balance), 'debit' => Closing::money(max(0, $amount)), 'credit' => Closing::money(max(0, -$amount)), 'netted' => isset($netted[$line->id])];
+        });
 
         return ['subscription' => ['id' => $subscription->id, 'name' => $subscription->displayName(), 'accountNumber' => $subscription->account_number, 'branchName' => $branches->firstWhere('id', $subscription->branch_id)?->name, 'url' => route('subscriptions.statement', $subscription)], 'opening' => Closing::money($opening), 'debit' => Closing::money($debit), 'credit' => Closing::money($credit), 'closing' => Closing::money($balance), 'lines' => $lines];
+    }
+
+    /**
+     * The lines that cancel each other out inside the period: a cancelled
+     * line and the reversal that takes it back, both recorded in it. They
+     * stay on the statement but count in neither its debit nor its credit
+     * total, as on the subscription's own statement page. A line cancelled
+     * after the period still stood at its end, so it keeps counting.
+     *
+     * @param  Collection<int, SubscriptionTransaction>  $transactions
+     * @return array<int, true>
+     */
+    private function nettedWithinPeriod(Collection $transactions): array
+    {
+        $ids = $transactions->pluck('id')->flip();
+
+        return $transactions->filter(fn (SubscriptionTransaction $line): bool => $line->reverses_id !== null && $ids->has($line->reverses_id))
+            ->flatMap(fn (SubscriptionTransaction $line): array => [$line->id, $line->reverses_id])
+            ->mapWithKeys(fn (int $id): array => [$id => true])
+            ->all();
     }
 
     /**

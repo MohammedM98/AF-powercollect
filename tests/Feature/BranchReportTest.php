@@ -439,6 +439,25 @@ class BranchReportTest extends TestCase
             ->where('printData.rows.1.cells.له (دائن)', '150.00'));
     }
 
+    public function test_statement_totals_leave_out_payments_cancelled_within_the_period(): void
+    {
+        $this->at('2026-09-29 08:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '100', null));
+        $this->at('2026-09-29 09:00', fn () => $this->pay('40'));
+        $mistake = $this->at('2026-09-29 10:00', fn () => $this->pay('15'));
+        $this->at('2026-09-29 10:05', fn () => $mistake->cancel($this->collector, CorrectionReason::Duplicate, null));
+        $later = $this->at('2026-09-30 09:00', fn () => $this->pay('10'));
+        $this->at('2026-10-01 09:00', fn () => $later->cancel($this->collector, CorrectionReason::NotReceived, null));
+        $this->actingAs(User::factory()->superAdmin()->create());
+
+        $this->get(route('reports.index', ['section' => 'statement', 'subscription' => $this->subscription->id, 'from' => '2026-09-29', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
+            ->where('reportStatement.debit', '100.00')
+            ->where('reportStatement.credit', '50.00')
+            ->where('reportStatement.closing', '50.00')
+            ->where('detailTable.total', 5)
+            ->where('detailTable.totals.debit', '100.00')
+            ->where('detailTable.totals.credit', '50.00'));
+    }
+
     public function test_statement_without_period_movements_keeps_its_opening_balance_and_has_no_fake_table_rows(): void
     {
         $this->at('2026-09-30 09:00', fn () => SubscriptionTransaction::recordCharge($this->subscription, $this->collector, ChargeType::Penalty, '7178', null));

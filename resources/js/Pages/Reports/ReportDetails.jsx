@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import Balance from '@/Components/Balance';
 import ExcelButton, { tableExportButtonClass } from '@/Components/ExcelButton';
@@ -26,13 +25,23 @@ const reportHelp = {
     boxes: 'مبالغ مسجلة بعملة قيد الصندوق، والعملات الأخرى تُحوّل بسعر الصرف وقت التسجيل. العملة الأصلية في تقرير التحصيل. تسليم المحصّل لا يُعد تحصيلًا جديدًا.',
 };
 
-function Actions({ title, section, columns, rows, identity = '' }) {
+/** Every row matching the table's search and filters, fetched only when exporting; the screen holds one page. */
+function loadExportRows() {
+    return new Promise((resolve, reject) => router.reload({
+        only: ['detailExport'],
+        onSuccess: (page) => resolve(page.props.detailExport ?? []),
+        onError: () => reject(new Error('تعذر تحميل صفوف التقرير للتصدير.')),
+        onCancel: () => reject(new Error('أُلغي تحميل صفوف التقرير للتصدير.')),
+    }));
+}
+
+function Actions({ title, section, columns, exportRows, identity = '' }) {
     const { canExport, filters, detailFilters, reportStatement, scopeLabel, detailTable } = usePage().props;
     const params = new URLSearchParams({ ...filters, ...detailFilters, section, search: detailTable?.state.search ?? '', sort: detailTable?.state.sort ?? '', direction: detailTable?.state.direction ?? '' });
     Object.entries(detailTable?.state.filter ?? {}).forEach(([key, value]) => value && params.set(`filter[${key}]`, value));
     if (section === 'statement' && reportStatement) params.set('subscription', reportStatement.subscription.id);
     return <div className="flex flex-wrap items-center gap-2">
-        {canExport && <ExcelButton title={title} storageKey={`reports:${section}`} templateKind="reports" loadParts={async () => [detailExcelPart(section, title, columns, rows)]} meta={{ lines: [scopeLabel, identity, detailTable?.active ? 'الحركات المطابقة للبحث والفلاتر؛ الأرصدة تاريخية' : '', `${filters.from} – ${filters.to}`].filter(Boolean), criteria: [['الفرع', scopeLabel], ...(identity ? [['الحساب', identity]] : []), ['من', filters.from], ['إلى', filters.to]] }} />}
+        {canExport && <ExcelButton title={title} storageKey={`reports:${section}`} templateKind="reports" loadParts={async () => { const rows = await loadExportRows(); return [detailExcelPart(section, title, columns, exportRows ? exportRows(rows) : rows)]; }} meta={{ lines: [scopeLabel, identity, detailTable?.active ? 'الحركات المطابقة للبحث والفلاتر؛ الأرصدة تاريخية' : '', `${filters.from} – ${filters.to}`].filter(Boolean), criteria: [['الفرع', scopeLabel], ...(identity ? [['الحساب', identity]] : []), ['من', filters.from], ['إلى', filters.to]] }} />}
         <a className={`${tableExportButtonClass} tone-print`} href={printUrl(title, `/reports?${params}`)} target="_blank" rel="noopener noreferrer"><Icon name="printer" className="h-4 w-4" />طباعة</a>
         <InfoTip label="معلومة عن التقرير">{reportHelp[section]}</InfoTip>
     </div>;
@@ -40,13 +49,9 @@ function Actions({ title, section, columns, rows, identity = '' }) {
 
 function ReportTable({ columns, title, section, nameCell, empty, exportRows }) {
     const { detailTable: model, filters, detailFilters, reportStatement } = usePage().props;
-    const [page, setPage] = useState(1);
     const controls = useDataTable('/reports', model.state, { ...filters, ...detailFilters, section, subscription: reportStatement?.subscription.id });
-    useEffect(() => { setPage(1); }, [model.state.search, model.state.sort, model.state.direction, model.state.per_page, JSON.stringify(model.state.filter)]);
     const size = model.state.per_page;
-    const current = Math.min(page, Math.max(1, Math.ceil(model.total / size)));
-    const rows = model.rows.slice((current - 1) * size, current * size);
-    const meta = { current_page: current, last_page: Math.max(1, Math.ceil(model.total / size)), from: (current - 1) * size + 1, to: Math.min(current * size, model.total), total: model.total };
+    const rows = model.rows;
     function renderValue(row, column) {
         if (nameCell && column.key === 'name') return nameCell(row);
         if (column.balance) return <Balance value={row[column.key]} colored={false} unit="" />;
@@ -57,10 +62,10 @@ function ReportTable({ columns, title, section, nameCell, empty, exportRows }) {
     return <section data-excel-source="custom" aria-label={title}>
         <DataTableToolbar
             search={controls.search}
-            onSearchChange={(value) => { setPage(1); controls.setSearch(value); }}
+            onSearchChange={controls.setSearch}
             placeholder={section === 'statement' ? 'بحث في البيان أو رقم السند أو المبلغ...' : section === 'debts' ? 'بحث بالمشترك أو رقم الحساب...' : 'بحث برقم الصندوق أو المحصّل...'}
             perPage={size} onPerPageChange={controls.setPerPage} total={model.total}
-            actions={<Actions title={title} section={section} columns={columns} rows={exportRows ?? model.rows} identity={reportStatement ? `${reportStatement.subscription.name} · ${reportStatement.subscription.accountNumber}` : ''} />}
+            actions={<Actions title={title} section={section} columns={columns} exportRows={exportRows} identity={reportStatement ? `${reportStatement.subscription.name} · ${reportStatement.subscription.accountNumber}` : ''} />}
             filterMenu={<DataTableFilterMenu tableKey={`reports:${section}`} groups={model.options} values={controls.filterValues} onChange={controls.setFilter} onChangeMany={controls.setFilters} onClear={controls.clearFilters} />}
         />
         <div className="data-table-container">
@@ -70,7 +75,7 @@ function ReportTable({ columns, title, section, nameCell, empty, exportRows }) {
             </table>
         </div>
         {model.total > 0 && Object.keys(model.totals).length > 0 && <div className="data-table-totals flex flex-wrap items-center gap-x-8 gap-y-3"><b className="text-sm">{model.active ? 'إجمالي الحركات المطابقة' : 'إجمالي النتائج'}</b>{columns.filter((column) => model.totals[column.key] != null).map((column) => <span key={column.key} className="text-sm text-gray-500">{column.label} <bdi dir="ltr" className="ms-2 font-display font-bold text-gray-900">{reportMoney(model.totals[column.key])}</bdi></span>)}</div>}
-        <Pagination meta={meta} onPageChange={setPage} />
+        <Pagination meta={model.meta} onPageChange={controls.setPage} />
     </section>;
 }
 
@@ -105,7 +110,7 @@ export function StatementReport({ data, visit }) {
     const { filters, canViewStatements, detailTable, presets } = usePage().props;
     if (!canViewStatements) return <p className="rounded-panel border border-gray-200 bg-surface p-8 text-center text-gray-500">عرض كشف الحساب يتطلب صلاحية عرض المشتركين.</p>;
     if (!data) return <AccountDirectory visit={visit} />;
-    const rows = data ? [{ id: 'opening', day: filters.from, description: 'الرصيد الافتتاحي', balance: data.opening, debit: '0.00', credit: '0.00' }, ...(detailTable?.rows ?? data.lines), { id: 'closing', day: filters.to, description: 'الرصيد الختامي', balance: data.closing, debit: '0.00', credit: '0.00' }] : [];
+    const withBalances = (lines) => [{ id: 'opening', day: filters.from, description: 'الرصيد الافتتاحي', balance: data.opening, debit: '0.00', credit: '0.00' }, ...lines, { id: 'closing', day: filters.to, description: 'الرصيد الختامي', balance: data.closing, debit: '0.00', credit: '0.00' }];
     const last90 = (presets ?? []).find((preset) => preset.key === 'last90' || preset.key === 'quarter');
     const closingHint = Number(data.closing) > 0 ? 'مستحق للشركة' : Number(data.closing) < 0 ? 'لصالح المشترك' : 'الحساب مسدّد';
     return <div className="space-y-5">
@@ -121,7 +126,7 @@ export function StatementReport({ data, visit }) {
             <KpiTile compact icon="wallet" label="له (دائن)" value={<bdi dir="ltr">{reportMoney(data.credit)}</bdi>} unit="شيكل" />
             <KpiTile compact hero icon="layers" label="الرصيد الختامي" value={<bdi dir="ltr">{reportMoney(data.closing)}</bdi>} unit="شيكل" hint={closingHint} />
         </section>
-            <TableReport section="statement" title={`كشف حساب ${data.subscription.name}`} columns={statementColumns} exportRows={detailTable?.active ? detailTable.rows : rows} empty={{ title: 'لا توجد حركات لهذا المشترك خلال الفترة المختارة', description: <>الرصيد الافتتاحي <bdi dir="ltr">{reportMoney(data.opening)}</bdi> شيكل لم يتغيّر خلال هذه الفترة. غيّر الفترة لعرض الحركات السابقة.</>, action: last90 ? <button type="button" className={secondaryButtonClass} onClick={() => visit({ from: last90.from, to: last90.to, view: undefined })}>عرض آخر 90 يومًا<Icon name="calendar" className="h-4 w-4" /></button> : <Link className={secondaryButtonClass} href={data.subscription.url}>عرض كشف الحساب الكامل</Link> }} />
+            <TableReport section="statement" title={`كشف حساب ${data.subscription.name}`} columns={statementColumns} exportRows={detailTable?.active ? undefined : withBalances} empty={{ title: 'لا توجد حركات لهذا المشترك خلال الفترة المختارة', description: <>الرصيد الافتتاحي <bdi dir="ltr">{reportMoney(data.opening)}</bdi> شيكل لم يتغيّر خلال هذه الفترة. غيّر الفترة لعرض الحركات السابقة.</>, action: last90 ? <button type="button" className={secondaryButtonClass} onClick={() => visit({ from: last90.from, to: last90.to, view: undefined })}>عرض آخر 90 يومًا<Icon name="calendar" className="h-4 w-4" /></button> : <Link className={secondaryButtonClass} href={data.subscription.url}>عرض كشف الحساب الكامل</Link> }} />
 
     </div>;
 }

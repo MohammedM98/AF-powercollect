@@ -330,9 +330,9 @@ class BranchReportTest extends TestCase
             ->where('debts.total', '130.00')
             ->where('debts.credit', '-30.00')
             ->where('debts.count', 1)
-            ->where('debts.rows.0.id', $this->subscription->id)
-            ->where('debts.rows.0.buckets.current', '50.00')
-            ->where('debts.rows.0.buckets.older', '80.00')
+            ->where('detailTable.rows.0.id', $this->subscription->id)
+            ->where('detailTable.rows.0.buckets.current', '50.00')
+            ->where('detailTable.rows.0.buckets.older', '80.00')
             ->where('printData.rows.1.cells.الرصيد عليه', '130.00'));
     }
 
@@ -347,8 +347,8 @@ class BranchReportTest extends TestCase
             ->where('reportStatement.credit', '150.00')
             ->where('reportStatement.debit', '0.00')
             ->where('reportStatement.closing', '-50.00')
-            ->where('reportStatement.lines.0.balance', '-50.00')
-            ->where('reportStatement.lines.0.credit', '150.00')
+            ->where('detailTable.rows.0.balance', '-50.00')
+            ->where('detailTable.rows.0.credit', '150.00')
             ->where('printData.rows.1.cells.الرصيد', '-50.00')
             ->where('printData.rows.1.cells.له (دائن)', '150.00')
             ->where('printData.rows.2.cells.الرصيد', '-50.00')
@@ -373,11 +373,11 @@ class BranchReportTest extends TestCase
         $this->at('2026-10-01 09:00', fn () => $this->pay('99', ['currency' => 'USD', 'exchange_rate' => '4.00']));
 
         $this->actingAs($this->preparer())->get(route('reports.index', ['section' => 'boxes', 'from' => '2026-09-30', 'to' => '2026-09-30']))->assertOk()->assertInertia(fn ($page) => $page
-            ->has('boxData.rows', 1)
-            ->where('boxData.rows.0.currency', 'ILS')
-            ->where('boxData.rows.0.amount', '50.00')
-            ->where('boxData.rows.0.count', 1)
-            ->where('boxData.rows.0.number', $box->number));
+            ->has('detailTable.rows', 1)
+            ->where('detailTable.rows.0.currency', 'ILS')
+            ->where('detailTable.rows.0.amount', '50.00')
+            ->where('detailTable.rows.0.count', 1)
+            ->where('detailTable.rows.0.number', $box->number));
         $this->get(route('reports.index', ['section' => 'collections', 'from' => '2026-09-30', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
             ->where('collections.currencies.0.currency', 'USD')
             ->where('collections.currencies.0.amount', '12.50')
@@ -392,11 +392,11 @@ class BranchReportTest extends TestCase
         $current = $this->at('2026-09-29 09:00', fn () => SubscriptionTransaction::recordPayment($this->subscription, $other, ['amount' => '20', 'currency' => 'ILS', 'payment_method' => 'cash']))->boxEntry->box;
 
         $this->actingAs($this->preparer())->get(route('reports.index', ['section' => 'boxes', 'from' => '2026-09-30', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
-            ->has('boxData.rows', 1)
-            ->where('boxData.rows.0.boxId', $current->id)
-            ->where('boxData.rows.0.status', 'مفتوح'));
+            ->has('detailTable.rows', 1)
+            ->where('detailTable.rows.0.boxId', $current->id)
+            ->where('detailTable.rows.0.status', 'مفتوح'));
         $this->get(route('reports.index', ['section' => 'boxes', 'from' => '2026-09-20', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
-            ->has('boxData.rows', 2));
+            ->has('detailTable.rows', 2));
     }
 
     public function test_detail_sections_skip_the_period_summary_that_only_summary_sections_show(): void
@@ -486,6 +486,24 @@ class BranchReportTest extends TestCase
             ->where('detailTable.totals.balance', '120.00')
             ->where('printData.rows.2.cells.الرصيد عليه', '120.00'));
         $this->get(route('reports.index', ['section' => 'debts', 'search' => ['invalid']]))->assertSessionHasErrors('search');
+    }
+
+    public function test_detail_tables_send_one_page_and_load_every_matching_row_only_for_export(): void
+    {
+        $debtors = Subscription::factory()->count(17)->create(['branch_id' => $this->north->id, 'circuit_breaker_id' => $this->subscription->circuit_breaker_id, 'meter_box_id' => $this->subscription->meter_box_id, 'registered_by' => $this->collector->id]);
+        $debtors->each(fn (Subscription $debtor, int $index) => $this->at('2026-10-01 08:00', fn () => SubscriptionTransaction::recordCharge($debtor, $this->collector, ChargeType::Penalty, (string) (10 + $index), null)));
+        $this->actingAs($this->preparer());
+
+        $this->get(route('reports.index', ['section' => 'debts', 'per_page' => 15, 'page' => 2]))->assertInertia(fn ($page) => $page
+            ->has('detailTable.rows', 2)
+            ->where('detailTable.total', 17)
+            ->where('detailTable.meta', ['current_page' => 2, 'last_page' => 2, 'from' => 16, 'to' => 17, 'total' => 17])
+            ->where('detailTable.totals.balance', '306.00')
+            ->missing('debts.rows')
+            ->missing('detailExport')
+            ->reloadOnly('detailExport', fn ($reload) => $reload->has('detailExport', 17)));
+        $this->get(route('reports.index', ['section' => 'debts', 'per_page' => 15, 'page' => 9]))->assertInertia(fn ($page) => $page
+            ->where('detailTable.meta.current_page', 2));
     }
 
     public function test_account_directory_lists_and_searches_all_readable_subscribers_beyond_the_first_page(): void

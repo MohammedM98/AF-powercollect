@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -158,11 +159,12 @@ class ReportController extends Controller
             'reportSection' => $section,
             'reportAccounts' => $accountDirectory,
             'accountFilters' => $accountDirectory !== null ? $this->dataTableState($request, 'account_number') : null,
-            'detailTable' => $detailTable,
+            'detailTable' => $detailTable === null ? null : $this->detailTablePage($request, $detailTable),
+            'detailExport' => Inertia::optional(fn (): ?Collection => $detailTable['rows'] ?? null),
             'detailFilters' => $detailFilters,
-            'debts' => $debtData,
-            'boxData' => $boxData,
-            'reportStatement' => $statementData,
+            'debts' => $debtData === null ? null : Arr::except($debtData, 'rows'),
+            'boxData' => $boxData === null ? null : Arr::except($boxData, 'rows'),
+            'reportStatement' => $statementData === null ? null : Arr::except($statementData, 'lines'),
             'canViewStatements' => $request->user()->can('viewAny', Subscription::class),
             'branches' => $branches->map(fn (Branch $branch): array => ['value' => $branch->id, 'label' => $branch->name])->values(),
             'filters' => ['branch' => $branch, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'kind' => $kind],
@@ -250,6 +252,26 @@ class ReportController extends Controller
         }
 
         return ['rows' => $matching, 'state' => $state, 'options' => $options, 'total' => $matching->count(), 'unfilteredTotal' => $rows->count(), 'totals' => $totals, 'active' => $terms !== [] || collect($state['filter'])->contains(fn (?string $value): bool => filled($value))];
+    }
+
+    /**
+     * The page of a detail table the screen shows. Printing uses every
+     * matching row, and the Excel export asks for them as `detailExport`.
+     *
+     * @param  array<string, mixed>  $table
+     * @return array<string, mixed>
+     */
+    private function detailTablePage(Request $request, array $table): array
+    {
+        $size = $table['state']['per_page'];
+        $last = max(1, (int) ceil($table['total'] / $size));
+        $page = min(max(1, $request->integer('page', 1)), $last);
+
+        return [
+            ...$table,
+            'rows' => $table['rows']->forPage($page, $size)->values(),
+            'meta' => ['current_page' => $page, 'last_page' => $last, 'from' => $table['total'] === 0 ? 0 : ($page - 1) * $size + 1, 'to' => min($page * $size, $table['total']), 'total' => $table['total']],
+        ];
     }
 
     /** @param Collection<int, Branch> $branches */

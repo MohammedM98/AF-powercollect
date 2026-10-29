@@ -616,6 +616,7 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                             {(id) => <ChoiceChips id={id} options={GROUP_ALIGNMENTS} value={layout.group.align ?? 'start'} onChange={(value) => setIn('group', 'align', value)} label="محاذاة عناوين المجموعات" />}
                         </Field>
                         <Switch checked={layout.group.labels !== false} onChange={(value) => setIn('group', 'labels', value)} label="كتابة اسم الحقل قبل القيمة (مثل «الطبلون:»)" />
+                        <Switch checked={Boolean(layout.group.repeatHeader)} onChange={(value) => setIn('group', 'repeatHeader', value)} label="تكرار عناوين الأعمدة تحت عنوان كل مجموعة (مثل كل طبلون)" />
                         <Field label="كلمة بعد عدد الصفوف في العنوان" hint="مثل «مشترك» لتظهر «(12 مشترك)». اتركها فارغة ليظهر العدد وحده.">
                             {(id) => <input id={id} type="text" maxLength={30} value={layout.group.unit ?? ''} onChange={(e) => setIn('group', 'unit', e.target.value)} className="block w-full text-sm" />}
                         </Field>

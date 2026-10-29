@@ -10,7 +10,7 @@ class ReadingPrintData
      * Group headings on a centred line of their own, written once where they
      * change: the region, then each box under it (see resources/js/lib/printLayout.js).
      */
-    private const CENTRED_HEADINGS = ['headings' => 'stacked', 'align' => 'center', 'labels' => false];
+    private const CENTRED_HEADINGS = ['headings' => 'stacked', 'align' => 'center', 'labels' => false, 'repeatHeader' => true];
 
     /**
      * Subscribers from أ to ي inside each box.

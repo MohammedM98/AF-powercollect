@@ -25,6 +25,18 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
     const sections = arrangeRows(table.rows, layout);
     const headings = sectionHeadings(sections, layout);
     const headingAlign = layout.group.align === 'center' ? 'text-center' : 'text-start';
+    // Repeated under every group's heading, the column titles take the place of the table's own head.
+    const titlesPerGroup = Boolean(layout.group.repeatHeader) && sections.some((section) => section.title !== null);
+    const columnTitles = (className) => (
+        <tr className={className}>
+            {style.rowNumbers && <th className="pd-number">#</th>}
+            {columns.map((column) => (
+                <th key={column.key} className={ALIGN_CLASSES[column.align]}>
+                    {column.label}
+                </th>
+            ))}
+        </tr>
+    );
     const totalsOf = (rows) => columns.map((column) => (column.total && !column.blank ? rowColumnTotal(rows, column.key) : null));
     const totals = totalsOf(dataRows);
     const hasTotals = totals.some((total) => total !== null);
@@ -81,16 +93,7 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                         {style.rowNumbers && <col style={{ width: '8mm' }} />}
                         {columns.map((column) => <col key={column.key} style={Number(column.width) > 0 && Number(column.width) <= 120 ? { width: `${Number(column.width)}mm` } : undefined} />)}
                     </colgroup>
-                    <thead>
-                        <tr>
-                            {style.rowNumbers && <th className="pd-number">#</th>}
-                            {columns.map((column) => (
-                                <th key={column.key} className={ALIGN_CLASSES[column.align]}>
-                                    {column.label}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
+                    {!titlesPerGroup && <thead>{columnTitles(undefined)}</thead>}
                     {sections.map((section, sectionIndex) => (
                         <tbody key={sectionIndex} className={layout.group.newPage && sectionIndex > 0 && section.breakBefore !== false ? 'pd-new-page' : undefined}>
                             {headings[sectionIndex].map((heading) => (
@@ -101,6 +104,7 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                                     </td>
                                 </tr>
                             ))}
+                            {titlesPerGroup && section.title !== null && columnTitles('pd-column-titles')}
                             {section.rows.map((row, index) =>
                                 row.type === 'group' ? (
                                     <tr key={index} className="pd-group">

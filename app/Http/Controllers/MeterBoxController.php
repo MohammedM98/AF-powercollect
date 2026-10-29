@@ -174,7 +174,7 @@ class MeterBoxController extends Controller
             ])->filter()->implode(' · '),
             'context' => ['templatePage' => '/meter-boxes/subscriptions-print', 'title' => 'الطبلونات ومشتركوها', 'branchName' => $branchName ?? ($actor->isSuperAdmin() ? 'كل الفروع' : '')],
             'defaults' => [
-                'group' => ['key' => 'field:subAreaName', 'then' => ['field:boxLabel'], 'headings' => 'stacked', 'align' => 'center', 'labels' => false, 'subtotals' => false, 'unit' => 'مشترك'],
+                'group' => ['key' => 'field:subAreaName', 'then' => ['field:boxLabel'], 'headings' => 'stacked', 'align' => 'center', 'labels' => false, 'subtotals' => false, 'unit' => 'مشترك', 'repeatHeader' => true],
             ],
         ]]);
     }

@@ -109,8 +109,9 @@ export function defaultLayout({ columns, title = '', company = '' }) {
         sort: [],
         // `headings`: 'inline' writes a group's levels on one line, 'stacked' gives each level its own
         // line, written only when its value changes (e.g. the area, then each box under it). `unit`
-        // follows each heading's count, e.g. "(12 مشترك)".
-        group: { key: '', newPage: false, subtotals: true, headings: 'inline', align: 'start', labels: true, unit: '' },
+        // follows each heading's count, e.g. "(12 مشترك)". `repeatHeader` writes the column titles
+        // again under every group's heading.
+        group: { key: '', newPage: false, subtotals: true, headings: 'inline', align: 'start', labels: true, unit: '', repeatHeader: false },
         table: {
             borders: 'grid',
             zebra: true,

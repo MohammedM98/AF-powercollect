@@ -90,6 +90,7 @@ class SavePrintTemplateRequest extends FormRequest
             'layout.group.align' => ['nullable', Rule::in(['start', 'center'])],
             'layout.group.labels' => ['nullable', 'boolean'],
             'layout.group.unit' => ['nullable', 'string', 'max:30'],
+            'layout.group.repeatHeader' => ['nullable', 'boolean'],
             'layout.table.accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ];
     }

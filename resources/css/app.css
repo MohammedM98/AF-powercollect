@@ -2039,11 +2039,14 @@ input[type='radio'] {
 }
 
 .pd-borders-rows thead th,
-.pd-borders-none thead th {
+.pd-borders-none thead th,
+.pd-borders-rows tr.pd-column-titles th,
+.pd-borders-none tr.pd-column-titles th {
     border-bottom: 2px solid var(--pd-accent);
 }
 
-.pd-shade thead th {
+.pd-shade thead th,
+.pd-shade tr.pd-column-titles th {
     background: color-mix(in srgb, var(--pd-accent) 12%, #fff);
 }
 
@@ -2069,7 +2072,8 @@ input[type='radio'] {
     font-weight: 700;
 }
 
-.pd-table tr.pd-group-title {
+.pd-table tr.pd-group-title,
+.pd-table tr.pd-column-titles {
     break-after: avoid;
 }
 

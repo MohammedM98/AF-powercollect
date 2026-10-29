@@ -97,7 +97,7 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                                 <tr key={`heading-${heading.level}`} className={`pd-group pd-group-title pd-group-level-${heading.level}`}>
                                     <td colSpan={span} className={headingAlign}>
                                         {heading.groups.map((group) => (layout.group.labels === false ? group.value : `${group.label}: ${group.value}`)).join(' / ')}
-                                        <span className="ms-2 font-normal text-gray-600">({heading.count.toLocaleString('en')})</span>
+                                        <span className="ms-2 font-normal text-gray-600">({[heading.count.toLocaleString('en'), layout.group.unit].filter(Boolean).join(' ')})</span>
                                     </td>
                                 </tr>
                             ))}

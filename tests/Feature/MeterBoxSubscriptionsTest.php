@@ -241,7 +241,7 @@ class MeterBoxSubscriptionsTest extends TestCase
                 ->where('printData.rows.1.cells.field:subAreaName', 'المخيم')
                 ->where('printData.rows.1.cells.field:boxLabel', 'ابو ذر 8 — 205883')
                 ->where('printData.context.templatePage', '/meter-boxes/subscriptions-print')
-                ->where('printData.defaults.group', ['key' => 'field:subAreaName', 'then' => ['field:boxLabel'], 'headings' => 'stacked', 'align' => 'center', 'labels' => false, 'subtotals' => false]));
+                ->where('printData.defaults.group', ['key' => 'field:subAreaName', 'then' => ['field:boxLabel'], 'headings' => 'stacked', 'align' => 'center', 'labels' => false, 'subtotals' => false, 'unit' => 'مشترك']));
 
         $this->get(route('meter-boxes.subscriptions.print', ['print' => 1]))->assertInertia(fn ($page) => $page
             ->where('printData.total', 3)

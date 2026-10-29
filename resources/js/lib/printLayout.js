@@ -108,8 +108,9 @@ export function defaultLayout({ columns, title = '', company = '' }) {
         // Up to three levels, `{ key, direction }`; empty keeps the table's own order.
         sort: [],
         // `headings`: 'inline' writes a group's levels on one line, 'stacked' gives each level its own
-        // line, written only when its value changes (e.g. the area, then each box under it).
-        group: { key: '', newPage: false, subtotals: true, headings: 'inline', align: 'start', labels: true },
+        // line, written only when its value changes (e.g. the area, then each box under it). `unit`
+        // follows each heading's count, e.g. "(12 مشترك)".
+        group: { key: '', newPage: false, subtotals: true, headings: 'inline', align: 'start', labels: true, unit: '' },
         table: {
             borders: 'grid',
             zebra: true,

@@ -25,7 +25,7 @@ class ReportDetails
      *
      * @return array<string, mixed>
      */
-    public function debts(string $search = '', string $age = ''): array
+    public function debts(): array
     {
         $rows = collect();
         $credit = 0;
@@ -78,8 +78,7 @@ class ReportDetails
                 }
             });
         }
-        $rows = $rows->filter(fn (array $row): bool => ($search === '' || mb_stripos($row['name'].' '.$row['accountNumber'], $search) !== false)
-            && ($age === '' || Closing::cents($row['buckets'][$age]) > 0))->sortByDesc(fn (array $row): int => Closing::cents($row['balance']))->values();
+        $rows = $rows->sortByDesc(fn (array $row): int => Closing::cents($row['balance']))->values();
 
         return [
             'rows' => $rows, 'asOf' => $this->to->toDateString(), 'count' => $rows->count(), 'bucketLabels' => DebtAging::BUCKET_LABELS,

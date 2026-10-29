@@ -59,8 +59,7 @@ class ReportController extends Controller
         ['chosen' => $chosen, 'branch' => $branch, 'from' => $from, 'to' => $to, 'today' => $today, 'kind' => $kind] = $this->filters($request, $branches);
         $report = new BranchReport($chosen, $from, $to);
         $details = new ReportDetails($chosen, $from, $to);
-        $detailFilters = $request->validate(['debt_search' => ['nullable', 'string', 'max:100'], 'debt_age' => ['nullable', Rule::in(array_keys(DebtAging::BUCKETS))]]);
-        $debtData = $section === 'debts' ? $details->debts($detailFilters['debt_search'] ?? '', $detailFilters['debt_age'] ?? '') : null;
+        $debtData = $section === 'debts' ? $details->debts() : null;
         $boxData = $section === 'boxes' ? $details->boxes() : null;
         $statementData = $section === 'statement' ? $this->statement($request, $chosen, $from, $to) : null;
         $accountDirectory = $section === 'statement' && $statementData === null && $request->user()->can('viewAny', Subscription::class)
@@ -161,7 +160,6 @@ class ReportController extends Controller
             'accountFilters' => $accountDirectory !== null ? $this->dataTableState($request, 'account_number') : null,
             'detailTable' => $detailTable === null ? null : $this->detailTablePage($request, $detailTable),
             'detailExport' => Inertia::optional(fn (): ?Collection => $detailTable['rows'] ?? null),
-            'detailFilters' => $detailFilters,
             'debts' => $debtData === null ? null : Arr::except($debtData, 'rows'),
             'boxData' => $boxData === null ? null : Arr::except($boxData, 'rows'),
             'reportStatement' => $statementData === null ? null : Arr::except($statementData, 'lines'),
@@ -289,21 +287,6 @@ class ReportController extends Controller
             ->orderBy($sort, $this->sortDirection($request))->orderBy('subscriptions.id')
             ->paginate($this->dataTablePerPage($request))->withQueryString()
             ->through(fn (Subscription $subscription): array => ['id' => $subscription->id, 'name' => $subscription->displayName(), 'accountNumber' => $subscription->account_number, 'branchName' => $subscription->branch?->name]);
-    }
-
-    /** Search only readable accounts inside the report's authorized branch scope. */
-    public function subscriptions(Request $request): JsonResponse
-    {
-        abort_unless(FinancialReportAccess::view($request->user()), 403);
-        $this->authorize('viewAny', Subscription::class);
-        $validated = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
-        ['chosen' => $branches] = $this->filters($request, FinancialReportAccess::branches($request->user()));
-        $subscriptions = Subscription::query()->readableTo($request->user())->whereIn('branch_id', $branches->pluck('id')->all())
-            ->when(! $request->user()->can('viewArchived', Subscription::class), fn (Builder $query) => $query->whereNull('archived_at'))
-            ->when(($validated['search'] ?? '') !== '', fn (Builder $query) => $query->matchingSearch($validated['search']))
-            ->orderBy('id')->limit(31)->get();
-
-        return response()->json(['options' => $subscriptions->take(30)->map(fn (Subscription $subscription): array => ['value' => $subscription->id, 'label' => $subscription->displayName().' · '.$subscription->account_number])->values(), 'hasMore' => $subscriptions->count() > 30]);
     }
 
     /** All signed ledger lines in the period, including reversals, share one running balance. @param Collection<int, Branch> $branches @return array<string, mixed>|null */

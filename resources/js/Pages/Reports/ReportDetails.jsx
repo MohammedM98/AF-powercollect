@@ -36,8 +36,8 @@ function loadExportRows() {
 }
 
 function Actions({ title, section, columns, exportRows, identity = '' }) {
-    const { canExport, filters, detailFilters, reportStatement, scopeLabel, detailTable } = usePage().props;
-    const params = new URLSearchParams({ ...filters, ...detailFilters, section, search: detailTable?.state.search ?? '', sort: detailTable?.state.sort ?? '', direction: detailTable?.state.direction ?? '' });
+    const { canExport, filters, reportStatement, scopeLabel, detailTable } = usePage().props;
+    const params = new URLSearchParams({ ...filters, section, search: detailTable?.state.search ?? '', sort: detailTable?.state.sort ?? '', direction: detailTable?.state.direction ?? '' });
     Object.entries(detailTable?.state.filter ?? {}).forEach(([key, value]) => value && params.set(`filter[${key}]`, value));
     if (section === 'statement' && reportStatement) params.set('subscription', reportStatement.subscription.id);
     return <div className="flex flex-wrap items-center gap-2">
@@ -48,8 +48,8 @@ function Actions({ title, section, columns, exportRows, identity = '' }) {
 }
 
 function ReportTable({ columns, title, section, nameCell, empty, exportRows }) {
-    const { detailTable: model, filters, detailFilters, reportStatement } = usePage().props;
-    const controls = useDataTable('/reports', model.state, { ...filters, ...detailFilters, section, subscription: reportStatement?.subscription.id });
+    const { detailTable: model, filters, reportStatement } = usePage().props;
+    const controls = useDataTable('/reports', model.state, { ...filters, section, subscription: reportStatement?.subscription.id });
     const size = model.state.per_page;
     const rows = model.rows;
     function renderValue(row, column) {

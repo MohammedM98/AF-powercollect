@@ -358,12 +358,12 @@ class BranchReportTest extends TestCase
     public function test_report_accounts_require_subscription_access_and_respect_selected_branches(): void
     {
         $preparer = $this->preparer();
-        $this->actingAs($preparer)->getJson(route('reports.subscriptions'))->assertForbidden();
-        $this->get(route('reports.index', ['section' => 'statement', 'subscription' => $this->subscription->id]))->assertForbidden();
+        $this->actingAs($preparer)->get(route('reports.index', ['section' => 'statement', 'subscription' => $this->subscription->id]))->assertForbidden();
         $foreign = Subscription::factory()->create(['branch_id' => $this->south->id]);
         $this->actingAs(User::factory()->superAdmin()->create());
         $this->get(route('reports.index', ['section' => 'statement', 'branch' => $this->north->id, 'subscription' => $foreign->id]))->assertNotFound();
-        $this->getJson(route('reports.subscriptions', ['branch' => $this->north->id, 'search' => $foreign->account_number]))->assertJsonPath('options', []);
+        $this->get(route('reports.index', ['section' => 'statement', 'branch' => $this->north->id, 'search' => $foreign->account_number]))->assertInertia(fn ($page) => $page
+            ->where('reportAccounts.total', 0));
     }
 
     public function test_box_report_uses_recorded_shekel_amounts_and_excludes_later_entries(): void
@@ -539,7 +539,8 @@ class BranchReportTest extends TestCase
         $this->get(route('reports.index', ['section' => 'statement']))->assertInertia(fn ($page) => $page
             ->where('reportAccounts.total', 1)
             ->where('reportAccounts.data.0.id', $this->subscription->id));
-        $this->getJson(route('reports.subscriptions', ['search' => $archived->account_number]))->assertJsonPath('options', []);
+        $this->get(route('reports.index', ['section' => 'statement', 'search' => $archived->account_number]))->assertInertia(fn ($page) => $page
+            ->where('reportAccounts.total', 0));
     }
 
     /**

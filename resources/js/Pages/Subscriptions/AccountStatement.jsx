@@ -752,28 +752,28 @@ export default function AccountStatement({ subscription, entries, summary, payme
             <div className="statement-summary mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
                     label="الرصيد الحالي"
-                    value={<Balance value={summary.balance} colored={false} unit="شيكل" paperWord={false} />}
+                    value={<Balance value={summary.balance} colored={false} unit="₪" paperWord={false} />}
                     tone={balanceTone(summary.balance)}
                     className="sm:col-span-2 lg:col-span-1"
                 />
                 <SummaryCard
                     label="مجموع ما عليه (تحميل)"
-                    value={`${formatAmount(summary.charged)} شيكل`}
+                    value={`${formatAmount(summary.charged)} ₪`}
                     hint="القراءات المعتمدة والرسوم والغرامات"
                 />
                 <SummaryCard
                     label="مجموع ما دفعه (تسديد)"
-                    value={`${formatAmount(summary.paid)} شيكل`}
+                    value={`${formatAmount(summary.paid)} ₪`}
                     hint={`عدد الدفعات: ${summary.paymentsCount}`}
                 />
                 <SummaryCard
                     label="مجموع الخصومات"
-                    value={`${formatAmount(summary.discounted)} شيكل`}
+                    value={`${formatAmount(summary.discounted)} ₪`}
                     hint={`عدد الخصومات: ${summary.discountsCount}`}
                 />
                 <SummaryCard
                     label="مجموع المقاصات"
-                    value={`${formatAmount(summary.cleared)} شيكل`}
+                    value={`${formatAmount(summary.cleared)} ₪`}
                     hint={`عدد المقاصات: ${summary.clearingsCount}`}
                 />
             </div>

@@ -67,7 +67,7 @@ export default function CashBoxShow({ box, entries, collectionUrls, pendingCount
                 {printing && <p className="data-table-totals">{`صندوق ${box.number} · ${boxTypes[box.type]} · فُتح ${dateTime(box.openedAt)} · أُغلق ${dateTime(box.closedAt)} · ${box.paymentCount} حركات · الإجمالي ${formatMoney(box.totals?.ILS ?? 0)} شيكل · المستلم ${formatMoney(box.receivedAmounts?.ILS ?? 0)} شيكل${box.closedBy ? ` · أغلقه ${box.closedBy}` : ''}`}</p>}
             </section>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiTile icon="wallet" label="إجمالي الصندوق" value={formatMoney(box.totals?.ILS ?? 0)} unit="شيكل" hint={otherCurrencies(box.totals)} />
+                <KpiTile icon="wallet" label="إجمالي الصندوق" value={formatMoney(box.totals?.ILS ?? 0)} unit="₪" hint={otherCurrencies(box.totals)} />
                 <KpiTile icon="check" label="المبلغ المستلم" value={box.receivedAt ? formatMoney(box.receivedAmounts?.ILS ?? 0) : '—'} unit={box.receivedAt ? 'شيكل' : undefined} hint={box.receivedAt ? otherCurrencies(box.receivedAmounts) : 'لم يؤكد الفرع إغلاقه بعد'} />
                 <KpiTile icon="list" label="الحركات" value={box.paymentCount.toLocaleString('en')} hint={box.rejectedCount > 0 ? `${box.rejectedCount} مرفوضة` : undefined} />
                 <KpiTile icon="lock" label="أغلقه" value={<span className="text-xl">{box.closedBy ?? 'لا يزال مفتوحًا'}</span>} hint={box.status === 'open' ? 'يؤكد الفرع إغلاقه بعد مراجعته، أو يُغلق عند القطع الأسبوعي' : `أُغلق إلى ${destinations[box.type]}`} />

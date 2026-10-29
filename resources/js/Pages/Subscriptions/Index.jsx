@@ -20,7 +20,7 @@ import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { printFieldsProps, printRowProps } from '@/lib/print';
-import { formatCurrency } from '@/lib/currency';
+import { formatShekels } from '@/lib/currency';
 import { hasLatestWeekReading, readingOptionFor, weekOptionsFor } from '@/lib/readings';
 import { openQuickMessage } from '@/lib/quickMessage';
 import BulkActionBar from './BulkActionBar';
@@ -494,7 +494,7 @@ export default function Index({
                                         <TariffTag category={subscription.tariffCategory} label={subscription.tariffCategoryLabel} />
                                         {subscription.tariffSegmentName && <div className="text-xs text-gray-400">{subscription.tariffSegmentName}</div>}
                                     </td>
-                                    <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscription.weeklyMinimumPayment)}</td>
+                                    <td className="whitespace-nowrap text-gray-600">{formatShekels(subscription.weeklyMinimumPayment)}</td>
                                     <td className="whitespace-nowrap font-semibold">
                                         <Balance value={subscription.outstandingBalance} chip />
                                     </td>

@@ -30,7 +30,7 @@ function branchCount(count) {
     return `${formatNumber(count)} ${count % 100 >= 3 && count % 100 <= 10 ? 'فروع' : 'فرعاً'}`;
 }
 
-export default function BranchBanner({ scope, eyebrow = 'تعرض الآن البيانات المالية لـ', options = [], value = '', allValue = 'all', onChange = null, controls = null, meta = null, children = null, className = 'mb-5' }) {
+export default function BranchBanner({ scope, eyebrow = 'تعرض الآن البيانات المالية لـ', allLabel = 'تقرير مجمّع', options = [], value = '', allValue = 'all', onChange = null, controls = null, meta = null, children = null, className = 'mb-5' }) {
     const facts = [
         scope.place && { icon: 'pin', text: scope.place },
         scope.all && { icon: 'building', text: branchCount(scope.branches) },
@@ -54,7 +54,7 @@ export default function BranchBanner({ scope, eyebrow = 'تعرض الآن ال�
                         <span>{eyebrow}</span>
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white print:hidden">
                             <span aria-hidden="true" className={`h-2 w-2 rounded-full ${scope.level === 'governorate' ? 'bg-sky-400' : scope.all ? 'bg-amber-400' : scope.isActive ? 'bg-emerald-400' : 'bg-gray-400'}`} />
-                            {scope.level === 'governorate' ? `محافظة · ${branchCount(scope.branches)}` : scope.all ? `تقرير مجمّع · ${branchCount(scope.branches)}` : scope.isActive ? 'فرع واحد' : 'فرع واحد · متوقف'}
+                            {scope.level === 'governorate' ? `محافظة · ${branchCount(scope.branches)}` : scope.all ? `${allLabel} · ${branchCount(scope.branches)}` : scope.isActive ? 'فرع واحد' : 'فرع واحد · متوقف'}
                         </span>
                     </p>
                     <h2 className="mt-1 text-balance font-display text-3xl font-bold leading-tight sm:text-4xl" dir="auto">

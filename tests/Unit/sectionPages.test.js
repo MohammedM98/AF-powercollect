@@ -37,12 +37,12 @@ function render(can, url) {
     return renderToStaticMarkup(createElement(SectionPages, { trail: pageTrail(navigationGroups(can), url), url, badges: {} }));
 }
 
-test('a user with subscriber access sees that single sub-navigation link and keeps every main section', () => {
+test('a user with subscriber access sees that single sub-navigation link and only the sections they may open a page of', () => {
     const can = { viewSubscriptions: true };
     const html = render(can, '/subscriptions');
     assert.match(html, /aria-label="صفحات المشتركون"/);
     assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), ['/subscriptions']);
-    assert.deepEqual(topBarItems(navigationGroups(can)).map((item) => item.key), ['home', 'daily', 'finance', 'reports', 'infrastructure', 'administration']);
+    assert.deepEqual(topBarItems(navigationGroups(can)).map((item) => item.key), ['home', 'daily', 'administration']);
 });
 
 test('financial sub-navigation includes only the individually authorized destinations', () => {
@@ -56,12 +56,10 @@ test('a section with no permitted pages has no sub-navigation strip', () => {
     assert.equal(render({}, '/ledger'), '');
 });
 
-test('the desktop section menu filters its pages while an empty section stays identifiable', () => {
+test('the desktop section menu lists only the pages the user may open, and a section with none is left out', () => {
     const groups = navigationGroups({ viewSubscriptions: true });
     const menu = (group) => renderToStaticMarkup(createElement(MegaMenu, { group, url: '/subscriptions', badges: {}, width: 420 }));
     const subscribers = menu(groups.find((group) => group.id === 'daily'));
     assert.deepEqual([...subscribers.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), ['/subscriptions']);
-    const finance = menu(groups.find((group) => group.id === 'finance'));
-    assert.match(finance, /المالية والتحصيل/);
-    assert.doesNotMatch(finance, /href=/);
+    assert.equal(groups.find((group) => group.id === 'finance'), undefined);
 });

@@ -134,7 +134,7 @@ export default function BoxDetails({ box, onClose, perform, initialSearch = '' }
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-gray-50/60 p-4 sm:p-6">
             <dl className="financial-box-detail-stats grid grid-cols-2 gap-px overflow-hidden rounded-card border border-gray-100 bg-gray-100 xl:grid-cols-4">
-                <Stat icon="wallet" label="إجمالي الحركات السارية" value={<>{formatMoney(totals.ILS)} <span className="text-sm font-normal text-gray-500">شيكل</span></>} hint={otherCurrencies(totals)} />
+                <Stat icon="wallet" label="إجمالي الحركات السارية" value={<>{formatMoney(totals.ILS)} <span className="text-sm font-normal text-gray-500">₪</span></>} hint={otherCurrencies(totals)} />
                 <Stat icon="list" label="الحركات" value={active.length.toLocaleString('en')} hint={entries.length > active.length ? `و${entries.length - active.length} ملغاة` : 'لا حركات ملغاة'} />
                 <Stat icon={editable ? 'unlock' : 'lock'} label="تصحيح الحركات" value={<span className="text-base">{editable ? 'متاح للمحصّل' : 'مقفل'}</span>} hint={editable ? 'حتى تأكيد إغلاق الصندوق' : 'أُكّد إغلاق الصندوق'} />
                 <Stat icon="calendar" label="فُتح ← أُغلق" value={<span className="text-sm">{dateTime(box.opened_at)}</span>} hint={box.closed_at ? dateTime(box.closed_at) : 'لا يزال مفتوحًا'} />

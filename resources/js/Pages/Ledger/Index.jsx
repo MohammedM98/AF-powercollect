@@ -173,8 +173,8 @@ function SummaryCards({ totals, summary, side }) {
                 <b><Money amount={totals.charged} /></b>
                 <p>{formatNumber(totals.debitCount)} قيد تحميل · ضمن الفترة والفلاتر</p>
             </section>
-            <section className="k cr" aria-label="المحصّل">
-                <small><span className="dot bg-emerald-600 dark:bg-emerald-400" />المحصّل (له)</small>
+            <section className="k cr" aria-label="إجمالي له">
+                <small><span className="dot bg-emerald-600 dark:bg-emerald-400" />إجمالي له (تسديد وخصم ومقاصة)</small>
                 <b><Money amount={totals.credited} /></b>
                 <p>{formatNumber(totals.creditCount)} قيد · دفعات وخصم ومقاصة</p>
             </section>
@@ -329,7 +329,7 @@ export default function Index({ entries, period, dateBasis = 'recorded', side, s
                     </table>
                     <div className="foot data-table-totals">
                         <div>إجمالي التحميل<b><Money amount={ledgerTotals.charged} /></b></div>
-                        <div>المحصّل<b className="g"><Money amount={ledgerTotals.credited} /></b></div>
+                        <div>إجمالي له<b className="g"><Money amount={ledgerTotals.credited} /></b></div>
                         <div>الصافي<b><Money amount={ledgerTotals.net} balance /> <span>{ledgerTotals.net > 0 ? 'للشركة' : ledgerTotals.net < 0 ? 'للمشترك' : 'مسدّد'}</span></b></div>
                         <span className="r">{formatNumber(entries.total)} قيد مطابق · الملغاة خارج المجاميع</span>
                     </div>

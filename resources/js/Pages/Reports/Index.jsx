@@ -260,7 +260,7 @@ function PeriodCard({ branches, branchScope, scopeLabel, filters, presets, today
             <div className="flex flex-wrap items-center gap-3">
                 <div className="flex min-w-0 flex-1 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><Icon name="calendar" className="h-5 w-5" /></span><div className="min-w-0"><h3 className="text-sm font-bold text-white">الفترة</h3><p className="mt-1 text-xs text-white/70"><bdi dir="ltr">{periodText}</bdi></p></div></div>
                 {!branchScope && branches.length > 1 && (
-                    <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/65 sm:w-60">
+                    <label className="order-3 flex w-full flex-col gap-1.5 text-xs font-semibold text-white/65 sm:order-none sm:w-60">
                         الفرع
                         <SearchableSelect
                             value={filters.branch ?? ''}
@@ -273,7 +273,7 @@ function PeriodCard({ branches, branchScope, scopeLabel, filters, presets, today
                     </label>
                 )}
                 {!branchScope && branches.length === 1 && (
-                    <div className="flex flex-col gap-1.5 text-xs font-semibold text-white/65">
+                    <div className="order-3 flex w-full flex-col gap-1.5 text-xs font-semibold text-white/65 sm:order-none sm:w-auto">
                         الفرع
                         <span className="flex h-10 items-center gap-2 rounded-control border border-white/15 bg-white/10 px-3 text-sm font-bold text-white">
                             <Icon name="pin" className="h-4 w-4 text-white/60" />
@@ -322,7 +322,7 @@ function Figures({ flow, collections }) {
 
     return (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
-            <KpiTile hero label="إجمالي المحصّل" value={reportMoney(collections.total)} unit="شيكل" hint={`${collections.count} دفعة في الفترة`} className="md:col-span-2 xl:col-span-1 xl:row-span-2">
+            <KpiTile hero label="إجمالي المحصّل" value={reportMoney(collections.total)} unit="₪" hint={`${collections.count} دفعة في الفترة`} className="md:col-span-2 xl:col-span-1 xl:row-span-2">
                 <div className="mt-5 flex h-2 overflow-hidden rounded-full bg-white/10" role="img" aria-label="النقدي والتحويلات والشيكات">
                     {total > 0 && (
                         <>
@@ -336,9 +336,9 @@ function Figures({ flow, collections }) {
                     <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-brand-500" />تحويلات وشيكات <b className="font-display text-white">{reportMoney(collections.nonCash)} ₪</b></span>
                 </div>
             </KpiTile>
-            <KpiTile icon="ledger" label="الرصيد الافتتاحي" value={<bdi dir="ltr">{reportMoney(flow.opening)}</bdi>} unit="شيكل" hint={Number(flow.opening) < 0 ? 'لصالح المشتركين' : 'على المشتركين'} />
-            <KpiTile icon="document-plus" label="التحميلات" value={reportMoney(flow.chargesTotal)} unit="شيكل" hint="قراءات ورسوم وغرامات" />
-            <KpiTile icon="layers" label="الرصيد الختامي" value={<bdi dir="ltr">{reportMoney(flow.closing)}</bdi>} unit="شيكل" className="md:col-span-2">
+            <KpiTile icon="ledger" label="الرصيد الافتتاحي" value={<bdi dir="ltr">{reportMoney(flow.opening)}</bdi>} unit="₪" hint={Number(flow.opening) < 0 ? 'لصالح المشتركين' : 'على المشتركين'} />
+            <KpiTile icon="document-plus" label="التحميلات" value={reportMoney(flow.chargesTotal)} unit="₪" hint="قراءات ورسوم وغرامات" />
+            <KpiTile icon="layers" label="الرصيد الختامي" value={<bdi dir="ltr">{reportMoney(flow.closing)}</bdi>} unit="₪" className="md:col-span-2">
                 <p className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${change > 0 ? 'bg-amber-500/10 text-amber-700' : change < 0 ? 'bg-emerald-500/10 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                     {change > 0 ? 'زاد' : change < 0 ? 'نقص' : 'لم يتغير'}
                     {change !== 0 && <b className="font-display">{reportMoney(Math.abs(Number(flow.change)))} ₪</b>}

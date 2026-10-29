@@ -20,7 +20,7 @@ import { useDeleteRecord } from '@/hooks/useDeleteRecord';
 import { useRowClick } from '@/hooks/useRowClick';
 import { useStatementWindow } from '@/hooks/useStatementWindow';
 import { printFieldsProps, printRowProps } from '@/lib/print';
-import { formatCurrency } from '@/lib/currency';
+import { formatShekels } from '@/lib/currency';
 import { hasLatestWeekReading, readingOptionFor, weekOptionsFor } from '@/lib/readings';
 import { openQuickMessage } from '@/lib/quickMessage';
 import BulkActionBar from './BulkActionBar';
@@ -32,6 +32,7 @@ import Balance from '@/Components/Balance';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import PageHeader from '@/Components/PageHeader';
 import InfoTip from '@/Components/InfoTip';
+import { formatDate } from '@/lib/format';
 
 const MeterReadingModal = lazy(() => import('@/Pages/MeterReadings/MeterReadingModal'));
 const SubscriptionMessageHistoryModal = lazy(() => import('@/Pages/Messages/SubscriptionMessageHistoryModal'));
@@ -493,13 +494,13 @@ export default function Index({
                                         <TariffTag category={subscription.tariffCategory} label={subscription.tariffCategoryLabel} />
                                         {subscription.tariffSegmentName && <div className="text-xs text-gray-400">{subscription.tariffSegmentName}</div>}
                                     </td>
-                                    <td className="whitespace-nowrap text-gray-600">{formatCurrency(subscription.weeklyMinimumPayment)}</td>
+                                    <td className="whitespace-nowrap text-gray-600">{formatShekels(subscription.weeklyMinimumPayment)}</td>
                                     <td className="whitespace-nowrap font-semibold">
                                         <Balance value={subscription.outstandingBalance} chip />
                                     </td>
                                     <td>
                                         <StatusPill tone={STATUS_TONES[subscription.status]} label={subscription.statusLabel} />
-                                        {subscription.archivedAt && <span className="mt-1 block text-xs text-gray-500">إنهاء الخدمة {subscription.serviceEndedOn}</span>}
+                                        {subscription.archivedAt && <span className="mt-1 block text-xs text-gray-500">إنهاء الخدمة {formatDate(subscription.serviceEndedOn)}</span>}
                                     </td>
                                     <td className="text-end">
                                         <RowActionsMenu

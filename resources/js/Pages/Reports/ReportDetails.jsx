@@ -17,6 +17,7 @@ import { reportMoney, shortDate } from '@/lib/reportFormatting';
 import { printUrl } from '@/lib/print';
 
 import { boxColumns, debtColumns, detailExcelPart, statementColumns } from '@/lib/reportDetailParts';
+import { formatDate } from '@/lib/format';
 
 const isAmount = (column) => ['money', 'decimal'].includes(column.type);
 const reportHelp = {
@@ -56,6 +57,7 @@ function ReportTable({ columns, title, section, nameCell, empty, exportRows }) {
         if (column.balance) return <Balance value={row[column.key]} colored={false} unit="" />;
         if (isAmount(column)) return Number(row[column.key]) === 0 ? <span className="text-gray-400">—</span> : <bdi dir="ltr">{reportMoney(Math.abs(Number(row[column.key])))}</bdi>;
         if (column.type === 'int') return <bdi dir="ltr">{row[column.key]}</bdi>;
+        if (column.type === 'date') return row[column.key] ? <bdi dir="ltr">{formatDate(row[column.key])}</bdi> : '—';
         return row[column.key] || '—';
     }
     return <section data-excel-source="custom" aria-label={title}>
@@ -91,10 +93,10 @@ export function DebtReport({ data, visit }) {
     footer.balance = data.total;
     return <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiTile hero label="إجمالي ديون المشتركين" value={reportMoney(data.total)} unit="شيكل" hint={`كما في ${shortDate(data.asOf, true)}`} />
+            <KpiTile hero label="إجمالي ديون المشتركين" value={reportMoney(data.total)} unit="₪" hint={`كما في ${shortDate(data.asOf, true)}`} />
             <KpiTile label="المشتركون المدينون" value={data.count} />
-            <KpiTile label="أكثر من 90 يومًا" value={reportMoney(footer.older)} unit="شيكل" />
-            <KpiTile label="أرصدة لصالح المشتركين" value={<bdi dir="ltr">{reportMoney(data.credit)}</bdi>} unit="شيكل" hint={`${data.creditCount} حساب`} />
+            <KpiTile label="أكثر من 90 يومًا" value={reportMoney(footer.older)} unit="₪" />
+            <KpiTile label="أرصدة لصالح المشتركين" value={<bdi dir="ltr">{reportMoney(data.credit)}</bdi>} unit="₪" hint={`${data.creditCount} حساب`} />
         </div>
         <TableReport section="debts" title="ديون المشتركين" columns={debtColumns} nameCell={(row) => canViewStatements ? <button type="button" className="font-semibold text-brand-600 underline-offset-4 hover:underline" onClick={() => visit({ section: 'statement', subscription: row.id, page: undefined })}>{row.name}</button> : row.name} />
     </div>;
@@ -130,10 +132,10 @@ export function StatementReport({ data, visit }) {
             </div>
         </section>
         <section aria-label="ملخص كشف الحساب" className="statement-summary-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiTile compact icon="ledger" label="الرصيد الافتتاحي" value={<bdi dir="ltr">{reportMoney(data.opening)}</bdi>} unit="شيكل" />
-            <KpiTile compact icon="document-plus" label="عليه (مدين)" value={<bdi dir="ltr">{reportMoney(data.debit)}</bdi>} unit="شيكل" />
-            <KpiTile compact icon="wallet" label="له (دائن)" value={<bdi dir="ltr">{reportMoney(data.credit)}</bdi>} unit="شيكل" />
-            <KpiTile compact hero icon="layers" label="الرصيد الختامي" value={<bdi dir="ltr">{reportMoney(data.closing)}</bdi>} unit="شيكل" hint={closingHint} />
+            <KpiTile compact icon="ledger" label="الرصيد الافتتاحي" value={<bdi dir="ltr">{reportMoney(data.opening)}</bdi>} unit="₪" />
+            <KpiTile compact icon="document-plus" label="عليه (مدين)" value={<bdi dir="ltr">{reportMoney(data.debit)}</bdi>} unit="₪" />
+            <KpiTile compact icon="wallet" label="له (دائن)" value={<bdi dir="ltr">{reportMoney(data.credit)}</bdi>} unit="₪" />
+            <KpiTile compact hero icon="layers" label="الرصيد الختامي" value={<bdi dir="ltr">{reportMoney(data.closing)}</bdi>} unit="₪" hint={closingHint} />
         </section>
             <TableReport section="statement" title={`كشف حساب ${data.subscription.name}`} columns={statementColumns} exportRows={detailTable?.active ? undefined : withBalances} empty={{ title: 'لا توجد حركات لهذا المشترك خلال الفترة المختارة', description: <>الرصيد الافتتاحي <bdi dir="ltr">{reportMoney(data.opening)}</bdi> شيكل لم يتغيّر خلال هذه الفترة. غيّر الفترة لعرض الحركات السابقة.</>, action: last90 ? <button type="button" className={secondaryButtonClass} onClick={() => visit({ from: last90.from, to: last90.to, view: undefined })}>عرض آخر 90 يومًا<Icon name="calendar" className="h-4 w-4" /></button> : <Link className={secondaryButtonClass} href={data.subscription.url}>عرض كشف الحساب الكامل</Link> }} />
 

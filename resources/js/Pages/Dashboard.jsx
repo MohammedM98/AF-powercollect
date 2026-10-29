@@ -393,8 +393,8 @@ export default function Dashboard({
                                                     icon="clock"
                                                     label="الديون المستحقة"
                                                     value={formatMoney(debts.total)}
-                                                    unit="شيكل"
-                                                    hint={`${formatNumber(debts.count)} مدين · أكثر من 90 يومًا ${debts.olderShare}%`}
+                                                    unit="₪"
+                                                    hint={`${formatNumber(debts.count)} مدين · أكثر من 90 يومًا ${debts.olderShare}% · لا يُطرح منها رصيد من له رصيد دائن`}
                                                 >
                                                     <SplitBar
                                                         label="أعمار الديون"

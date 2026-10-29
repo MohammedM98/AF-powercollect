@@ -86,6 +86,9 @@ class SavePrintTemplateRequest extends FormRequest
             'layout.columns.*.secondaryKey' => ['nullable', 'string', 'max:200'],
             'layout.group.then' => ['nullable', 'array', 'max:2'],
             'layout.group.then.*' => ['string', 'max:200', 'distinct'],
+            'layout.group.headings' => ['nullable', Rule::in(['inline', 'stacked'])],
+            'layout.group.align' => ['nullable', Rule::in(['start', 'center'])],
+            'layout.group.labels' => ['nullable', 'boolean'],
             'layout.table.accent' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ];
     }

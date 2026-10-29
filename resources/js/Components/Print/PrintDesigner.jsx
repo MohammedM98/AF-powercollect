@@ -12,6 +12,7 @@ import PrintSettingsPanel from './PrintSettingsPanel';
 import { reportDetails, reportFilters } from '@/lib/cashBoxReport';
 import { statementPrintDetails } from '@/lib/statementPrint';
 import { STATEMENT_VIEWS } from '@/lib/accountStatement';
+import { formatDate } from '@/lib/format';
 
 /** Pixels in a millimetre on screen (96 dpi). */
 const PX_PER_MM = 96 / 25.4;
@@ -90,8 +91,8 @@ export default function PrintDesigner({ settings, children, beforePrint }) {
     const statementPrint = Boolean(props.printOptions);
     const readingContext = provided?.context;
     const readingDetails = readingContext ? [
-        { key: 'readingDate', label: 'موعد القراءة', value: [readingContext.readingDayName, readingContext.readingDate].filter(Boolean).join(' ') },
-        { key: 'week', label: 'أسبوع القراءة', value: [readingContext.weekStart, readingContext.weekEnd].filter(Boolean).join(' — ') },
+        { key: 'readingDate', label: 'موعد القراءة', value: [readingContext.readingDayName, readingContext.readingDate && formatDate(readingContext.readingDate)].filter(Boolean).join(' ') },
+        { key: 'week', label: 'أسبوع القراءة', value: [readingContext.weekStart, readingContext.weekEnd].filter(Boolean).map(formatDate).join(' — ') },
         { key: 'sheet', label: 'رقم الكشف', value: readingContext.sheetNumber },
     ].filter((field) => field.value) : [];
     const details = readingContext ? readingDetails : statementPrint ? statementPrintDetails(props) : report?.counts ? reportDetails(report) : [];
@@ -244,7 +245,7 @@ export default function PrintDesigner({ settings, children, beforePrint }) {
                     <Icon name="printer" className="h-5 w-5 text-print-600" />
                     تصميم الطباعة
                 </span>
-                {readingContext && <span className="text-xs text-gray-600">{readingContext.title} · {readingContext.branchName} · {[readingContext.readingDayName, readingContext.readingDate].filter(Boolean).join(' ')} · {provided.rows.length.toLocaleString('en')} سجل</span>}
+                {readingContext && <span className="text-xs text-gray-600">{[readingContext.title, readingContext.branchName, [readingContext.readingDayName, readingContext.readingDate && formatDate(readingContext.readingDate)].filter(Boolean).join(' '), `${provided.rows.length.toLocaleString('en')} سجل`].filter(Boolean).join(' · ')}</span>}
                 {isCut && (
                     <span role="status" className="inline-flex items-center gap-1 text-sm font-semibold text-amber-700">
                         <Icon name="warning" className="h-4 w-4 shrink-0" />

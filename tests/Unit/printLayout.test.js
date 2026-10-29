@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyPrintPreset, arrangeRows, cellNumber, columnTotal, compareCells, cssString, defaultLayout, fitLayout, moveColumn, pageCss, PRINT_PRESETS, printFont } from '../../resources/js/lib/printLayout.js';
+import { applyPrintPreset, arrangeRows, cellNumber, columnTotal, compareCells, cssString, defaultLayout, fitLayout, moveColumn, pageCss, PRINT_PRESETS, printFont, sectionHeadings } from '../../resources/js/lib/printLayout.js';
 
 const columns = [
     { key: 'name', label: 'الاسم' },
@@ -60,6 +60,28 @@ test('three grouping levels keep boxes inside their reader and start a new page 
     assert.equal(sections[0].groups[1].value, 'أ');
     assert.equal(sections[1].breakBefore, false);
     assert.equal(sections[2].breakBefore, true);
+});
+
+test('stacked group headings name a region once above its boxes, each line counting the rows under it', () => {
+    const row = (area, box, name) => ({ type: 'row', cells: { area, box, name } });
+    const layout = {
+        columns: [{ key: 'area', label: 'المنطقة' }, { key: 'box', label: 'الطبلون' }, { key: 'name', label: 'المشترك' }],
+        group: { key: 'area', then: ['box'], headings: 'stacked' },
+        sort: [],
+    };
+    const sections = arrangeRows([row('الحاج', '5', 'علي'), row('الأبراج', '9', 'سامي'), row('الحاج', '5', 'أحمد'), row('الحاج', '6', 'منى')], layout);
+    const headings = sectionHeadings(sections, layout);
+
+    assert.deepEqual(headings.map((lines) => lines.map((line) => [line.level, line.groups[0].value, line.count])), [
+        [[0, 'الأبراج', 1], [1, '9', 1]],
+        [[0, 'الحاج', 3], [1, '5', 2]],
+        [[1, '6', 1]],
+    ]);
+    assert.equal(headings[0][0].groups[0].label, 'المنطقة');
+
+    const inline = sectionHeadings(sections, { ...layout, group: { ...layout.group, headings: 'inline' } });
+    assert.deepEqual(inline[2].map((line) => line.groups.map((group) => group.value)), [['الحاج', '6']]);
+    assert.deepEqual(sectionHeadings(arrangeRows([row('الحاج', '5', 'علي')], { ...layout, group: { key: '' } }), layout), [[]]);
 });
 
 test('a cell number is read with thousands separators, a minus sign and Arabic digits', () => {

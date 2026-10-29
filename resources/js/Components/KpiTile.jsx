@@ -2,7 +2,7 @@ import Icon from '@/Components/Icon';
 
 /**
  * One figure on a card: an icon and a label, the figure itself with its
- * unit (شيكل…), and a quiet line of context under it. `hero` is the
+ * unit (₪…), and a quiet line of context under it. `hero` is the
  * graphite card a page leads with (one per page), with room for a `badge`
  * such as a change against the period before. `children` go under it all
  * (a small breakdown of the figure).

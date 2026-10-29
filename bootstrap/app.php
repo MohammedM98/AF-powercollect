@@ -50,7 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         // No permission, not found, expired and the like are Arabic pages in the app's own layout, with a way back;
-        // opening a page without permission shows it blank, without saying why.
+        // opening a page without permission says only that it is not open to the account, with the way back.
         Inertia::handleExceptionsUsing(function (ExceptionResponse $response) {
             $showsPage = in_array($response->statusCode(), [403, 404, 405, 419, 429], true)
                 || (in_array($response->statusCode(), [500, 503], true) && ! config('app.debug'));

@@ -1,8 +1,8 @@
-import { arrangeRows, rowColumnTotal, DENSITY_PADDING, paperSize, printFont } from '@/lib/printLayout';
+import { arrangeRows, rowColumnTotal, sectionHeadings, DENSITY_PADDING, paperSize, printFont } from '@/lib/printLayout';
 import PrintHeader from './PrintHeader';
 
 // The time printed under the heading, in the app's Arabic with Western digits.
-const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
+const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
 
 const ALIGN_CLASSES = { auto: 'text-start', start: 'text-start', center: 'text-center', end: 'text-end' };
 
@@ -10,7 +10,8 @@ const ALIGN_CLASSES = { auto: 'text-start', start: 'text-start', center: 'text-c
  * The printout itself, drawn from the page's table (`table`, see
  * lib/print.js extractTable) as the layout says: the heading, the chosen
  * columns in their order and names, the rows sorted and grouped (each
- * group titled, with its count and subtotals, on a new page if asked),
+ * group titled — on one line, or a line per level where it changes, at
+ * the chosen alignment — with its count and subtotals, on a new page if asked),
  * totals, the page's summary, notes and signature boxes. On screen it is a sheet of the chosen paper; printed,
  * the paper and margins come from the @page rule (lib/printLayout.js
  * pageCss) instead.
@@ -22,7 +23,8 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
     const columns = layout.columns.filter((column) => column.visible);
     const dataRows = table.rows.filter((row) => row.type === 'row');
     const sections = arrangeRows(table.rows, layout);
-    const groupColumn = layout.columns.find((column) => column.key === layout.group.key);
+    const headings = sectionHeadings(sections, layout);
+    const headingAlign = layout.group.align === 'center' ? 'text-center' : 'text-start';
     const totalsOf = (rows) => columns.map((column) => (column.total && !column.blank ? rowColumnTotal(rows, column.key) : null));
     const totals = totalsOf(dataRows);
     const hasTotals = totals.some((total) => total !== null);
@@ -91,14 +93,14 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                     </thead>
                     {sections.map((section, sectionIndex) => (
                         <tbody key={sectionIndex} className={layout.group.newPage && sectionIndex > 0 && section.breakBefore !== false ? 'pd-new-page' : undefined}>
-                            {section.title !== null && (
-                                <tr className="pd-group pd-group-title">
-                                    <td colSpan={span}>
-                                        {section.groups ? section.groups.map((group) => `${layout.columns.find((column) => column.key === group.key)?.label}: ${group.value}`).join(' / ') : `${groupColumn?.label}: ${section.title}`}
-                                        <span className="ms-2 font-normal text-gray-600">({section.rows.length.toLocaleString('en')})</span>
+                            {headings[sectionIndex].map((heading) => (
+                                <tr key={`heading-${heading.level}`} className={`pd-group pd-group-title pd-group-level-${heading.level}`}>
+                                    <td colSpan={span} className={headingAlign}>
+                                        {heading.groups.map((group) => (layout.group.labels === false ? group.value : `${group.label}: ${group.value}`)).join(' / ')}
+                                        <span className="ms-2 font-normal text-gray-600">({heading.count.toLocaleString('en')})</span>
                                     </td>
                                 </tr>
-                            )}
+                            ))}
                             {section.rows.map((row, index) =>
                                 row.type === 'group' ? (
                                     <tr key={index} className="pd-group">

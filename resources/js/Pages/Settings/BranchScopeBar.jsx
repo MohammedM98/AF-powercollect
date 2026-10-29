@@ -19,7 +19,7 @@ export default function BranchScopeBar({ path, scope, branch, branches, followsC
 
     function pick(event) {
         const value = event.target.value;
-        router.get(path, value ? { branch: value } : {});
+        router.get(path, { branch: value || 'all' });
     }
 
     return (

@@ -440,11 +440,11 @@ export default function Index({
                                 </td>
                             </tr>
                         ) : (
-                            // The name opens the person's details, the rest of the row the subscription's, and «عرض» the financial statement.
+                            // The row and name open the statement; «عرض» opens the subscriber's details.
                             subscriptions.data.map((subscription) => (
                                 <tr
                                     key={subscription.id}
-                                    {...rowClick(() => setViewingSubscriptionId(subscription.id))}
+                                    {...rowClick(() => openStatement(subscription))}
                                     {...printRowProps(Object.fromEntries(PRINT_FIELDS.map((field) => [field.key, subscription[field.key]])))}
                                     className={
                                         [allMatching || selectedIds.has(subscription.id) ? 'bg-brand-50' : '', isFarBehind(subscription.outstandingBalance, subscription.weeklyMinimumPayment) ? 'is-far-behind' : '']
@@ -474,10 +474,8 @@ export default function Index({
                                     <td data-print-value={subscription.display_name}>
                                         <RowIdentity
                                             name={subscription.display_name}
-                                            onNameClick={() =>
-                                                subscription.canUpdate ? setPersonalDetailsSubscription(subscription) : setViewingSubscriptionId(subscription.id)
-                                            }
-                                            nameTitle="البيانات الشخصية"
+                                            onNameClick={() => openStatement(subscription)}
+                                            nameTitle="كشف الحساب"
                                             subtitle={<PhoneQuickEdit subscription={subscription} />}
                                             status={STATUS_TONES[subscription.status]}
                                         />
@@ -505,7 +503,7 @@ export default function Index({
                                     </td>
                                     <td className="text-end">
                                         <RowActionsMenu
-                                            onView={() => openStatement(subscription)}
+                                            onView={() => setViewingSubscriptionId(subscription.id)}
                                             onEdit={subscription.canUpdate ? () => setModalSubscription(subscription) : undefined}
                                             onDelete={
                                                 subscription.canDelete

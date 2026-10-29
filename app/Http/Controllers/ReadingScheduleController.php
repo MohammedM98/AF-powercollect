@@ -8,7 +8,10 @@ use App\Models\Branch;
 use App\Models\ReadingEntrySetting;
 use App\Notifications\ActionCompleted;
 use App\Support\BranchDomainContext;
+use App\Support\BranchDomainScope;
 use App\Support\BranchScope;
+use App\Support\BranchViewContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -37,7 +40,9 @@ class ReadingScheduleController extends Controller
         $this->authorize('manage', [ReadingEntrySetting::class, $branch]);
 
         $setting = ReadingEntrySetting::forBranch($branch)->load('updatedBy');
-        $branches = $actor->isSuperAdmin() ? Branch::query()->orderBy('name')->get() : collect();
+        $branches = $actor->isSuperAdmin() ? Branch::query()
+            ->when(BranchViewContext::id() !== null, fn (Builder $query): Builder => $query->withoutGlobalScope(BranchDomainScope::class))
+            ->orderBy('name')->get() : collect();
         $businessNow = now()->timezone(config('app.business_timezone'));
         $businessDate = Carbon::parse($businessNow->toDateString());
         $currentWeeks = [];

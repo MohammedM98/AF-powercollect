@@ -465,7 +465,7 @@ step('subscribers and their account statements export formatted Excel, with read
     assert.ok(listWorkbook.worksheets[0].rowCount >= 3);
     await excel.close();
 
-    await page.getByRole('row').filter({ hasText: 'سالم عبد الله' }).getByRole('button', { name: 'عرض', exact: true }).click();
+    await page.getByRole('row').filter({ hasText: 'سالم عبد الله' }).getByRole('button', { name: 'سالم عبد الله', exact: true }).click();
     const statement = page.locator('.account-statement');
     await statement.locator('tbody tr').first().waitFor();
     await statement.locator('td[data-label="اسم المستخدم"]').first().evaluate((cell) => { cell.textContent = 'Super Admin'; });
@@ -498,7 +498,7 @@ step('financial reports export Excel, retain rejected template names, and print 
     await page.goto('/reports?branch=all');
     await page.getByRole('region', { name: 'المقارنة بالفترة السابقة' }).waitFor();
     await snap(page, 'financial-reports-comparison');
-    await page.getByRole('button', { name: 'تصدير Excel' }).click();
+    await page.locator('[data-table-exports]').first().getByRole('button', { name: 'Excel', exact: true }).click();
     const studio = page.getByRole('dialog', { name: 'تصدير التقرير إلى Excel' });
     const templateName = studio.getByLabel('اسم قالب الشركة', { exact: true });
     await templateName.fill('تقرير الشركة التجريبي');
@@ -521,7 +521,7 @@ step('financial reports export Excel, retain rejected template names, and print 
     for (const [view, label] of [['summary', 'البند'], ['lines', 'السند']]) {
         await page.getByLabel('محتوى الطباعة').selectOption(view);
         const opened = page.context().waitForEvent('page');
-        await page.getByRole('link', { name: 'طباعة وتخصيص / PDF' }).click();
+        await page.locator('[data-table-exports]').first().getByRole('link', { name: 'طباعة', exact: true }).click();
         const print = await opened;
         await print.getByRole('article', { name: 'معاينة الورقة المطبوعة' }).waitFor();
         assert.ok(await print.getByRole('article', { name: 'معاينة الورقة المطبوعة' }).getByText(label, { exact: true }).count());

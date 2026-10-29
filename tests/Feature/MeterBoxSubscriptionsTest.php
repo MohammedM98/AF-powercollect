@@ -135,7 +135,7 @@ class MeterBoxSubscriptionsTest extends TestCase
         $this->actingAs($owner)->get(route('meter-boxes.index', ['filter' => ['branch_id' => $branch->id]]))->assertInertia(fn ($page) => $page
             ->where('selectedBranch', ['id' => $branch->id, 'area_id' => $area->id])
             ->has('filterOptions.0.options', 1)->where('filterOptions.0.options.0.value', (string) $subArea->id));
-        $this->get(route('meter-boxes.index'))->assertInertia(fn ($page) => $page
+        $this->get(route('meter-boxes.index', ['filter' => ['branch_id' => '']]))->assertInertia(fn ($page) => $page
             ->where('selectedBranch', null)->has('filterOptions.0.options', 2));
     }
 

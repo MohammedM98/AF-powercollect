@@ -1,6 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import Balance from '@/Components/Balance';
-import ExcelButton, { tableExportButtonClass } from '@/Components/ExcelButton';
+import TableExportActions from '@/Components/DataTable/TableExportActions';
 import DataTableToolbar from '@/Components/DataTable/DataTableToolbar';
 import DataTableFilterMenu from '@/Components/DataTable/DataTableFilterMenu';
 import SortableTh from '@/Components/DataTable/SortableTh';
@@ -41,9 +41,8 @@ function Actions({ title, section, columns, exportRows, identity = '' }) {
     Object.entries(detailTable?.state.filter ?? {}).forEach(([key, value]) => value && params.set(`filter[${key}]`, value));
     if (section === 'statement' && reportStatement) params.set('subscription', reportStatement.subscription.id);
     return <div className="flex flex-wrap items-center gap-2">
-        {canExport && <ExcelButton title={title} storageKey={`reports:${section}`} templateKind="reports" loadParts={async () => { const rows = await loadExportRows(); return [detailExcelPart(section, title, columns, exportRows ? exportRows(rows) : rows)]; }} meta={{ lines: [scopeLabel, identity, detailTable?.active ? 'الحركات المطابقة للبحث والفلاتر؛ الأرصدة تاريخية' : '', `${filters.from} – ${filters.to}`].filter(Boolean), criteria: [['الفرع', scopeLabel], ...(identity ? [['الحساب', identity]] : []), ['من', filters.from], ['إلى', filters.to]] }} />}
-        <a className={`${tableExportButtonClass} tone-print`} href={printUrl(title, `/reports?${params}`)} target="_blank" rel="noopener noreferrer"><Icon name="printer" className="h-4 w-4" />طباعة</a>
         <InfoTip label="معلومة عن التقرير">{reportHelp[section]}</InfoTip>
+        <TableExportActions title={title} showExcel={canExport} excelProps={{ storageKey: `reports:${section}`, templateKind: 'reports', loadParts: async () => { const rows = await loadExportRows(); return [detailExcelPart(section, title, columns, exportRows ? exportRows(rows) : rows)]; }, meta: { lines: [scopeLabel, identity, detailTable?.active ? 'الحركات المطابقة للبحث والفلاتر؛ الأرصدة تاريخية' : '', `${filters.from} – ${filters.to}`].filter(Boolean), criteria: [['الفرع', scopeLabel], ...(identity ? [['الحساب', identity]] : []), ['من', filters.from], ['إلى', filters.to]] } }} printHref={printUrl(title, `/reports?${params}`)} />
     </div>;
 }
 

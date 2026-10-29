@@ -295,7 +295,7 @@ class ReadingScheduleTest extends TestCase
 
         $this->get(route('settings.reading-schedule.edit', ['branch' => $following->id]))
             ->assertInertia(fn ($page) => $page->where('followsCompany', true)->where('setting.reading_day', CarbonInterface::THURSDAY));
-        $this->get(route('settings.reading-schedule.edit'))
+        $this->get(route('settings.reading-schedule.edit', ['branch' => 'all']))
             ->assertInertia(fn ($page) => $page->where('branch', null)->where('followsCompany', false));
     }
 

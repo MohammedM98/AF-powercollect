@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureSupportedMobileApp;
 use App\Http\Middleware\EnsureUserDeviceAccess;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveBranchDomain;
+use App\Http\Middleware\ResolveBranchView;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -33,8 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SecurityHeaders::class);
         $middleware->prepend(ResolveBranchDomain::class);
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsureBranchDomainAccess::class);
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: ResolveBranchView::class);
         $middleware->web(append: [
             EnsureBranchDomainAccess::class,
+            ResolveBranchView::class,
             EnsureAccountIsActive::class,
             EnsureUserDeviceAccess::class,
             EnsureFinancialAuditorAccess::class,

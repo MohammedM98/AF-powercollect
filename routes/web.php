@@ -8,6 +8,7 @@ use App\Http\Controllers\BranchClosingController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchDomainController;
 use App\Http\Controllers\BranchPerformanceController;
+use App\Http\Controllers\BranchViewController;
 use App\Http\Controllers\CashBoxAuditController;
 use App\Http\Controllers\CashBoxController;
 use App\Http\Controllers\CashBoxReportController;
@@ -81,6 +82,7 @@ Route::get('/', function (Request $request): RedirectResponse {
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::put('/branch-view', BranchViewController::class)->name('branch-view.update');
     Route::get('/auth/session', SessionStatusController::class)->name('auth.session');
     Route::post('/print-selections', [PrintSelectionController::class, 'store'])->middleware('throttle:30,1')->name('print-selections.store');
     Route::get('/reading-cycles/print', [ReadingPrintController::class, 'index'])->name('reading-cycles.print');

@@ -6,7 +6,7 @@ import StatusPill from '@/Components/DataTable/StatusPill';
 import Balance from '@/Components/Balance';
 import LatePaymentDetails from '@/Components/LatePaymentDetails';
 import Icon from '@/Components/Icon';
-import ExcelButton from '@/Components/ExcelButton';
+import TableExportActions from '@/Components/DataTable/TableExportActions';
 import { statementExcelParts } from '@/lib/detailExcelParts';
 import StatementViewTabs from './StatementViewTabs';
 import { COMPANY_NAME } from '@/Layouts/GuestLayout';
@@ -26,6 +26,7 @@ import SplitPaymentBadge from '@/Pages/Payments/SplitPaymentBadge';
 import { statementPrintUrl, statementRowTotals } from '@/lib/statementPrint';
 import './AccountStatement.css';
 import DateInput from '@/Components/DateInput';
+import { useRowActionsMenu } from '@/hooks/useRowActionsMenu';
 
 export const STATEMENT_COLUMNS = [
     '#',
@@ -50,10 +51,6 @@ const EMPTY_FILTERS = { search: '', type: '', method: '', dateFrom: '', dateTo: 
 
 // The time printed on the statement, in the app's Arabic with Western digits.
 const PRINTED_AT_FORMAT = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { dateStyle: 'long', timeStyle: 'short' });
-
-/** The toolbar's buttons, as the table toolbar's print button looks; each takes its colour (tone-excel, tone-print). */
-const TOOL_BUTTON =
-    'inline-flex h-[34px] items-center gap-1.5 rounded-control border px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Keeps dates like 2026-09-18 reading left to right inside Arabic text. */
 function withLtrDates(text) {
@@ -321,7 +318,8 @@ function lineActionsMenu(entry, onAction) {
 
     return groups.length
         ? {
-              title: entry.description,
+              title: entry.typeLabel,
+              description: [entry.description, entry.details].filter(Boolean).join('\n'),
               subtitle: entry.date,
               width: 410,
               colorful: true,
@@ -425,11 +423,14 @@ function StatementRow({
     onAction,
     fullPaymentDetails = false,
 }) {
+    const actionsMenu = useRowActionsMenu();
+    const menu = hasLineMenus && hasLineMenu(entry) ? lineActionsMenu(entry, onAction) : null;
     const showsHistory = isCompact && !isHistory && entry.history?.length > 0;
     const color = chainColor(chain);
 
     return (
         <tr
+            {...actionsMenu.rowProps(Boolean(menu))}
             id={`statement-line-${entry.id}`}
             data-print-totals={JSON.stringify(statementRowTotals(entry, isHistory))}
             data-print-currency={entry.currencyLabel}
@@ -551,7 +552,7 @@ function StatementRow({
                         <Dash />
                     </span>
                 ) : (
-                    <Balance value={entry.balance} colored={false} unit="" className="font-bold text-gray-900" />
+                    <Balance value={entry.balance} colored={false} unit="" paperWord={false} className="font-bold text-gray-900" />
                 )}
             </td>
             <td data-label="اسم المستخدم" className="text-gray-700">
@@ -559,7 +560,7 @@ function StatementRow({
             </td>
             {hasLineMenus && (
                 <td className="statement-screen-only text-center !align-middle">
-                    {hasLineMenu(entry) && <RowActionsMenu menu={lineActionsMenu(entry, onAction)} coloredMenu />}
+                    {menu && <RowActionsMenu menu={menu} menuController={actionsMenu} />}
                 </td>
             )}
         </tr>
@@ -750,7 +751,7 @@ export default function AccountStatement({ subscription, entries, summary, payme
             <div className="statement-summary mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <SummaryCard
                     label="الرصيد الحالي"
-                    value={<Balance value={summary.balance} colored={false} unit="شيكل" word />}
+                    value={<Balance value={summary.balance} colored={false} unit="شيكل" paperWord={false} />}
                     tone={balanceTone(summary.balance)}
                     className="sm:col-span-2 lg:col-span-1"
                 />
@@ -782,17 +783,13 @@ export default function AccountStatement({ subscription, entries, summary, payme
                         <div className="me-auto">
                             <StatementViewTabs value={view} onChange={chooseView} />
                         </div>
-                        <ExcelButton title={`كشف حساب ${subscription.fullName}`} storageKey="statements" templateKind="statements" disabled={!visibleEntries.length} className={TOOL_BUTTON} loadParts={async () => statementExcelParts(rows.flatMap((entry) => [entry, ...(openHistories.has(entry.id) ? entry.history ?? [] : [])]), summary)} meta={{ lines: [`رقم الحساب: ${subscription.accountNumber}`, subscription.branchName, printCaption].filter(Boolean), criteria: [['المشترك', subscription.fullName], ['رقم الحساب', subscription.accountNumber], ['التصفية', printCaption || 'كل الحركات ضمن العرض المختار']] }} />
-                        {subscription.canPrint !== false && <button
-                            type="button"
-                            onClick={() => window.open(statementPrintUrl(subscription.id, { view, filters, openHistories }), '_blank', 'noopener')}
+                        <TableExportActions
+                            title={`كشف حساب ${subscription.fullName}`}
+                            excelProps={{ storageKey: 'statements', templateKind: 'statements', loadParts: async () => statementExcelParts(rows.flatMap((entry) => [entry, ...(openHistories.has(entry.id) ? entry.history ?? [] : [])]), summary), meta: { lines: [`رقم الحساب: ${subscription.accountNumber}`, subscription.branchName, printCaption].filter(Boolean), criteria: [['المشترك', subscription.fullName], ['رقم الحساب', subscription.accountNumber], ['التصفية', printCaption || 'كل الحركات ضمن العرض المختار']] } }}
+                            showPrint={subscription.canPrint !== false}
+                            onPrint={() => window.open(statementPrintUrl(subscription.id, { view, filters, openHistories }), '_blank', 'noopener')}
                             disabled={visibleEntries.length === 0}
-                            title="تخصيص وطباعة الحركات المعروضة مع رأس الكشف وملخّصه"
-                            className={`${TOOL_BUTTON} tone-print`}
-                        >
-                            <Icon name="printer" className="h-4 w-4" />
-                            طباعة وتخصيص
-                        </button>}
+                        />
                     </div>
                     <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-8">
                         <label className="block text-sm text-gray-600 sm:col-span-2">

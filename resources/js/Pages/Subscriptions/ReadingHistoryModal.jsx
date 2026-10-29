@@ -4,7 +4,7 @@ import ConfirmDialog from '@/Components/ConfirmDialog';
 import LastReadingConfirmDialog from '@/Components/LastReadingConfirmDialog';
 import Icon from '@/Components/Icon';
 import Modal from '@/Components/Modal';
-import ExcelButton from '@/Components/ExcelButton';
+import TableExportActions from '@/Components/DataTable/TableExportActions';
 import { readingHistoryExcelParts } from '@/lib/detailExcelParts';
 import { formatMoney, formatNumber } from '@/lib/format';
 import { groupReadingsByMonth, readingTotals, readingsInPeriod } from '@/lib/readingHistory';
@@ -333,8 +333,7 @@ export default function ReadingHistoryModal({ subscription, onClose, readingWeek
                         </div>
                     </div>
                     <div className="rh-actions">
-                        <ExcelButton title={`سجل قراءات ${subscription.display_name}`} storageKey="reading-history" templateKind="reading-history" className="tone-on-dark" disabled={!visibleReadings.length} loadParts={async () => readingHistoryExcelParts(visibleReadings)} meta={{ lines: [`رقم الحساب: ${subscription.account_number}`, subscription.branchName].filter(Boolean), criteria: [['الفترة', PERIODS.find(([value]) => value === period)[1]], ['الحالة', STATUSES.find(([value]) => value === status)[1]]] }} />
-                        <button type="button" className="tone-print tone-on-dark" onClick={() => window.print()} disabled={!visibleReadings.length}><Icon name="printer" />طباعة</button>
+                        <TableExportActions title={`سجل قراءات ${subscription.display_name}`} onDark disabled={!visibleReadings.length} onPrint={() => window.print()} excelProps={{ storageKey: 'reading-history', templateKind: 'reading-history', loadParts: async () => readingHistoryExcelParts(visibleReadings), meta: { lines: [`رقم الحساب: ${subscription.account_number}`, subscription.branchName].filter(Boolean), criteria: [['الفترة', PERIODS.find(([value]) => value === period)[1]], ['الحالة', STATUSES.find(([value]) => value === status)[1]]] } }} />
                         <button type="button" className="rh-close" onClick={onClose} aria-label="إغلاق"><Icon name="close" /></button>
                     </div>
                 </header>

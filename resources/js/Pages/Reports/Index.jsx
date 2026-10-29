@@ -8,11 +8,10 @@ import Pagination from '@/Components/DataTable/Pagination';
 import DateInput from '@/Components/DateInput';
 import Icon from '@/Components/Icon';
 import InfoTip from '@/Components/InfoTip';
-import ExcelButton from '@/Components/ExcelButton';
+import TableExportActions from '@/Components/DataTable/TableExportActions';
 import KpiTile from '@/Components/KpiTile';
 import PageHeader from '@/Components/PageHeader';
 import SearchableSelect from '@/Components/SearchableSelect';
-import { secondaryButtonClass } from '@/Components/SecondaryButton';
 import SegmentedTabs from '@/Components/SegmentedTabs';
 import { accountsPart, branchesPart, collectorsPart, currenciesPart, daysPart, flowPart, linesPart, readingsPart, reportExcelParts } from '@/lib/reportExcelParts';
 import { loadReportLines } from '@/lib/reportLines';
@@ -107,26 +106,6 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
                 <PageHeader
                     title="التقارير المالية"
                     meta={`${branchScope ? '' : `${scopeLabel} · `}${periodLabel(period?.mode, period)} · ${periodText}${oneDay && filters.from === today ? ' · اليوم الجاري' : ''}`}
-                    actions={
-                        hasFigures && ['overview', 'collections', 'movements'].includes(section) && (
-                            <>
-                                {canExport && (
-                                    <button type="button" className={`${secondaryButtonClass} tone-excel`} onClick={() => setExcelOpen(true)}>
-                                        <Icon name="excel" className="h-4 w-4" />
-                                        تصدير Excel
-                                    </button>
-                                )}
-                                <select aria-label="محتوى الطباعة" className="text-sm" value={printView} onChange={(event) => setPrintView(event.target.value)}>
-                                    <option value="summary">الملخص المالي</option>
-                                    <option value="lines">الحركات التفصيلية</option>
-                                </select>
-                                <a className={`${secondaryButtonClass} tone-print`} href={printUrl(`${printView === 'lines' ? 'الحركات التفصيلية' : 'الملخص المالي'} — ${scopeName} — ${periodText}`, `/reports?${query}&print_view=${printView}`)} target="_blank" rel="noopener noreferrer">
-                                    <Icon name="printer" className="h-4 w-4" />
-                                    طباعة وتخصيص / PDF
-                                </a>
-                            </>
-                        )
-                    }
                 />
             }
         >
@@ -173,6 +152,17 @@ export default function Index({ branches, filters, scopeLabel, branchScope, pres
                     {sections.map((item) => <button key={item.key} type="button" aria-current={section === item.key ? 'page' : undefined} onClick={() => { setPrintView(item.key === 'movements' ? 'lines' : 'summary'); visit({ section: item.key, page: undefined }); }} className={`inline-flex items-center gap-2 rounded-control px-4 py-2.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-900 ${section === item.key ? 'bg-graphite-800 text-white' : 'text-gray-600 hover:bg-gray-50'}`}><Icon name={item.icon} className="h-4 w-4" />{item.title}</button>)}
                 </nav>
                 <PeriodCard branches={branches} branchScope={branchScope} scopeLabel={scopeLabel} filters={filters} presets={presets} today={today} period={period} periodText={periodText} visit={visit} />
+                {hasFigures && ['overview', 'collections', 'movements'].includes(section) && (
+                    <div className="data-table-toolbar flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-2 text-sm text-gray-600">محتوى الطباعة
+                            <select aria-label="محتوى الطباعة" className="text-sm" value={printView} onChange={(event) => setPrintView(event.target.value)}>
+                                <option value="summary">الملخص المالي</option>
+                                <option value="lines">الحركات التفصيلية</option>
+                            </select>
+                        </label>
+                        <TableExportActions showExcel={canExport} onExcel={() => setExcelOpen(true)} printHref={printUrl(`${printView === 'lines' ? 'الحركات التفصيلية' : 'الملخص المالي'} — ${scopeName} — ${periodText}`, `/reports?${query}&print_view=${printView}`)} />
+                    </div>
+                )}
 
                 {errors.from && (
                     <p role="alert" className="flex items-center gap-2 rounded-card border border-red-200 bg-red-500/5 px-4 py-3 text-sm font-semibold text-red-700">
@@ -251,7 +241,7 @@ function Panel({ icon, title, hint = null, className = '', excelParts, children 
                 </span>
                 <h3 className="font-bold text-gray-900">{title}</h3>
                 {hint && <span className="text-xs text-gray-500">{hint}</span>}
-                {canExport && excelParts && <div className="ms-auto"><ExcelButton title={title} storageKey={`reports:${title}`} templateKind="reports" loadParts={async (options) => (await excelParts(options)).map((part) => ({ ...part, default: true }))} meta={{ lines: [scopeLabel, `${filters.from} – ${filters.to}`].filter(Boolean), criteria: [['أعدّه', auth?.user?.name ?? ''], ['من', filters.from], ['إلى', filters.to]] }} /></div>}
+                {canExport && excelParts && <TableExportActions title={title} showPrint={false} excelProps={{ storageKey: `reports:${title}`, templateKind: 'reports', loadParts: async (options) => (await excelParts(options)).map((part) => ({ ...part, default: true })), meta: { lines: [scopeLabel, `${filters.from} – ${filters.to}`].filter(Boolean), criteria: [['أعدّه', auth?.user?.name ?? ''], ['من', filters.from], ['إلى', filters.to]] } }} />}
             </div>
             {children}
         </section>

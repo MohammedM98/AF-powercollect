@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Icon from '@/Components/Icon';
 import SearchableSelect from '@/Components/SearchableSelect';
 import { formatNumber } from '@/lib/format';
+import { useBranchView } from '@/hooks/useBranchView';
 
 /**
  * Whose figures the page shows, large at its top: one branch's name, with
@@ -31,6 +32,10 @@ function branchCount(count) {
 }
 
 export default function BranchBanner({ scope, eyebrow = 'تعرض الآن البيانات المالية لـ', allLabel = 'تقرير مجمّع', options = [], value = '', allValue = 'all', onChange = null, controls = null, meta = null, children = null, className = 'mb-5' }) {
+    const view = useBranchView();
+    const pickerOptions = view.available ? view.options : options;
+    const pickerValue = view.available ? view.value || allValue : value;
+    const pick = view.available ? view.changeBranch : onChange;
     const facts = [
         scope.place && { icon: 'pin', text: scope.place },
         scope.all && { icon: 'building', text: branchCount(scope.branches) },
@@ -70,17 +75,19 @@ export default function BranchBanner({ scope, eyebrow = 'تعرض الآن ال�
                     </ul>
                 </div>
                 {controls && <div className="flex w-full flex-wrap gap-3 sm:w-auto print:hidden">{controls}</div>}
-                {onChange && options.length > 1 && (
+                {!controls && pick && pickerOptions.length > 1 && (
                     <label className="flex w-full flex-col gap-1.5 sm:w-64 print:hidden">
                         <span className="text-xs font-semibold text-white/70">تغيير الفرع</span>
                         <span className="relative">
                             <select
-                                value={value ?? ''}
-                                onChange={(event) => onChange(event.target.value)}
+                                aria-label="تغيير الفرع"
+                                value={pickerValue ?? ''}
+                                disabled={view.switching}
+                                onChange={(event) => pick(event.target.value)}
                                 className="h-12 w-full appearance-none rounded-control border border-white/15 bg-white/10 bg-none pe-10 ps-3.5 font-bold text-white [color-scheme:dark] focus:border-white/40 focus:ring-2 focus:ring-white/30"
                             >
                                 <option value={allValue}>جميع الفروع (تقرير مجمّع)</option>
-                                {options.map((option) => (
+                                {pickerOptions.map((option) => (
                                     <option key={option.value} value={option.value}>
                                         {option.label}
                                     </option>
@@ -121,21 +128,24 @@ export function splitBranchFilter(scope, groups, values) {
  * choice of every branch, for a page that always shows one.
  */
 export function BranchFilterBanner({ scope, eyebrow, group, value, onChange, allowAll = true }) {
+    const view = useBranchView();
+    const options = view.available ? view.options : group?.options;
     return (
         <BranchBanner
             scope={scope}
             eyebrow={eyebrow}
             controls={
-                group && (
+                options && (
                     <label className="flex w-full flex-col gap-1.5 text-xs font-semibold text-white/70 sm:w-64">
                         الفرع
                         <SearchableSelect
-                            value={value ?? ''}
-                            onChange={onChange}
-                            options={group.options}
-                            placeholder={allowAll ? (scope.allName ?? 'جميع الفروع') : scope.name}
+                            value={view.available ? String(view.value) : value ?? ''}
+                            onChange={view.available ? view.changeBranch : onChange}
+                            options={options}
+                            disabled={view.switching}
+                            placeholder={allowAll ? (view.available ? 'جميع الفروع' : scope.allName ?? 'جميع الفروع') : scope.name}
                             searchPlaceholder="ابحث عن فرع..."
-                            active={allowAll && Boolean(value)}
+                            active={allowAll && Boolean(view.available ? view.value : value)}
                             clearable={allowAll}
                             portal
                             onDark

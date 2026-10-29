@@ -83,6 +83,8 @@ class ReportDetails
      * Recorded box entries by currency, without treating a handover as fresh
      * income. Only boxes open at some point in the period are listed: one
      * closed and received before the period began belongs to an earlier one.
+     * `byStatus` totals them by where the box stands at the period's end:
+     * still open, closed without the branch confirming it, or confirmed.
      *
      * @return array<string, mixed>
      */
@@ -112,6 +114,16 @@ class ReportDetails
             }
         }
 
-        return ['asOf' => $this->to->toDateString(), 'rows' => $rows->values()];
+        return [
+            'asOf' => $this->to->toDateString(),
+            'rows' => $rows->values(),
+            'byStatus' => collect(['مفتوح', 'مغلق', 'مستلم'])->map(fn (string $status): array => [
+                'status' => $status,
+                'boxes' => $rows->where('status', $status)->unique('boxId')->count(),
+                'currencies' => $rows->where('status', $status)->groupBy('currency')
+                    ->map(fn (Collection $entries, string $currency): array => ['currency' => $currency, 'amount' => Closing::money($entries->sum(fn (array $row): int => Closing::cents($row['amount'])))])
+                    ->sortByDesc(fn (array $total): bool => $total['currency'] === 'ILS')->values()->all(),
+            ])->all(),
+        ];
     }
 }

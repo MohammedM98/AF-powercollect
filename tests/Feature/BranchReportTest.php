@@ -396,7 +396,12 @@ class BranchReportTest extends TestCase
             ->where('detailTable.rows.0.boxId', $current->id)
             ->where('detailTable.rows.0.status', 'مفتوح'));
         $this->get(route('reports.index', ['section' => 'boxes', 'from' => '2026-09-20', 'to' => '2026-09-30']))->assertInertia(fn ($page) => $page
-            ->has('detailTable.rows', 2));
+            ->has('detailTable.rows', 2)
+            ->where('boxData.byStatus', [
+                ['status' => 'مفتوح', 'boxes' => 1, 'currencies' => [['currency' => 'ILS', 'amount' => '20.00']]],
+                ['status' => 'مغلق', 'boxes' => 0, 'currencies' => []],
+                ['status' => 'مستلم', 'boxes' => 1, 'currencies' => [['currency' => 'ILS', 'amount' => '30.00']]],
+            ]));
     }
 
     public function test_detail_sections_skip_the_period_summary_that_only_summary_sections_show(): void

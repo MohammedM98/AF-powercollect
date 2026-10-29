@@ -101,9 +101,19 @@ export function DebtReport({ data, visit }) {
     </div>;
 }
 
+const boxStatusLabels = { 'مفتوح': 'في صناديق مفتوحة', 'مغلق': 'في صناديق مغلقة لم يؤكد الفرع استلامها', 'مستلم': 'أكّد الفرع استلامها' };
+
 export function BoxesReport({ data }) {
     if (!data) return null;
-    return <TableReport section="boxes" title="الصناديق والأموال" columns={boxColumns} />;
+    return <div className="space-y-5">
+        <section aria-label="الأموال حسب حالة الصندوق" className="grid gap-4 sm:grid-cols-3">
+            {data.byStatus.map((group) => {
+                const [main, ...others] = group.currencies;
+                return <KpiTile key={group.status} label={boxStatusLabels[group.status]} value={<bdi dir="ltr">{reportMoney(main?.amount ?? 0)}</bdi>} unit={main && main.currency !== 'ILS' ? main.currency : 'شيكل'} hint={[`${group.boxes} صندوق`, ...others.map((total) => `${reportMoney(total.amount)} ${total.currency}`)].join(' · ')} />;
+            })}
+        </section>
+        <TableReport section="boxes" title="الصناديق والأموال" columns={boxColumns} />
+    </div>;
 }
 
 export function StatementReport({ data, visit }) {

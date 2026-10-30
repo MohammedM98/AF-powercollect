@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\AuditAction;
+use App\Enums\PermissionKey;
 use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\CircuitBreaker;
@@ -121,6 +122,8 @@ class HandleInertiaRequests extends Middleware
                 'manageSettings' => $user->can('manage', Permission::class),
                 'manageReadingSchedule' => $user->can('manageAny', ReadingEntrySetting::class),
                 'managePrintTemplates' => $user->can('viewAny', PrintTemplate::class),
+                // Without it a printout uses the company's saved templates as they are.
+                'customizePrintouts' => $user->hasAnyPermission(PermissionKey::CustomizePrintouts, PermissionKey::ManagePrintTemplates),
                 'viewCompanyForms' => $user->can('viewAny', CompanyFormTemplate::class),
                 'manageSmsSettings' => $user->can('manage', SmsSetting::class),
                 'managePaymentSettings' => $user->can('manage', CurrencyRate::class) || $user->can('manageAny', ClosingSetting::class),

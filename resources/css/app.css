@@ -2000,6 +2000,8 @@ input[type='radio'] {
 }
 
 .pd-paper {
+    position: relative;
+    isolation: isolate;
     margin: 0 auto;
     background: #fff;
     color: #111827;
@@ -2039,11 +2041,14 @@ input[type='radio'] {
 }
 
 .pd-borders-rows thead th,
-.pd-borders-none thead th {
+.pd-borders-none thead th,
+.pd-borders-rows tr.pd-column-titles th,
+.pd-borders-none tr.pd-column-titles th {
     border-bottom: 2px solid var(--pd-accent);
 }
 
-.pd-shade thead th {
+.pd-shade thead th,
+.pd-shade tr.pd-column-titles th {
     background: color-mix(in srgb, var(--pd-accent) 12%, #fff);
 }
 
@@ -2069,7 +2074,8 @@ input[type='radio'] {
     font-weight: 700;
 }
 
-.pd-table tr.pd-group-title {
+.pd-table tr.pd-group-title,
+.pd-table tr.pd-column-titles {
     break-after: avoid;
 }
 
@@ -2096,6 +2102,45 @@ input[type='radio'] {
 .pd-table tr.pd-subtotal td {
     border-top: 1px solid var(--pd-accent);
     font-weight: 600;
+}
+
+/* Written faintly across the sheet, over the table so shaded cells don't hide it; printed, it repeats on every page. */
+.pd-watermark {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6mm;
+    pointer-events: none;
+    color: #111827;
+    font-size: 42px;
+    font-weight: 700;
+    transform: rotate(-24deg);
+}
+
+.pd-watermark img {
+    width: 55%;
+    max-height: 40%;
+    object-fit: contain;
+}
+
+@media print {
+    .pd-watermark {
+        position: fixed;
+    }
+}
+
+/* A group kept whole on one page where it fits. */
+.pd-table tbody.pd-keep {
+    break-inside: avoid;
+}
+
+/* Empty lines left under a group to write in by hand. */
+.pd-table tr.pd-blank-row td {
+    height: calc(var(--pd-pad) * 2 + 1.6em);
 }
 
 /* A group set to start on its own page: a dashed line on screen, a page break in print. */

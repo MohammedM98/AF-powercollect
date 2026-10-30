@@ -10,7 +10,12 @@ class ReadingPrintData
      * Group headings on a centred line of their own, written once where they
      * change: the region, then each box under it (see resources/js/lib/printLayout.js).
      */
-    private const CENTRED_HEADINGS = ['headings' => 'stacked', 'align' => 'center', 'labels' => false];
+    private const CENTRED_HEADINGS = ['headings' => 'stacked', 'align' => 'center', 'labels' => false, 'repeatHeader' => true];
+
+    /**
+     * Subscribers from أ to ي inside each box.
+     */
+    private const BY_NAME = [['key' => 'المشترك', 'direction' => 'asc']];
 
     /** @param array<string, mixed> $context
      * @return array<string, mixed>
@@ -49,7 +54,7 @@ class ReadingPrintData
 
         return [
             // Subscribers under their region, then their box, ready to print as read in the field.
-            ...self::report($labels, $fields, $data, $context, $rows->total(), ['group' => ['key' => 'field:subAreaName', 'then' => ['field:meterBoxLabel'], ...self::CENTRED_HEADINGS]]),
+            ...self::report($labels, $fields, $data, $context, $rows->total(), ['group' => ['key' => 'field:subAreaName', 'then' => ['field:meterBoxLabel'], 'unit' => 'مشترك', ...self::CENTRED_HEADINGS], 'sort' => self::BY_NAME]),
             'pagination' => [
                 'current_page' => $rows->currentPage(),
                 'total' => $rows->total(),
@@ -71,7 +76,7 @@ class ReadingPrintData
             'المشتركون' => $box['subscribers'], 'طريقة القراءة' => $box['channel'], 'حالة التوزيع' => $box['status'],
         ], $fields, [...$box, 'branchName' => $context['branchName'], 'readingDate' => $context['readingDate']]), $boxes);
 
-        return self::report($labels, $fields, $data, $context, $total, ['group' => ['key' => 'field:subAreaName', ...self::CENTRED_HEADINGS]]);
+        return self::report($labels, $fields, $data, $context, $total, ['group' => ['key' => 'field:subAreaName', 'unit' => 'طبلون', ...self::CENTRED_HEADINGS]]);
     }
 
     /** @param list<array<string, mixed>> $boxes
@@ -97,7 +102,7 @@ class ReadingPrintData
         return [
             ...self::report($labels, $fields, $data, $context, count($data), [
                 'density' => 'relaxed',
-                'group' => ['key' => 'field:subAreaName', 'then' => ['الطبلون'], ...self::CENTRED_HEADINGS],
+                'group' => ['key' => 'field:subAreaName', 'then' => ['الطبلون'], 'unit' => 'مشترك', ...self::CENTRED_HEADINGS],
                 'footer' => ['signatures' => ['القارئ', 'المراجع']],
             ]),
             'warnings' => array_values(array_map(

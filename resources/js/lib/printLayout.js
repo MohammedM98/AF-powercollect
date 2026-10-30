@@ -108,8 +108,15 @@ export function defaultLayout({ columns, title = '', company = '' }) {
         // Up to three levels, `{ key, direction }`; empty keeps the table's own order.
         sort: [],
         // `headings`: 'inline' writes a group's levels on one line, 'stacked' gives each level its own
-        // line, written only when its value changes (e.g. the area, then each box under it).
-        group: { key: '', newPage: false, subtotals: true, headings: 'inline', align: 'start', labels: true },
+        // line, written only when its value changes (e.g. the area, then each box under it). `unit`
+        // follows each heading's count, e.g. "(12 مشترك)". `repeatHeader` writes the column titles
+        // again under every group's heading. `newPageAt`: a new page for each top-level value
+        // ('top', e.g. each region) or for every group ('every', e.g. each box). `styles` holds
+        // each heading level's `{ size, background, color }`.
+        group: {
+            key: '', newPage: false, subtotals: true, headings: 'inline', align: 'start', labels: true, unit: '', repeatHeader: false,
+            restartNumbers: false, keepTogether: false, newPageAt: 'top', blankRows: 0, showCount: true, styles: [],
+        },
         table: {
             borders: 'grid',
             zebra: true,
@@ -117,6 +124,8 @@ export function defaultLayout({ columns, title = '', company = '' }) {
             rowNumbers: false,
             wrap: true,
             accent: '#111827',
+            // Rows coloured by their values, first matching rule wins (see rowHighlight).
+            highlights: [],
         },
         footer: {
             text: '',
@@ -124,7 +133,9 @@ export function defaultLayout({ columns, title = '', company = '' }) {
             summary: true,
             notes: '',
             signatures: [],
+            pageNumberPosition: 'left',
         },
+        watermark: { enabled: false, text: '', logo: false, opacity: 0.08 },
     };
 }
 
@@ -165,6 +176,7 @@ export function fitLayout(saved, fresh) {
         header: { ...fresh.header, ...present(saved.header) },
         table: { ...fresh.table, ...present(saved.table) },
         footer: { ...fresh.footer, ...present(saved.footer), signatures: (saved.footer?.signatures ?? fresh.footer.signatures).map((label) => label ?? '') },
+        watermark: { ...fresh.watermark, ...present(saved.watermark) },
         columns: [...kept, ...fresh.columns.filter((column) => !keptKeys.has(column.key))],
         sort: (Array.isArray(saved.sort) ? saved.sort : []).filter((level) => level && freshKeys.has(level.key)).slice(0, 3),
         group: { ...fresh.group, ...present(saved.group), key: freshKeys.has(saved.group?.key) ? saved.group.key : '',
@@ -397,30 +409,89 @@ export function cssString(text) {
     return `"${String(text).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]+/g, ' ')}"`;
 }
 
+/** The page-margin boxes the page number can sit in, and where the footer text goes beside it. */
+const PAGE_NUMBER_BOXES = { left: '@bottom-left', center: '@bottom-center', right: '@bottom-right' };
+
 /**
  * The `@page` rule for the printout: paper, orientation and margins, plus
  * what repeats in every page's margin — the page number, the footer text,
- * and the title when it repeats.
+ * the title, the company's name and the print date when they repeat.
+ * `repeated` gives the company name and date to repeat.
  */
-export function pageCss(layout) {
+export function pageCss(layout, repeated = {}) {
     const paper = PAPER_SIZES[layout.paper] ? layout.paper : 'A4';
     const margin = Math.min(Math.max(Number(layout.margin) || 0, 0), 40);
     const box = `font-size: 9pt; color: #4b5563; font-family: ${printFont(layout.fontFamily)};`;
     const boxes = [];
+    const numberBox = PAGE_NUMBER_BOXES[layout.footer.pageNumberPosition] ?? PAGE_NUMBER_BOXES.left;
 
     if (layout.footer.pageNumbers) {
-        boxes.push(`@bottom-left { content: "صفحة " counter(page) " من " counter(pages); ${box} }`);
+        boxes.push(`${numberBox} { content: "صفحة " counter(page) " من " counter(pages); ${box} }`);
     }
 
     if (layout.footer.text.trim() !== '') {
-        boxes.push(`@bottom-right { content: ${cssString(layout.footer.text)}; ${box} }`);
+        const textBox = layout.footer.pageNumbers && numberBox === '@bottom-right' ? '@bottom-left' : '@bottom-right';
+        boxes.push(`${textBox} { content: ${cssString(layout.footer.text)}; ${box} }`);
     }
 
     if (layout.header.repeatTitle && layout.header.title.trim() !== '') {
         boxes.push(`@top-right { content: ${cssString(layout.header.title)}; ${box} }`);
     }
 
+    if (layout.header.repeatCompany && String(repeated.company ?? '').trim() !== '') {
+        boxes.push(`@top-left { content: ${cssString(repeated.company)}; ${box} }`);
+    }
+
+    if (layout.header.repeatDate && String(repeated.date ?? '').trim() !== '') {
+        boxes.push(`@top-center { content: ${cssString(repeated.date)}; ${box} }`);
+    }
+
     return `@page { size: ${paper} ${layout.orientation === 'landscape' ? 'landscape' : 'portrait'}; margin: ${margin}mm; ${boxes.join(' ')} }`;
+}
+
+/** The ways a highlight rule can compare a cell with its value. */
+export const HIGHLIGHT_OPERATORS = {
+    contains: 'يحتوي على',
+    equals: 'يساوي',
+    empty: 'فارغ',
+    notEmpty: 'غير فارغ',
+    gt: 'أكبر من',
+    lt: 'أصغر من',
+};
+
+/** Whether a cell's text meets a highlight rule. */
+export function matchesHighlight(text, rule) {
+    const cell = String(text ?? '').trim();
+    const value = String(rule.value ?? '').trim();
+
+    switch (rule.operator) {
+        case 'empty':
+            return cell === '';
+        case 'notEmpty':
+            return cell !== '';
+        case 'equals':
+            return value !== '' && cell === value;
+        case 'gt':
+        case 'lt': {
+            const number = cellNumber(cell);
+            const limit = cellNumber(value);
+
+            return number !== null && limit !== null && (rule.operator === 'gt' ? number > limit : number < limit);
+        }
+        default:
+            return value !== '' && cell.includes(value);
+    }
+}
+
+/**
+ * The colour a data row prints in: the first highlight rule its cell
+ * meets, as `{ color, key }` — `key` null to colour the whole row, else
+ * only that column's cell — or null when no rule matches.
+ */
+export function rowHighlight(row, rules = []) {
+    const rule = rules.find((item) => item?.key && matchesHighlight(row.cells?.[item.key], item));
+
+    return rule ? { color: rule.color, key: rule.target === 'cell' ? rule.key : null } : null;
 }
 
 function readJson(key) {

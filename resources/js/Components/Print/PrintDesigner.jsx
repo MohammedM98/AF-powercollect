@@ -71,6 +71,8 @@ export default function PrintDesigner({ settings, children, beforePrint }) {
     const templates = props.printTemplates ?? [];
     const supportsTemplates = Array.isArray(props.printTemplates);
     const canManageTemplates = Boolean(props.can?.managePrintTemplates) && supportsTemplates;
+    // Without the permission to customise, the printout keeps the company's template as it is.
+    const canCustomize = props.can?.customizePrintouts !== false;
     const [start] = useState(() => {
         const requested = templates.find((template) => String(template.id) === settings.template);
         const chosen = requested ?? (settings.template === 'new' ? null : templates.find((template) => template.isDefault));
@@ -79,7 +81,7 @@ export default function PrintDesigner({ settings, children, beforePrint }) {
             return { layout: chosen.layout, templateId: chosen.id };
         }
 
-        return { layout: settings.template === 'new' ? null : rememberedLayout(pageKey), templateId: null };
+        return { layout: settings.template === 'new' || !canCustomize ? null : rememberedLayout(pageKey), templateId: null };
     });
     const [activeTemplateId, setActiveTemplateId] = useState(start.templateId);
     const pendingTemplateName = useRef(null);
@@ -171,10 +173,10 @@ export default function PrintDesigner({ settings, children, beforePrint }) {
     }, [provided]);
 
     useEffect(() => {
-        if (layout) {
+        if (layout && canCustomize) {
             rememberLayout(pageKey, layout);
         }
-    }, [layout, pageKey]);
+    }, [layout, pageKey, canCustomize]);
 
     // "Fit" scales the sheet to the width beside the settings.
     useLayoutEffect(() => {
@@ -234,7 +236,7 @@ export default function PrintDesigner({ settings, children, beforePrint }) {
 
     return (
         <div className="pd-root min-h-screen bg-gray-100 text-gray-900" style={{ '--pd-toolbar-height': `${toolbarHeight}px` }}>
-            {layout && <style>{pageCss(layout)}</style>}
+            {layout && <style>{pageCss(layout, { company: layout.header.company || props.appName, date: `طُبع في ${new Date().toLocaleDateString('en-GB')}` })}</style>}
 
             <header
                 ref={toolbarRef}
@@ -319,6 +321,7 @@ export default function PrintDesigner({ settings, children, beforePrint }) {
                 >
                     {layout ? (
                         <PrintSettingsPanel
+                            readOnly={!canCustomize}
                             reportFields={details}
                             reportFieldsTitle={readingContext || statementPrint ? 'بيانات الكشف' : 'بيانات الصندوق'}
                             layout={layout}

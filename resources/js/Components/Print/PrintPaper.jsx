@@ -1,4 +1,4 @@
-import { arrangeRows, rowColumnTotal, sectionHeadings, DENSITY_PADDING, paperSize, printFont } from '@/lib/printLayout';
+import { arrangeRows, rowColumnTotal, rowHighlight, sectionHeadings, DENSITY_PADDING, paperSize, printFont } from '@/lib/printLayout';
 import PrintHeader from './PrintHeader';
 
 // The time printed under the heading, in the app's Arabic with Western digits.
@@ -25,6 +25,22 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
     const sections = arrangeRows(table.rows, layout);
     const headings = sectionHeadings(sections, layout);
     const headingAlign = layout.group.align === 'center' ? 'text-center' : 'text-start';
+    const group = layout.group;
+    const blankRows = Math.min(Math.max(Number(group.blankRows) || 0, 0), 10);
+    const highlights = style.highlights ?? [];
+    const watermark = layout.watermark ?? {};
+    // Repeated under every group's heading, the column titles take the place of the table's own head.
+    const titlesPerGroup = Boolean(layout.group.repeatHeader) && sections.some((section) => section.title !== null);
+    const columnTitles = (className) => (
+        <tr className={className}>
+            {style.rowNumbers && <th className="pd-number">#</th>}
+            {columns.map((column) => (
+                <th key={column.key} className={ALIGN_CLASSES[column.align]}>
+                    {column.label}
+                </th>
+            ))}
+        </tr>
+    );
     const totalsOf = (rows) => columns.map((column) => (column.total && !column.blank ? rowColumnTotal(rows, column.key) : null));
     const totals = totalsOf(dataRows);
     const hasTotals = totals.some((total) => total !== null);
@@ -53,6 +69,11 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                 '--pd-accent': style.accent,
             }}
         >
+            {watermark.enabled && (watermark.text || watermark.logo) && <div className="pd-watermark" aria-hidden="true" style={{ opacity: Math.min(Math.max(Number(watermark.opacity) || 0.08, 0.02), 0.3) }}>
+                {watermark.logo && <img src="/images/logo-af.webp" alt="" />}
+                {watermark.text && <b>{watermark.text}</b>}
+            </div>}
+
             <PrintHeader header={header} context={context} meta={meta} accent={style.accent} />
 
             {details.length > 0 && <dl className="mb-4 grid break-inside-avoid grid-cols-3 gap-x-5 gap-y-3 rounded border border-gray-200 p-3">
@@ -81,43 +102,60 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                         {style.rowNumbers && <col style={{ width: '8mm' }} />}
                         {columns.map((column) => <col key={column.key} style={Number(column.width) > 0 && Number(column.width) <= 120 ? { width: `${Number(column.width)}mm` } : undefined} />)}
                     </colgroup>
-                    <thead>
-                        <tr>
-                            {style.rowNumbers && <th className="pd-number">#</th>}
-                            {columns.map((column) => (
-                                <th key={column.key} className={ALIGN_CLASSES[column.align]}>
-                                    {column.label}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    {sections.map((section, sectionIndex) => (
-                        <tbody key={sectionIndex} className={layout.group.newPage && sectionIndex > 0 && section.breakBefore !== false ? 'pd-new-page' : undefined}>
-                            {headings[sectionIndex].map((heading) => (
+                    {!titlesPerGroup && <thead>{columnTitles(undefined)}</thead>}
+                    {sections.map((section, sectionIndex) => {
+                        if (group.restartNumbers && section.title !== null) {
+                            rowNumber = 0;
+                        }
+                        const breaks = group.newPage && sectionIndex > 0 && (group.newPageAt === 'every' || section.breakBefore !== false);
+
+                        return (
+                        <tbody key={sectionIndex} className={[breaks && 'pd-new-page', group.keepTogether && section.title !== null && 'pd-keep'].filter(Boolean).join(' ') || undefined}>
+                            {headings[sectionIndex].map((heading) => {
+                                const look = group.styles?.[heading.level] ?? {};
+
+                                return (
                                 <tr key={`heading-${heading.level}`} className={`pd-group pd-group-title pd-group-level-${heading.level}`}>
-                                    <td colSpan={span} className={headingAlign}>
-                                        {heading.groups.map((group) => (layout.group.labels === false ? group.value : `${group.label}: ${group.value}`)).join(' / ')}
-                                        <span className="ms-2 font-normal text-gray-600">({heading.count.toLocaleString('en')})</span>
+                                    <td colSpan={span} className={headingAlign} style={{
+                                        ...(Number(look.size) > 0 ? { fontSize: `${Math.min(Math.max(Number(look.size), 0.8), 2)}em` } : {}),
+                                        ...(look.background ? { background: look.background } : {}),
+                                        ...(look.color ? { color: look.color } : {}),
+                                    }}>
+                                        {heading.groups.map((item) => (group.labels === false ? item.value : `${item.label}: ${item.value}`)).join(' / ')}
+                                        {group.showCount !== false && <span className="ms-2 font-normal opacity-70">({[heading.count.toLocaleString('en'), group.unit].filter(Boolean).join(' ')})</span>}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
+                            {titlesPerGroup && section.title !== null && columnTitles('pd-column-titles')}
                             {section.rows.map((row, index) =>
                                 row.type === 'group' ? (
                                     <tr key={index} className="pd-group">
                                         <td colSpan={span}>{row.text}</td>
                                     </tr>
-                                ) : (
+                                ) : (() => {
+                                    const highlight = rowHighlight(row, highlights);
+                                    const tint = (key) => (highlight && (highlight.key === null || highlight.key === key) ? { background: highlight.color } : undefined);
+
+                                    return (
                                     <tr key={index} className="pd-row">
-                                        {style.rowNumbers && <td className="pd-number">{++rowNumber}</td>}
+                                        {style.rowNumbers && <td className="pd-number" style={tint(null)}>{++rowNumber}</td>}
                                         {columns.map((column) => (
-                                            <td key={column.key} className={`${ALIGN_CLASSES[column.align]} whitespace-pre-line`}>
+                                            <td key={column.key} className={`${ALIGN_CLASSES[column.align]} whitespace-pre-line`} style={tint(column.key)}>
                                                 {!column.blank && <>{row.cells[column.key] ?? ''}{column.secondaryKey && <bdi className="mt-1 block text-[0.85em] font-normal text-gray-600">{row.cells[column.secondaryKey] ?? ''}</bdi>}</>}
                                             </td>
                                         ))}
                                     </tr>
-                                ),
+                                    );
+                                })(),
                             )}
-                            {section.title !== null && layout.group.subtotals && hasTotals && (
+                            {section.title !== null && Array.from({ length: blankRows }, (_, index) => (
+                                <tr key={`blank-${index}`} className="pd-row pd-blank-row">
+                                    {style.rowNumbers && <td className="pd-number" />}
+                                    {columns.map((column) => <td key={column.key}>&nbsp;</td>)}
+                                </tr>
+                            ))}
+                            {section.title !== null && group.subtotals && hasTotals && (
                                 <tr className="pd-subtotal">
                                     {style.rowNumbers && <td className="pd-number" />}
                                     {totalsOf(section.rows).map((total, index) => (
@@ -128,7 +166,8 @@ export default function PrintPaper({ layout, table, summary, context, zoom }) {
                                 </tr>
                             )}
                         </tbody>
-                    ))}
+                        );
+                    })}
                     {hasTotals && (
                         <tfoot>
                             <tr>

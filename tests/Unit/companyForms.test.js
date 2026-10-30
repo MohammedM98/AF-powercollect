@@ -73,10 +73,13 @@ test('offline copies escape titles and include printable pages without external 
 
 test('issuing company forms is an independent permission shown alongside template management', () => {
     const section = sectionModel({ key: 'print_templates', label: 'قوالب الطباعة', actions: [
+        { action: 'customize', permission: { id: 3, label: 'تخصيص الطباعة' } },
         { action: 'manage', permission: { id: 1, label: 'إدارة القوالب' } },
         { action: 'print_company_forms', permission: { id: 2, label: 'طباعة وأرشفة نماذج الشركة' } },
     ] });
-    assert.deepEqual(withSectionLevel(section, [], 1), [1]);
+    assert.deepEqual(section.ladder.actions, ['customize', 'manage']);
+    assert.deepEqual(withSectionLevel(section, [], 1), [3]);
+    assert.deepEqual(withSectionLevel(section, [], 2), [3, 1]);
     const print = sectionExtras(section).flatMap(group => group.items).find(item => item.id === 2);
     assert.equal(print.label, 'طباعة وأرشفة نماذج الشركة');
     assert.equal(print.needs, 0);

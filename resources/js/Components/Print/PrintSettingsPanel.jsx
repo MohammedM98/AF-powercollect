@@ -380,9 +380,34 @@ function TemplatesSection({ templates, onReset, onPreset }) {
  * footer. Each change shows
  * in the preview at once.
  */
-export default function PrintSettingsPanel({ layout, onChange, scope, templates, onReset, reportFields = [], reportFieldsTitle = 'بيانات الصندوق' }) {
+export default function PrintSettingsPanel({ layout, onChange, scope, templates, onReset, readOnly = false, reportFields = [], reportFieldsTitle = 'بيانات الصندوق' }) {
     const [columnSearch, setColumnSearch] = useState('');
     const [confirming, setConfirming] = useState(null);
+    const rows = <Section icon="list" title="الصفوف" open>
+        <fieldset disabled={scope.loading}>
+        {scope.allRowsOnly ? <p className="text-sm font-semibold text-gray-700">كل الصفوف المطابقة للتصفية ({scope.total})</p> : <ChoiceChips
+            options={[
+                { value: 'all', label: `كل النتائج${!scope.selected && typeof scope.total === 'number' ? ` (${scope.total.toLocaleString('en')})` : ''}`, icon: 'list' },
+                { value: 'page', label: 'الصفحة المعروضة فقط', icon: 'table' },
+                ...(scope.hasSelection ? [{ value: 'selected', label: 'العناصر المحددة', icon: 'check' }] : []),
+            ]}
+            value={scope.selected ? 'selected' : scope.allRows ? 'all' : 'page'}
+            onChange={(value) => scope.onChange(value === 'selected' ? 'selected' : value === 'all')}
+            label="الصفوف المطبوعة"
+        />}
+        </fieldset>
+        <p className="text-xs text-gray-500">بنفس البحث والترتيب والفلاتر التي كانت على الشاشة.</p>
+    </Section>;
+
+    if (readOnly) {
+        return <div>
+            <div role="note" className="m-5 rounded-control border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                <p className="font-semibold text-gray-900">تطبع بقوالب الشركة المحفوظة.</p>
+                <p className="mt-1 text-xs leading-5 text-gray-600">اختر القالب من أعلى الصفحة. تغيير الأعمدة والترتيب والشكل يحتاج صلاحية «تخصيص الطباعة».</p>
+            </div>
+            {rows}
+        </div>;
+    }
 
     function set(key, value) {
         onChange({ ...layout, [key]: value });
@@ -428,21 +453,7 @@ export default function PrintSettingsPanel({ layout, onChange, scope, templates,
                 templates.actions.startNew?.();
             }} />
 
-            <Section icon="list" title="الصفوف" open>
-                <fieldset disabled={scope.loading}>
-                {scope.allRowsOnly ? <p className="text-sm font-semibold text-gray-700">كل الصفوف المطابقة للتصفية ({scope.total})</p> : <ChoiceChips
-                    options={[
-                        { value: 'all', label: `كل النتائج${!scope.selected && typeof scope.total === 'number' ? ` (${scope.total.toLocaleString('en')})` : ''}`, icon: 'list' },
-                        { value: 'page', label: 'الصفحة المعروضة فقط', icon: 'table' },
-                        ...(scope.hasSelection ? [{ value: 'selected', label: 'العناصر المحددة', icon: 'check' }] : []),
-                    ]}
-                    value={scope.selected ? 'selected' : scope.allRows ? 'all' : 'page'}
-                    onChange={(value) => scope.onChange(value === 'selected' ? 'selected' : value === 'all')}
-                    label="الصفوف المطبوعة"
-                />}
-                </fieldset>
-                <p className="text-xs text-gray-500">بنفس البحث والترتيب والفلاتر التي كانت على الشاشة.</p>
-            </Section>
+            {rows}
 
             {reportFields.length > 0 && <Section icon="wallet" title={reportFieldsTitle}>
                 {reportFields.map((field) => <Switch key={field.key} label={field.label} checked={!layout.header.reportFields || layout.header.reportFields.includes(field.key)} onChange={(visible) => {

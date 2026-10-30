@@ -113,6 +113,33 @@ class PrintTemplateTest extends TestCase
         $this->assertModelExists($template);
     }
 
+    public function test_customising_a_printout_needs_its_permission_or_template_management(): void
+    {
+        $printsOnly = User::factory()->collector()->withPermissions([PermissionKey::ViewMeterReadings])->create();
+        $customises = User::factory()->collector()->withPermissions([PermissionKey::ViewMeterReadings, PermissionKey::CustomizePrintouts])->create();
+        $manages = User::factory()->collector()->withPermissions([PermissionKey::ViewMeterReadings, PermissionKey::ManagePrintTemplates])->create();
+
+        foreach ([[$printsOnly, false], [$customises, true], [$manages, true], [User::factory()->superAdmin()->create(), true]] as [$user, $allowed]) {
+            $this->actingAs($user)->get(route('dashboard'))->assertInertia(fn ($page) => $page->where('can.customizePrintouts', $allowed));
+        }
+    }
+
+    public function test_every_existing_account_keeps_customising_and_managers_may_hand_it_on(): void
+    {
+        $this->seed(PermissionSeeder::class);
+        $staff = User::factory()->collector()->create();
+        $manager = User::factory()->branchAdmin()->withPermissions([PermissionKey::ManagePermissions])->create();
+        $owner = User::factory()->superAdmin()->create();
+        Permission::where('key', PermissionKey::CustomizePrintouts->value)->delete();
+
+        (require database_path('migrations/2026_10_29_185132_grant_print_customization_to_existing_accounts.php'))->up();
+
+        $this->assertTrue($staff->fresh()->hasPermission(PermissionKey::CustomizePrintouts));
+        $this->assertFalse((bool) $staff->permissions()->where('key', PermissionKey::CustomizePrintouts->value)->sole()->pivot->grantable);
+        $this->assertTrue((bool) $manager->permissions()->where('key', PermissionKey::CustomizePrintouts->value)->sole()->pivot->grantable);
+        $this->assertSame(0, $owner->permissions()->count());
+    }
+
     public function test_the_page_lists_every_template_under_its_list(): void
     {
         PrintTemplate::factory()->create(['page' => '/meter-readings', 'name' => 'حسب الطبلون', 'layout' => $this->layout()]);
